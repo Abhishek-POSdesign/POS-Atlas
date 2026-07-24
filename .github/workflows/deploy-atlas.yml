@@ -16,10 +16,10 @@ jobs:
       - name: Determine target path based on branch
         id: determine_path
         run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "TARGET_DIR=/path/to/atlas/production" >> $GITHUB_ENV
+          if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
+            echo "TARGET_DIR=atlas.abhisheksikka.com/" >> $GITHUB_ENV
           else
-            echo "TARGET_DIR=/path/to/atlas/${{ github.ref_name }}" >> $GITHUB_ENV
+            echo "TARGET_DIR=atlas.abhisheksikka.com/${{ github.ref_name }}/" >> $GITHUB_ENV
           fi
 
       - name: Deploy to MilesWeb
