@@ -1,10 +1,7 @@
 name: Deploy Atlas to MilesWeb
 
 on:
-  push:
-    branches:
-      - main
-      - staging
+  workflow_dispatch: # Deployment paused until exact remote path is provided
 
 jobs:
   deploy:
@@ -17,9 +14,9 @@ jobs:
         id: determine_path
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
-            echo "TARGET_DIR=atlas.abhisheksikka.com/" >> $GITHUB_ENV
+            echo "TARGET_DIR=WAITING_FOR_EXACT_PATH_FROM_USER/" >> $GITHUB_ENV
           else
-            echo "TARGET_DIR=atlas.abhisheksikka.com/${{ github.ref_name }}/" >> $GITHUB_ENV
+            echo "TARGET_DIR=WAITING_FOR_EXACT_PATH_FROM_USER/${{ github.ref_name }}/" >> $GITHUB_ENV
           fi
 
       - name: Deploy to MilesWeb
