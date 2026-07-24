@@ -1,7 +1,10 @@
 name: Deploy Atlas to MilesWeb
 
 on:
-  workflow_dispatch: # Deployment paused until exact remote path is provided
+  push:
+    branches:
+      - main
+      - staging
 
 jobs:
   deploy:
@@ -14,18 +17,18 @@ jobs:
         id: determine_path
         run: |
           if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.ref }}" = "refs/heads/master" ]; then
-            echo "TARGET_DIR=WAITING_FOR_EXACT_PATH_FROM_USER/" >> $GITHUB_ENV
+            echo "TARGET_DIR=atlas.abhisheksikka.com/" >> $GITHUB_ENV
           else
-            echo "TARGET_DIR=WAITING_FOR_EXACT_PATH_FROM_USER/${{ github.ref_name }}/" >> $GITHUB_ENV
+            echo "TARGET_DIR=atlas.abhisheksikka.com/${{ github.ref_name }}/" >> $GITHUB_ENV
           fi
 
       - name: Deploy to MilesWeb
         uses: easingthemes/ssh-deploy@main
         env:
           SSH_PRIVATE_KEY: ${{ secrets.MILESWEB_SSH_KEY }}
-          ARGS: "-rltgoDzvO"
+          REMOTE_HOST: "103.191.209.159"
+          REMOTE_USER: "abhishek2"
+          REMOTE_PORT: "22"
           SOURCE: "Deploy/"
-          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
-          REMOTE_USER: ${{ secrets.REMOTE_USER }}
-          REMOTE_PORT: ${{ secrets.REMOTE_PORT || '22' }}
           TARGET: ${{ env.TARGET_DIR }}
+          ARGS: "-rltgoDzvO --delete"
