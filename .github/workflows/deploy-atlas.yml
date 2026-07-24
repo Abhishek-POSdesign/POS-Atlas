@@ -1,0 +1,34 @@
+name: Deploy Atlas to MilesWeb
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine target path based on branch
+        id: determine_path
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "TARGET_DIR=/path/to/atlas/production" >> $GITHUB_ENV
+          else
+            echo "TARGET_DIR=/path/to/atlas/${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Deploy to MilesWeb
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.MILESWEB_SSH_KEY }}
+          ARGS: "-rltgoDzvO"
+          SOURCE: "Deploy/"
+          REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+          REMOTE_USER: ${{ secrets.REMOTE_USER }}
+          REMOTE_PORT: ${{ secrets.REMOTE_PORT || '22' }}
+          TARGET: ${{ env.TARGET_DIR }}

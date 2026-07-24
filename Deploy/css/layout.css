@@ -1,0 +1,45 @@
+/* Layout rules */
+
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--pad-md) var(--pad-lg);
+    background-color: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+    box-shadow: var(--top-edge);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: var(--pad-sm);
+    color: var(--accent-blue);
+}
+
+.wordmark {
+    font-family: var(--font-serif);
+    font-size: 1.25rem;
+    letter-spacing: 0.05em;
+    color: var(--text-primary);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--pad-lg);
+}
+
+.top-tabs {
+    display: flex;
+    padding: 0 var(--pad-lg);
+    gap: var(--pad-lg);
+    background-color: var(--surface-1);
+    border-bottom: 1px solid var(--border);
+}
+
+.content-area {
+    padding: var(--pad-xl) var(--pad-lg);
+    max-width: 1200px;
+    margin: 0 auto;
+}

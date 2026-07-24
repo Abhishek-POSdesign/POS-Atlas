@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Atlas</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0e0e10">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/tokens.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    
+    <!-- Pre-load theme before Alpine -->
+    <script type="module">
+        import { initTheme } from './js/theme.js';
+        initTheme();
+    </script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- App Entry -->
+    <script type="module" src="js/main.js"></script>
+</head>
+<body x-data="app()">
+    <!-- Top Header -->
+    <header class="top-header">
+        <div class="logo">
+            <!-- Compass Icon Placeholder -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+            </svg>
+            <span class="wordmark">Atlas</span>
+        </div>
+        
+        <div class="header-actions">
+            <button class="icon-button" title="Notebook">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+            </button>
+            <span class="user-name">Abhishek</span>
+            
+            <!-- Theme Switcher -->
+            <button class="theme-switcher-btn" 
+                    x-data="themeSwitcher" 
+                    @click="cycle()"
+                    x-html="icon"
+                    :title="`Current theme: ${current}`">
+            </button>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="top-tabs">
+        <button class="tab active">Today</button>
+        <button class="tab">Projects</button>
+        <button class="tab">Checklist</button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="content-area">
+        <div class="empty-state">
+            <h1>Welcome to Atlas</h1>
+            <p>Phase 0 Foundation Initialized.</p>
+        </div>
+    </main>
+
+    <!-- Undo Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+</body>
+</html>
