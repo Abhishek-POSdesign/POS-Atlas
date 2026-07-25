@@ -336,7 +336,11 @@
                                                  few completed items today still says "you were busy". -->
                                             <template x-if="upcomingTasks.length === 0 && recentlyCompleted.length === 0">
                                                 <div class="empty-tasks">
-                                                    <div class="empty-pulse"><span></span><span></span><span></span></div>
+                                                    <div class="empty-cue-tasks">
+                                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                            <path d="M20 6L9 17l-5-5"/>
+                                                        </svg>
+                                                    </div>
                                                     <div class="headline">Nothing scheduled today</div>
                                                     <div class="help">Add a task above, or check the Routine section below for what's next.</div>
                                                 </div>

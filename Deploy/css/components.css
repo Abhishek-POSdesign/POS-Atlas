@@ -1063,12 +1063,14 @@
 }
 
 .workspace-section h2 {
-    font-size: 17px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--text-primary);
     text-transform: none;
-    letter-spacing: normal;
+    letter-spacing: -0.01em;
     margin: 0 0 var(--pad-md);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
 }
 
 .log-entry, .note-entry {
@@ -1283,17 +1285,17 @@
 
 /* Subtle Sleep Cue */
 .empty-cue-sleep {
-    position: relative; width: 28px; height: 28px; margin-bottom: 2px;
+    position: relative; width: 32px; height: 32px; margin-bottom: 2px;
     color: var(--accent-lilac); font-family: var(--font-mono); font-weight: 500; font-style: italic;
 }
 .empty-cue-sleep span {
     position: absolute; bottom: 0; left: 0;
-    opacity: 0; font-size: 14px;
+    opacity: 0; font-size: 16px;
     animation: atlas-z-drift 4s linear infinite;
 }
 .empty-cue-sleep .z1 { left: 0; bottom: 0; animation-delay: 0s; }
-.empty-cue-sleep .z2 { left: 8px; bottom: 6px; animation-delay: 1.3s; font-size: 16px; }
-.empty-cue-sleep .z3 { left: 16px; bottom: 12px; animation-delay: 2.6s; font-size: 18px; }
+.empty-cue-sleep .z2 { left: 10px; bottom: 6px; animation-delay: 1.3s; font-size: 18px; }
+.empty-cue-sleep .z3 { left: 20px; bottom: 12px; animation-delay: 2.6s; font-size: 20px; }
 
 @keyframes atlas-z-drift {
     0% { opacity: 0; transform: translate(0, 2px); }
@@ -1303,7 +1305,7 @@
 }
 
 /* Subtle Workout Cue */
-.empty-cue-workout { color: var(--accent-coral); margin-bottom: 4px; opacity: 0.8; }
+.empty-cue-workout { color: var(--accent-coral); margin-bottom: 4px; opacity: 0.8; transform: scale(1.15); transform-origin: left bottom; }
 .empty-cue-workout .track-line { stroke: var(--border-hover); }
 .empty-cue-workout .track-dot { animation: atlas-slide 3s ease-in-out infinite alternate; }
 
@@ -1312,27 +1314,26 @@
     100% { transform: translateX(8px); }
 }
 
-/* Empty-tasks state: three slowly pulsing dots + one headline + one line
-   of helper copy. Uses only tokens; the pulse animation collapses under
-   prefers-reduced-motion via tokens.css's global override. */
+/* Empty-tasks state */
 .empty-tasks {
     flex: 1; min-height: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; text-align: center;
     padding: var(--pad-lg); gap: 4px;
 }
-.empty-tasks .headline { font-size: 15px; color: var(--text-primary); font-weight: 500; }
+.empty-tasks .headline { font-size: 15px; color: var(--text-primary); font-weight: 500; margin-top: 4px; }
 .empty-tasks .help { font-size: 13px; color: var(--text-secondary); max-width: 320px; line-height: 1.45; }
-.empty-pulse { display: flex; gap: 8px; margin-bottom: var(--pad-md); }
-.empty-pulse span {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--accent-blue-tint);
-    animation: atlas-empty-pulse 1.6s var(--ease-out) infinite;
+
+.empty-cue-tasks {
+    color: var(--accent-blue);
+    margin-bottom: 8px;
+    opacity: 0.8;
 }
-.empty-pulse span:nth-child(2) { animation-delay: .2s; }
-.empty-pulse span:nth-child(3) { animation-delay: .4s; }
-@keyframes atlas-empty-pulse {
-    0%, 100% { opacity: .3; transform: scale(1); background: var(--accent-blue-tint); }
-    50% { opacity: 1; transform: scale(1.25); background: var(--accent-blue); }
+.empty-cue-tasks svg {
+    animation: atlas-task-breathe 4s ease-in-out infinite alternate;
+}
+@keyframes atlas-task-breathe {
+    0% { transform: translateY(0); opacity: 0.4; }
+    100% { transform: translateY(-4px); opacity: 1; }
 }
 
 /* Project Header Layout (Phase 2) */
