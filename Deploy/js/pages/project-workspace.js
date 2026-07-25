@@ -174,7 +174,7 @@ export function projectWorkspacePage(nav) {
         formatTime(iso) {
             if (!iso) return '';
             const d = new Date(iso);
-            return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
         },
         async archiveProject() {
             try {

@@ -265,7 +265,7 @@
                                                 <template x-for="i in Math.max(0, 5 - upcomingTasks.length)" :key="'e'+i"><span class="kpi-dot"></span></template>
                                             </div>
                                             <template x-if="upcomingTasks[0]">
-                                                <div class="kpi-next"><span><span class="lbl">Next up</span><span x-text="upcomingTasks[0].name"></span></span><span style="color:var(--text-muted);" x-text="upcomingTasks[0].scheduled_time || ''"></span></div>
+                                                <div class="kpi-next"><span><span class="lbl">Next up</span><span x-text="upcomingTasks[0].name"></span></span><span style="color:var(--text-muted);" x-text="upcomingTasks[0].scheduled_time ? window.formatTime12h(upcomingTasks[0].scheduled_time) : ''"></span></div>
                                             </template>
                                         </div>
 
@@ -358,7 +358,7 @@
                                                     </template>
                                                     <span class="task-name" x-text="task.name"></span>
                                                     <template x-if="projectFor(task)"><span class="task-proj" x-text="projectFor(task).name"></span></template>
-                                                    <span class="task-time" x-text="task.scheduled_time || task.scheduled_date || ''"></span>
+                                                    <span class="task-time" x-text="task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || '')"></span>
                                                 </div>
                                             </template>
 
@@ -550,7 +550,9 @@
                                                 <p class="system-text" x-text="'Currently: ' + statusLabel(logItem)"></p>
                                                 <div class="field">
                                                     <label>Time</label>
-                                                    <input type="time" x-model="logForm.time">
+                                                    <div class="custom-time" x-data="timePicker12h" x-modelable="value" x-model="logForm.time">
+                                                        <select :value="hh" @change="update($event.target.value, mm, ampm)"><option value="">--</option><option value="12">12</option><template x-for="i in 11"><option :value="String(i).padStart(2,'0')" x-text="String(i).padStart(2,'0')"></option></template></select><span>:</span><select :value="mm" @change="update(hh, $event.target.value, ampm)"><template x-for="i in 12"><option :value="String((i-1)*5).padStart(2,'0')" x-text="String((i-1)*5).padStart(2,'0')"></option></template></select><select :value="ampm" @change="update(hh, mm, $event.target.value)"><option value="AM">AM</option><option value="PM">PM</option></select>
+                                                    </div>
                                                 </div>
                                                 <div class="field">
                                                     <label>Note (optional)</label>
@@ -604,7 +606,11 @@
                                     <div class="field-checkbox"><label><input type="checkbox" :checked="taskForm.kind==='reminder'" @change="taskForm.kind = $event.target.checked ? 'reminder' : 'task'"> This is a reminder</label></div>
                                     <div style="display:flex; gap: var(--pad-sm);">
                                         <div class="field" style="flex:1;"><label>Date</label><input type="date" x-model="taskForm.date"></div>
-                                        <div class="field" style="flex:1;"><label>Time</label><input type="time" x-model="taskForm.time"></div>
+                                        <div class="field" style="flex:1;"><label>Time</label>
+                                            <div class="custom-time" x-data="timePicker12h" x-modelable="value" x-model="taskForm.time">
+                                                <select :value="hh" @change="update($event.target.value, mm, ampm)"><option value="">--</option><option value="12">12</option><template x-for="i in 11"><option :value="String(i).padStart(2,'0')" x-text="String(i).padStart(2,'0')"></option></template></select><span>:</span><select :value="mm" @change="update(hh, $event.target.value, ampm)"><template x-for="i in 12"><option :value="String((i-1)*5).padStart(2,'0')" x-text="String((i-1)*5).padStart(2,'0')"></option></template></select><select :value="ampm" @change="update(hh, mm, $event.target.value)"><option value="AM">AM</option><option value="PM">PM</option></select>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="field">
                                         <label>Project (optional)</label>
@@ -926,7 +932,9 @@
                                     </div>
                                     <div style="display:flex; gap: var(--pad-sm); align-items:center; margin-bottom: var(--pad-md); flex-wrap: wrap;">
                                         <input type="date" x-model="newTaskDate">
-                                        <input type="time" x-model="newTaskTime">
+                                        <div class="custom-time" x-data="timePicker12h" x-modelable="value" x-model="newTaskTime">
+                                            <select :value="hh" @change="update($event.target.value, mm, ampm)"><option value="">--</option><option value="12">12</option><template x-for="i in 11"><option :value="String(i).padStart(2,'0')" x-text="String(i).padStart(2,'0')"></option></template></select><span>:</span><select :value="mm" @change="update(hh, $event.target.value, ampm)"><template x-for="i in 12"><option :value="String((i-1)*5).padStart(2,'0')" x-text="String((i-1)*5).padStart(2,'0')"></option></template></select><select :value="ampm" @change="update(hh, mm, $event.target.value)"><option value="AM">AM</option><option value="PM">PM</option></select>
+                                        </div>
                                         <label class="field-checkbox"><input type="checkbox" x-model="newTaskNotify"> Notify</label>
                                     </div>
                                     <button class="btn btn-primary" @click="addTask()">Add task</button>

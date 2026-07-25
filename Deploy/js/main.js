@@ -13,6 +13,19 @@ import { notebookPage } from './pages/notebook.js';
 import { restorePage } from './pages/restore.js';
 import { checklistPage } from './pages/checklist.js';
 
+window.formatTime12h = function(timeStr) {
+    if (!timeStr) return '';
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return timeStr;
+    let h = parseInt(parts[0], 10);
+    const m = parts[1];
+    if (isNaN(h)) return timeStr;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h === 0) h = 12;
+    return `${h}:${m} ${ampm}`;
+};
+
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/service-worker.js').catch(err => {
@@ -22,6 +35,38 @@ if ('serviceWorker' in navigator) {
 }
 
 document.addEventListener('alpine:init', () => {
+    Alpine.data('timePicker12h', () => ({
+        value: '',
+        get hh() {
+            if (!this.value) return '';
+            let h = parseInt(this.value.split(':')[0], 10);
+            if (isNaN(h)) return '';
+            if (h === 0) return '12';
+            if (h > 12) return String(h - 12).padStart(2, '0');
+            return String(h).padStart(2, '0');
+        },
+        get mm() {
+            if (!this.value) return '';
+            let m = this.value.split(':')[1];
+            return m ? m.slice(0, 2) : '00';
+        },
+        get ampm() {
+            if (!this.value) return '';
+            let h = parseInt(this.value.split(':')[0], 10);
+            if (isNaN(h)) return 'AM';
+            return h >= 12 ? 'PM' : 'AM';
+        },
+        update(h, m, p) {
+            if (!h) { this.value = ''; return; }
+            let hour = parseInt(h, 10);
+            let min = m || '00';
+            let ampm = p || 'AM';
+            if (ampm === 'PM' && hour !== 12) hour += 12;
+            if (ampm === 'AM' && hour === 12) hour = 0;
+            this.value = String(hour).padStart(2, '0') + ':' + min;
+        }
+    }));
+
     Alpine.data('themeSwitcher', themeSwitcher);
     Alpine.data('loginForm', loginForm);
     Alpine.data('undoToastHost', undoToastHost);

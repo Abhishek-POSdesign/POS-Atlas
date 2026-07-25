@@ -72,7 +72,7 @@ export function checklistPage() {
         statusLabel(item) {
             const h = this.historyByItem[item.id];
             if (!h) return 'Pending';
-            if (h.status === 'done') return 'Done' + (h.logged_time ? ' · ' + h.logged_time.slice(0, 5) : '');
+            if (h.status === 'done') return 'Done' + (h.logged_time ? ' • ' + window.formatTime12h(h.logged_time) : '');
             if (h.status === 'skipped') return 'Skipped';
             if (h.status === 'holiday') return 'Holiday';
             return 'Pending';
