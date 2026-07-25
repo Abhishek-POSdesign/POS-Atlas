@@ -766,6 +766,36 @@
     padding-top: 6px;
 }
 
+.day-picker {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.day-chip {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 10px;
+    min-height: 30px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.day-chip:hover {
+    border-color: var(--border-hover);
+}
+
+.day-chip.active {
+    background-color: var(--accent-blue-tint);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
 /* ---------- Saved-state readability (Current focus / Next step / Future plans) ---------- */
 
 .focus-text {

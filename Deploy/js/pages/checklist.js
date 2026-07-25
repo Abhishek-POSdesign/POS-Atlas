@@ -2,6 +2,8 @@ import { DB } from '../db.js';
 import { getLogicalDate, todayKey } from '../date-utils.js';
 import { BLOCKS } from '../checklist-blocks.js';
 
+export const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function nowHHMM() {
     const n = new Date();
     return String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
@@ -16,12 +18,13 @@ export function checklistPage() {
         today: '',
         blocks: BLOCKS,
         collapsedBlocks: {},
+        dayNames: DAY_NAMES,
 
         managing: false,
         addingToBlock: null,
-        addForm: { name: '', icon: '' },
+        addForm: { name: '', icon: '', days: [] },
         editingItemId: null,
-        editForm: { name: '', block: '', icon: '' },
+        editForm: { name: '', block: '', icon: '', days: [] },
 
         logItem: null,
         logForm: { time: '', note: '' },
@@ -128,10 +131,15 @@ export function checklistPage() {
         toggleManaging() { this.managing = !this.managing; this.addingToBlock = null; this.editingItemId = null; },
 
         openAdd(blockKey) {
-            this.addForm = { name: '', icon: '' };
+            this.addForm = { name: '', icon: '', days: [] };
             this.addingToBlock = blockKey;
         },
         cancelAdd() { this.addingToBlock = null; },
+        toggleAddDay(day) {
+            this.addForm.days = this.addForm.days.includes(day)
+                ? this.addForm.days.filter(d => d !== day)
+                : [...this.addForm.days, day];
+        },
         async submitAdd() {
             if (!this.addForm.name.trim()) return;
             try {
@@ -140,6 +148,7 @@ export function checklistPage() {
                     name: this.addForm.name.trim(),
                     block: this.addingToBlock,
                     icon: this.addForm.icon.trim() || '📋',
+                    days: this.addForm.days.length ? this.addForm.days : null,
                     order_index: maxOrder + 1,
                     active: true
                 });
@@ -152,16 +161,22 @@ export function checklistPage() {
 
         startEditItem(item) {
             this.editingItemId = item.id;
-            this.editForm = { name: item.name, block: item.block, icon: item.icon || '' };
+            this.editForm = { name: item.name, block: item.block, icon: item.icon || '', days: item.days ? [...item.days] : [] };
         },
         cancelEditItem() { this.editingItemId = null; },
+        toggleEditDay(day) {
+            this.editForm.days = this.editForm.days.includes(day)
+                ? this.editForm.days.filter(d => d !== day)
+                : [...this.editForm.days, day];
+        },
         async saveEditItem(item) {
             if (!this.editForm.name.trim()) return;
             try {
                 await DB.Checklist.updateItem(item.id, {
                     name: this.editForm.name.trim(),
                     block: this.editForm.block,
-                    icon: this.editForm.icon.trim() || '📋'
+                    icon: this.editForm.icon.trim() || '📋',
+                    days: this.editForm.days.length ? this.editForm.days : null
                 });
                 this.editingItemId = null;
                 await this.load();

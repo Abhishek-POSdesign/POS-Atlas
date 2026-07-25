@@ -102,7 +102,7 @@
             <nav class="top-tabs" x-show="!overlay">
                 <button class="tab" :class="{active: tab==='today'}" @click="setTab('today')">Today</button>
                 <button class="tab" :class="{active: tab==='projects'}" @click="setTab('projects')">Projects</button>
-                <button class="tab" :class="{active: tab==='checklist'}" @click="setTab('checklist')">Checklist</button>
+                <button class="tab" :class="{active: tab==='routine'}" @click="setTab('routine')">Routine</button>
             </nav>
 
             <main class="content-area">
@@ -193,7 +193,7 @@
 
                 <!-- Today tab -->
                 <template x-if="!overlay && tab==='today'">
-                    <div x-data="todayPage({ onGoToChecklist: () => setTab('checklist') })">
+                    <div x-data="todayPage({ onGoToChecklist: () => setTab('routine') })">
                         <div class="section-header"><h1>Today</h1></div>
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
                         <template x-if="loading"><p>Loading…</p></template>
@@ -217,7 +217,7 @@
                                     <div class="card workspace-section">
                                         <h2>Checklist</h2>
                                         <p class="focus-text" x-text="`${checklistDoneCount} of ${checklistTotalToday} done today`"></p>
-                                        <button class="btn-text" @click="goToChecklist()">Open checklist →</button>
+                                        <button class="btn-text" @click="goToChecklist()">Open Routine →</button>
                                     </div>
                                 </div>
                                 <div class="card workspace-section">
@@ -338,7 +338,7 @@
                                         <label>Color</label>
                                         <div class="color-swatches">
                                             <template x-for="key in colorKeys" :key="key">
-                                                <div class="color-swatch" :class="['color-' + key, { selected: form.color_key === key }]" @click="form.color_key = key"></div>
+                                                <div class="color-swatch" :class="'color-' + key + (form.color_key === key ? ' selected' : '')" @click="form.color_key = key"></div>
                                             </template>
                                         </div>
                                     </div>
@@ -491,11 +491,11 @@
                     </div>
                 </template>
 
-                <!-- Checklist tab -->
-                <template x-if="!overlay && tab==='checklist'">
+                <!-- Routine tab -->
+                <template x-if="!overlay && tab==='routine'">
                     <div x-data="checklistPage()">
                         <div class="section-header">
-                            <h1>Checklist</h1>
+                            <h1>Routine</h1>
                             <button class="btn-text" @click="toggleManaging()" x-text="managing ? 'Done managing' : 'Manage items'"></button>
                         </div>
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
@@ -503,7 +503,7 @@
                         <template x-if="!loading">
                             <div class="stack">
                                 <template x-for="block in blocks" :key="block.key">
-                                    <div class="cl-block" :class="['color-' + block.colorKey, { collapsed: collapsedBlocks[block.key] }]" x-show="itemsForBlock(block.key).length > 0 || managing">
+                                    <div class="cl-block" :class="'color-' + block.colorKey + (collapsedBlocks[block.key] ? ' collapsed' : '')" x-show="itemsForBlock(block.key).length > 0 || managing">
                                         <div class="cl-block-header" @click="toggleBlock(block.key)">
                                             <span class="cl-block-icon" x-text="block.icon"></span>
                                             <span class="cl-block-title" x-text="block.label"></span>
@@ -552,6 +552,14 @@
                                                                 </select>
                                                             </div>
                                                             <div class="field"><label>Icon (optional)</label><input type="text" x-model="editForm.icon" maxlength="4"></div>
+                                                            <div class="field">
+                                                                <label>Days (leave all off for every day)</label>
+                                                                <div class="day-picker">
+                                                                    <template x-for="(d, idx) in dayNames" :key="idx">
+                                                                        <button type="button" class="day-chip" :class="{active: editForm.days.includes(idx)}" @click="toggleEditDay(idx)" x-text="d"></button>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
                                                             <div class="modal-actions">
                                                                 <button class="btn-text" @click="cancelEditItem()">Cancel</button>
                                                                 <button class="btn btn-primary" @click="saveEditItem(item)">Save</button>
@@ -568,6 +576,14 @@
                                                 <div class="card-nested" style="padding: var(--pad-sm) var(--pad-md);">
                                                     <div class="field"><input type="text" x-model="addForm.name" placeholder="Item name" @keydown.enter="submitAdd()"></div>
                                                     <div class="field"><input type="text" x-model="addForm.icon" placeholder="Icon (optional)" maxlength="4"></div>
+                                                    <div class="field">
+                                                        <label>Days (leave all off for every day)</label>
+                                                        <div class="day-picker">
+                                                            <template x-for="(d, idx) in dayNames" :key="idx">
+                                                                <button type="button" class="day-chip" :class="{active: addForm.days.includes(idx)}" @click="toggleAddDay(idx)" x-text="d"></button>
+                                                            </template>
+                                                        </div>
+                                                    </div>
                                                     <div class="modal-actions">
                                                         <button class="btn-text" @click="cancelAdd()">Cancel</button>
                                                         <button class="btn btn-primary" @click="submitAdd()">Add</button>
