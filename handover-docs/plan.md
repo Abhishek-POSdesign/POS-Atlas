@@ -52,6 +52,7 @@ That principle led to four cuts from earlier drafts:
 - **Migration**: streaks (must — no-smoking, no-alcohol), checklist history (nice), target data (nice). Skip old completed tasks.
 - **Primary device**: desktop-first (80%), mobile-friendly for on-the-go updates.
 - **AI layer**: deferred. Separate approval, separate plan, after core is stable.
+- **Authentication (added 2026-07-25, mid-Phase-1)**: Atlas requires a real signed-in session — email + password via Supabase Auth. No public "sign up" screen ships in the app; the one account is created directly in the Supabase dashboard by Abhishek, so his password never passes through Claude or chat. Session persists per-browser (Supabase's default `persistSession`) — sign in once per browser, not per visit. Every `atlas_` table's RLS policy requires `TO authenticated` — an unauthenticated request (just the URL, no session) gets nothing. This supersedes the earlier "no login screen, hardcoded profile_id" assumption carried over from the old app's original design — Abhishek's explicit reasoning: "I can't afford that anybody else looks into my data or anybody else changes my data." No `profiles` table or per-row `profile_id` scoping was added — the project is single-tenant by construction (only one account will ever exist), so `TO authenticated USING (true)` is sufficient and simpler than reproducing the old app's `auth.uid() → profiles.id` join.
 
 ---
 
@@ -317,7 +318,7 @@ D:\Calude\POS\
     │   └── js\
     │       ├── main.js              (Alpine bootstrap, ~30 lines max)
     │       ├── config.js            (Supabase URL + publishable key)
-    │       ├── auth.js              (single owner of profile identity)
+    │       ├── auth.js              (single owner of the auth session)
     │       ├── theme.js             (theme switcher: auto/light/dark + persistence)
     │       ├── db.js                (single Supabase choke-point, sectioned by entity)
     │       ├── entities\

@@ -4,79 +4,547 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Atlas</title>
-    
+
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0e0e10">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="css/tokens.css">
     <link rel="stylesheet" href="css/layout.css">
     <link rel="stylesheet" href="css/components.css">
-    
+
     <!-- Pre-load theme before Alpine -->
     <script type="module">
         import { initTheme } from './js/theme.js';
         initTheme();
     </script>
-    
-    <!-- Alpine.js -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    
-    <!-- App Entry -->
+
+    <!-- App Entry (loads and starts Alpine itself, after components are registered) -->
     <script type="module" src="js/main.js"></script>
 </head>
-<body x-data="app()">
-    <!-- Top Header -->
-    <header class="top-header">
-        <div class="logo">
-            <!-- Compass Icon Placeholder -->
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-            </svg>
-            <span class="wordmark">Atlas</span>
-        </div>
-        
-        <div class="header-actions">
-            <button class="icon-button" title="Notebook">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                </svg>
-            </button>
-            <span class="user-name">Abhishek</span>
-            
-            <!-- Theme Switcher -->
-            <button class="theme-switcher-btn" 
-                    x-data="themeSwitcher" 
-                    @click="cycle()"
-                    x-html="icon"
-                    :title="`Current theme: ${current}`">
-            </button>
-        </div>
-    </header>
+<body x-data="app()" x-init="init()">
 
-    <!-- Navigation Tabs -->
-    <nav class="top-tabs">
-        <button class="tab active">Today</button>
-        <button class="tab">Projects</button>
-        <button class="tab">Checklist</button>
-    </nav>
+    <!-- Loading placeholder while the session check runs -->
+    <template x-if="!authReady">
+        <div class="empty-state"><p>Loading Atlas…</p></div>
+    </template>
 
-    <!-- Main Content Area -->
-    <main class="content-area">
-        <div class="empty-state">
-            <h1>Welcome to Atlas</h1>
-            <p>Phase 0 Foundation Initialized.</p>
+    <!-- Sign-in screen -->
+    <template x-if="authReady && !session">
+        <div class="login-screen">
+            <div class="card login-card" x-data="loginForm()">
+                <span class="wordmark">Atlas</span>
+                <form @submit.prevent="submit()">
+                    <div class="field">
+                        <label for="login-email">Email</label>
+                        <input id="login-email" type="email" x-model="email" required autocomplete="username">
+                    </div>
+                    <div class="field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" type="password" x-model="password" required autocomplete="current-password">
+                    </div>
+                    <div class="field-error" x-show="error" x-text="error"></div>
+                    <button type="submit" class="btn btn-primary" style="width:100%" :disabled="loading">
+                        <span x-text="loading ? 'Signing in…' : 'Sign in'"></span>
+                    </button>
+                </form>
+            </div>
         </div>
-    </main>
+    </template>
 
-    <!-- Undo Toast Container -->
-    <div id="toast-container" class="toast-container"></div>
+    <!-- Main app shell -->
+    <template x-if="authReady && session">
+        <div>
+            <header class="top-header">
+                <div class="logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                    </svg>
+                    <span class="wordmark">Atlas</span>
+                </div>
+
+                <div class="header-actions">
+                    <button class="icon-button icon-button-accent" :class="{active: overlay==='notebook'}" @click="toggleOverlay('notebook')" title="Notebook">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                        </svg>
+                    </button>
+                    <button class="icon-button icon-button-accent" :class="{active: overlay==='restore'}" @click="toggleOverlay('restore')" title="Restore">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                            <polyline points="3 4 3 9 8 9"></polyline>
+                        </svg>
+                    </button>
+                    <span class="user-name">Abhishek</span>
+                    <button class="theme-switcher-btn"
+                            x-data="themeSwitcher"
+                            @click="cycle()"
+                            x-html="icon"
+                            :title="`Current theme: ${current}`">
+                    </button>
+                    <button class="icon-button" @click="doSignOut()" title="Sign out">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <nav class="top-tabs" x-show="!overlay">
+                <button class="tab" :class="{active: tab==='today'}" @click="setTab('today')">Today</button>
+                <button class="tab" :class="{active: tab==='projects'}" @click="setTab('projects')">Projects</button>
+                <button class="tab" :class="{active: tab==='checklist'}" @click="setTab('checklist')">Checklist</button>
+            </nav>
+
+            <main class="content-area">
+
+                <!-- Notebook overlay -->
+                <template x-if="overlay==='notebook'">
+                    <div x-data="notebookPage({ onClose: () => overlay=null })">
+                        <div class="section-header">
+                            <h1>Notebook</h1>
+                            <button class="btn-text" @click="close()">Close</button>
+                        </div>
+                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                        <template x-if="loading"><p>Loading…</p></template>
+                        <template x-if="!loading">
+                            <div class="stack">
+                                <div class="card workspace-section">
+                                    <h2 x-text="todayDate"></h2>
+                                    <div class="field">
+                                        <textarea x-model="draft" rows="6" placeholder="What happened today?"></textarea>
+                                    </div>
+                                    <button class="btn btn-primary" @click="save()">Save</button>
+                                </div>
+                                <template x-for="entry in pastEntries" :key="entry.id">
+                                    <div class="card note-entry">
+                                        <div class="note-date" x-text="entry.entry_date"></div>
+                                        <p x-text="entry.body"></p>
+                                        <button class="btn-text" @click="deleteEntry(entry)">Delete</button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Restore overlay -->
+                <template x-if="overlay==='restore'">
+                    <div x-data="restorePage({ onClose: () => overlay=null })">
+                        <div class="section-header">
+                            <h1>Restore</h1>
+                            <button class="btn-text" @click="close()">Close</button>
+                        </div>
+                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                        <template x-if="loading"><p>Loading…</p></template>
+                        <template x-if="!loading">
+                            <div class="stack">
+                                <div class="card workspace-section">
+                                    <h2>Deleted projects</h2>
+                                    <template x-if="deletedProjects.length===0"><p class="project-focus">Nothing here.</p></template>
+                                    <template x-for="p in deletedProjects" :key="p.id">
+                                        <div class="restore-row card-nested">
+                                            <span x-text="p.name"></span>
+                                            <div class="restore-row-actions">
+                                                <button class="btn-text" @click="restoreProject(p)">Restore</button>
+                                                <button class="btn-text" style="color: var(--accent-coral)" @click="askHardDeleteProject(p)">Delete forever</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="card workspace-section">
+                                    <h2>Deleted tasks</h2>
+                                    <template x-if="deletedTasks.length===0"><p class="project-focus">Nothing here.</p></template>
+                                    <template x-for="t in deletedTasks" :key="t.id">
+                                        <div class="restore-row card-nested">
+                                            <span x-text="t.name"></span>
+                                            <div class="restore-row-actions">
+                                                <button class="btn-text" @click="restoreTask(t)">Restore</button>
+                                                <button class="btn-text" style="color: var(--accent-coral)" @click="askHardDeleteTask(t)">Delete forever</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="confirmingHardDelete">
+                            <div class="modal-overlay" @click.self="cancelHardDelete()">
+                                <div class="modal">
+                                    <h2>Delete forever?</h2>
+                                    <p class="project-focus">This permanently removes "<span x-text="confirmingHardDelete.label"></span>" — it cannot be undone.</p>
+                                    <div class="modal-actions">
+                                        <button class="btn-text" @click="cancelHardDelete()">Cancel</button>
+                                        <button class="btn btn-danger" @click="confirmHardDelete()">Delete forever</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Today tab -->
+                <template x-if="!overlay && tab==='today'">
+                    <div x-data="todayPage()">
+                        <div class="section-header"><h1>Today</h1></div>
+                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                        <template x-if="loading"><p>Loading…</p></template>
+                        <template x-if="!loading">
+                            <div class="today-grid">
+                                <div class="stack">
+                                    <div class="stat-row">
+                                        <div class="card stat-tile">
+                                            <div class="stat-number" x-text="upcomingTasks.length"></div>
+                                            <div class="stat-label">Tasks today</div>
+                                        </div>
+                                        <div class="card stat-tile">
+                                            <div class="stat-number" x-text="activeProjectCount"></div>
+                                            <div class="stat-label">Active projects</div>
+                                        </div>
+                                        <div class="card stat-tile">
+                                            <div class="stat-number" x-text="inProgressProjectCount"></div>
+                                            <div class="stat-label">In progress</div>
+                                        </div>
+                                    </div>
+                                    <div class="card workspace-section">
+                                        <h2>Checklist &amp; Targets</h2>
+                                        <p class="project-focus">Coming in Phase 2 and Phase 3.</p>
+                                    </div>
+                                </div>
+                                <div class="card workspace-section">
+                                    <h2>Upcoming</h2>
+                                    <template x-if="upcomingTasks.length === 0"><p class="project-focus">Nothing scheduled.</p></template>
+                                    <template x-for="task in upcomingTasks" :key="task.id">
+                                        <div class="task-row card-nested">
+                                            <span class="task-name" x-text="task.name"></span>
+                                            <span class="task-meta" x-text="task.scheduled_date || ''"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Projects tab: grid -->
+                <template x-if="!overlay && tab==='projects' && !projectViewId">
+                    <div x-data="projectsListPage({ onOpen: (id) => openProject(id) })">
+                        <div class="section-header">
+                            <h1>Projects</h1>
+                            <button class="btn btn-primary" @click="openCreate()">+ New project</button>
+                        </div>
+                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                        <template x-if="loading"><p>Loading…</p></template>
+                        <template x-if="!loading && projects.length === 0">
+                            <div class="empty-state">
+                                <h1>No projects yet</h1>
+                                <p>Create your first project to get a real workspace for it.</p>
+                            </div>
+                        </template>
+                        <div class="project-grid" x-show="!loading && projects.length > 0">
+                            <template x-for="p in projects" :key="p.id">
+                                <div class="card project-card"
+                                     x-data="projectCard(p, tasksFor(p.id), { onOpen: openWorkspace, onEdit: openEdit, onDelete: softDelete })"
+                                     :class="{ expanded: expanded }"
+                                     @click="handleClick()">
+                                    <div class="project-card-top">
+                                        <div class="monogram-chip" :class="'color-' + project.color_key" x-text="initial"></div>
+                                        <div class="color-dot" :class="'color-' + project.color_key"></div>
+                                    </div>
+                                    <p class="project-name" x-text="project.name"></p>
+                                    <p class="project-focus" x-show="project.description" x-text="project.description"></p>
+                                    <div class="project-meta">
+                                        <span class="status-text" :class="'color-' + project.color_key" x-text="statusLabel"></span>
+                                        <span class="open-cue" x-text="expanded ? 'Click to open →' : 'Details →'"></span>
+                                    </div>
+                                    <button class="icon-button project-card-kebab" @click.stop="toggleMenu()">⋮</button>
+                                    <template x-if="menuOpen">
+                                        <div class="card" style="position:absolute; top:44px; right:12px; padding:6px; z-index:5;" @click.stop>
+                                            <button class="btn-text" style="display:block; width:100%; text-align:left;" @click="edit()">Edit</button>
+                                            <button class="btn-text" style="display:block; width:100%; text-align:left; color:var(--accent-coral);" @click="remove()">Delete</button>
+                                        </div>
+                                    </template>
+                                    <template x-if="expanded">
+                                        <div class="card-nested project-card-expanded">
+                                            <div class="project-meta" style="margin-bottom: 8px;">
+                                                <span x-text="`${completedCount} of ${totalCount} tasks done`"></span>
+                                            </div>
+                                            <p class="running-text" x-show="runningTask">
+                                                Running: <span x-text="runningTask ? runningTask.name : ''"></span>
+                                            </p>
+                                            <p class="project-focus" x-show="!runningTask && nextTask">
+                                                Next: <span x-text="nextTask ? nextTask.name : ''"></span>
+                                            </p>
+                                            <p class="project-focus" x-show="!runningTask && !nextTask">No tasks yet.</p>
+                                            <button class="btn-text" style="margin-top: 4px;" @click.stop="openWorkspace()">Open →</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="card workspace-section" style="margin-top: var(--pad-lg);">
+                            <div class="section-header" style="margin-bottom: 0;">
+                                <h2 style="margin: 0;">Notes</h2>
+                                <button class="btn-text" x-show="!addingNote" @click="openAddNote()">+ Add note</button>
+                            </div>
+                            <template x-if="addingNote">
+                                <div>
+                                    <div class="field"><textarea x-model="newNoteBody" rows="2" placeholder="A note about your projects in general" autofocus></textarea></div>
+                                    <div class="modal-actions">
+                                        <button class="btn-text" @click="cancelAddNote()">Cancel</button>
+                                        <button class="btn btn-primary" @click="addNote()">Save</button>
+                                    </div>
+                                </div>
+                            </template>
+                            <template x-for="group in noteGroups" :key="group.date">
+                                <div class="date-card card-nested" style="margin-top: var(--pad-md);">
+                                    <button class="log-date-header" @click="toggleNoteDate(group.date)">
+                                        <span x-text="group.date"></span>
+                                        <span x-text="isNoteDateExpanded(group.date) ? '−' : '+'"></span>
+                                    </button>
+                                    <template x-if="isNoteDateExpanded(group.date)">
+                                        <div class="date-card-entries">
+                                            <template x-for="note in group.entries" :key="note.id">
+                                                <div class="log-line-row">
+                                                    <span class="user-text" x-text="note.body"></span>
+                                                    <button class="btn-text" @click="deleteNote(note)">Delete</button>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+
+                        <template x-if="showModal">
+                            <div class="modal-overlay" @click.self="closeModal()">
+                                <div class="modal">
+                                    <h2 x-text="editingProject ? 'Edit project' : 'New project'"></h2>
+                                    <div class="field">
+                                        <label>Name</label>
+                                        <input type="text" x-model="form.name" placeholder="Project name">
+                                    </div>
+                                    <div class="field">
+                                        <label>Color</label>
+                                        <div class="color-swatches">
+                                            <template x-for="key in colorKeys" :key="key">
+                                                <div class="color-swatch" :class="['color-' + key, { selected: form.color_key === key }]" @click="form.color_key = key"></div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div class="field">
+                                        <label>Monogram letter (optional)</label>
+                                        <input type="text" x-model="form.monogram_letter" maxlength="1" placeholder="Defaults to first letter of name">
+                                    </div>
+                                    <div class="field">
+                                        <label>Description (optional)</label>
+                                        <textarea x-model="form.description" rows="3"></textarea>
+                                    </div>
+                                    <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                                    <div class="modal-actions">
+                                        <button class="btn-text" @click="closeModal()">Cancel</button>
+                                        <button class="btn btn-primary" @click="submitForm()" x-text="editingProject ? 'Save' : 'Create'"></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Projects tab: workspace -->
+                <template x-if="!overlay && tab==='projects' && projectViewId">
+                    <div x-data="projectWorkspacePage({ onBack: () => closeProject() })" x-init="open(projectViewId)">
+                        <div class="card workspace-header">
+                            <button class="btn-text" @click="back()">← Back to Projects</button>
+                            <template x-if="project">
+                                <div>
+                                    <p class="project-title" x-text="project.name"></p>
+                                    <div class="project-meta"><span class="status-text" x-text="project.status"></span></div>
+                                    <div class="modal-actions">
+                                        <button class="btn-text" x-show="!project.archived_at" @click="archiveProject()">Archive</button>
+                                        <button class="btn btn-danger" @click="softDeleteProject()">Delete project</button>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                        <template x-if="loading"><p>Loading…</p></template>
+
+                        <template x-if="!loading && project">
+                            <div class="stack">
+                                <div class="card workspace-section">
+                                    <h2>Current focus &amp; next step</h2>
+                                    <template x-if="!editingHeader">
+                                        <div>
+                                            <div class="heading-label">Current Focus</div>
+                                            <p class="focus-text" x-text="project.current_focus || 'Not set.'"></p>
+                                            <template x-if="project.next_step">
+                                                <div>
+                                                    <div class="heading-label">Next Step</div>
+                                                    <p class="focus-text">
+                                                        <span x-text="project.next_step"></span>
+                                                    </p>
+                                                </div>
+                                            </template>
+                                            <button class="btn-text" @click="startEditHeader()">Edit</button>
+                                        </div>
+                                    </template>
+                                    <template x-if="editingHeader">
+                                        <div>
+                                            <div class="field"><label>Current focus</label><textarea x-model="headerForm.current_focus" rows="2"></textarea></div>
+                                            <div class="field"><label>Next step</label><textarea x-model="headerForm.next_step" rows="2"></textarea></div>
+                                            <div class="field"><label>Future plans</label><textarea x-model="headerForm.future_plans" rows="2"></textarea></div>
+                                            <div class="modal-actions">
+                                                <button class="btn-text" @click="editingHeader=false">Cancel</button>
+                                                <button class="btn btn-primary" @click="saveHeader()">Save</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <div class="card workspace-section" x-show="runningTask">
+                                    <h2>Running now</h2>
+                                    <p class="focus-text running-text" x-text="runningTask ? runningTask.name : ''"></p>
+                                    <p class="user-text" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
+                                </div>
+
+                                <div class="card workspace-section">
+                                    <h2>Tasks</h2>
+                                    <template x-for="task in tasks" :key="task.id">
+                                        <div class="task-row-wrap card-nested">
+                                            <div class="task-row">
+                                                <span class="task-name" :class="{done: task.status==='done'}" x-text="task.name"></span>
+                                                <span class="task-meta" x-text="task.scheduled_date || ''"></span>
+                                                <button class="icon-button" x-show="task.status==='not_started'" @click="startTask(task)" title="Start">▶</button>
+                                                <button class="icon-button" x-show="task.status!=='done'" @click="completeTask(task)" title="Complete">✓</button>
+                                                <button class="icon-button" @click="deleteTask(task)" title="Delete">✕</button>
+                                            </div>
+                                            <p class="task-note" x-show="task.status==='done' && task.completion_note" x-text="task.completion_note"></p>
+                                        </div>
+                                    </template>
+                                    <div class="field" style="margin-top: var(--pad-md)">
+                                        <input type="text" x-model="newTaskName" placeholder="New task name" @keydown.enter="addTask()">
+                                    </div>
+                                    <div style="display:flex; gap: var(--pad-sm); align-items:center; margin-bottom: var(--pad-md); flex-wrap: wrap;">
+                                        <input type="date" x-model="newTaskDate">
+                                        <input type="time" x-model="newTaskTime">
+                                        <label class="field-checkbox"><input type="checkbox" x-model="newTaskNotify"> Notify</label>
+                                    </div>
+                                    <button class="btn btn-primary" @click="addTask()">Add task</button>
+                                </div>
+
+                                <div class="card workspace-section">
+                                    <h2>Work log</h2>
+                                    <div class="field"><textarea x-model="newLogBody" rows="2" placeholder="Add a note about today's work"></textarea></div>
+                                    <button class="btn btn-primary" @click="addLog()">Add entry</button>
+                                    <template x-for="group in logGroups" :key="group.date">
+                                        <div class="date-card card-nested">
+                                            <button class="log-date-header" @click="toggleDate(group.date)">
+                                                <span x-text="group.date"></span>
+                                                <span x-text="isDateExpanded(group.date) ? '−' : '+'"></span>
+                                            </button>
+                                            <template x-if="isDateExpanded(group.date)">
+                                                <div class="date-card-entries">
+                                                    <template x-for="log in group.entries" :key="log.id">
+                                                        <div>
+                                                            <template x-if="editingLogId !== log.id">
+                                                                <div class="log-line-row">
+                                                                    <span class="log-time" x-text="formatTime(log.created_at)"></span>
+                                                                    <span :class="log.entry_type==='task_completion' ? 'system-text' : 'user-text'" x-text="log.body"></span>
+                                                                    <button class="btn-text" @click="startEditLog(log)">Edit</button>
+                                                                </div>
+                                                            </template>
+                                                            <template x-if="editingLogId === log.id">
+                                                                <div>
+                                                                    <div class="field"><textarea x-model="editingLogBody" rows="2"></textarea></div>
+                                                                    <div class="modal-actions">
+                                                                        <button class="btn-text" @click="cancelEditLog()">Cancel</button>
+                                                                        <button class="btn btn-primary" @click="saveEditLog(log)">Save</button>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <div class="card workspace-section">
+                                    <h2>Future plans</h2>
+                                    <p class="focus-text" x-text="project.future_plans || 'Not set.'"></p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Checklist tab (placeholder -- Phase 2) -->
+                <template x-if="!overlay && tab==='checklist'">
+                    <div class="empty-state">
+                        <h1>Checklist</h1>
+                        <p>Coming in Phase 2 — ported from the current app with streak migration.</p>
+                    </div>
+                </template>
+
+            </main>
+
+            <!-- Undo toast host -->
+            <div class="toast-container" x-data="undoToastHost()">
+                <template x-for="toast in toasts" :key="toast.id">
+                    <div class="toast">
+                        <span x-text="toast.message"></span>
+                        <button @click="undo(toast)">Undo</button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Confirm dialog host: replaces browser confirm() everywhere -->
+            <div x-data="confirmDialogHost()">
+                <template x-if="dialog">
+                    <div class="modal-overlay" @click.self="respond(false)">
+                        <div class="modal">
+                            <h2>Are you sure?</h2>
+                            <p class="project-focus" x-text="dialog.message"></p>
+                            <div class="modal-actions">
+                                <button class="btn-text" @click="respond(false)" x-text="dialog.cancelLabel"></button>
+                                <button class="btn btn-danger" @click="respond(true)" x-text="dialog.confirmLabel"></button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Note prompt host: replaces browser prompt() everywhere -->
+            <div x-data="notePromptHost()">
+                <template x-if="dialog">
+                    <div class="modal-overlay" @click.self="skip()">
+                        <div class="modal">
+                            <h2 x-text="dialog.message"></h2>
+                            <div class="field">
+                                <textarea x-model="dialog.value" rows="3" :placeholder="dialog.placeholder" @keydown.ctrl.enter="submit()"></textarea>
+                            </div>
+                            <div class="modal-actions">
+                                <button class="btn-text" @click="skip()" x-text="dialog.skipLabel"></button>
+                                <button class="btn btn-primary" @click="submit()" x-text="dialog.submitLabel"></button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
 </body>
 </html>

@@ -10,6 +10,9 @@ Abhishek is not technical. Talk to him in plain English. Never dump code at him 
 
 ## The absolute rules — never violate
 
+### Authentication (added 2026-07-25)
+Atlas requires a real signed-in session — email + password via Supabase Auth. **No public sign-up screen ships in the app** — the one account is created by Abhishek directly in the Supabase dashboard, so his password never passes through Claude or chat. Session persists per-browser (Supabase's default) — sign in once per browser. Every `atlas_` table's RLS policy is `TO authenticated USING (true)` — no session, no data, full stop. There is no `profiles` table or `profile_id` column for Atlas — it's single-tenant by construction (exactly one account will ever exist), so this is deliberately simpler than the old app's `auth.uid() → profiles.id` join pattern. `auth.js` owns the session (`signIn`/`signOut`/`getSession`/`onAuthStateChange`) — nothing else touches `supabase.auth` directly.
+
 ### Reliability
 1. **`db.js` is the only file that talks to Supabase.** Every read, every write, every soft-delete goes through it. No exceptions.
 2. **Every write is verified.** Use `.select().single()` on every insert/update/soft-delete. Confirm the returned row before treating the UI change as committed. Roll back the optimistic UI on any error or null return.

@@ -1,5 +1,5 @@
 export default {
-    shapeVersion: 1,
+    shapeVersion: 2,
     fields: {
         id: { type: 'uuid', system: true },
         project_id: { type: 'uuid', optional: true, editable: true },
@@ -11,6 +11,7 @@ export default {
         priority: { type: 'enum', values: ['normal', 'high'], required: true, editable: true },
         completed_at: { type: 'timestamptz', optional: true, system: true },
         completion_note: { type: 'text', optional: true, editable: true },
+        running_note: { type: 'text', optional: true, editable: true },
         archived_at: { type: 'timestamptz', optional: true, system: true },
         deleted_at: { type: 'timestamptz', optional: true, system: true },
         created_at: { type: 'timestamptz', system: true },
