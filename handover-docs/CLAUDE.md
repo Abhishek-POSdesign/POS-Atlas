@@ -186,6 +186,12 @@ Real feature, not just a UI treatment. `atlas_targets` rows with `kind='streak'`
 ### Sleep & Workout tracking (added Phase 2, migrations 007/009/011)
 Manual entry only right now (AI-screenshot parsing is planned but not built — see "Current status"). Both tables are `entry_date UNIQUE` (one row per day, upserted via `.upsert(..., {onConflict:'entry_date'})` in `DB.Sleep.save()`/`DB.Workout.save()`, same pattern as `Checklist.setStatus`). **Sleep fields**: `duration_minutes, sleep_score, deep_minutes, rem_minutes, resting_hr, hrv, note` (+ unused `start_time, light_minutes, awake_minutes` reserved for the future AI parser). **Workout fields**: `duration_minutes, workout_type, workout_score, calories, vo2_max, note`. Both display as a `.metric-grid` (3-column label+value pairs) on Today, not a one-line summary — a one-line version shipped first and was explicitly rejected as too thin once the full field list was specified.
 
+### Time & Dates
+- **12-Hour Clock Global Rule:** The application strictly uses a 12-hour AM/PM format for all user-facing time displays and inputs, as requested by Abhishek. **Never use 24-hour time in the UI.**
+- **Backend Data Contract:** The database and underlying state models MUST remain in strict 24-hour ISO format (e.g., `"14:30"`). The conversion to 12-hour format is entirely a presentation layer concern.
+- **Time Inputs:** Do not use native `<input type="time">`, as browser support for forcing 12-hour display varies and usually defaults to the OS setting (often 24h in many regions). Always use the custom Alpine `timePicker12h` component, which renders explicit hour/minute/AM-PM selects while seamlessly syncing a 24-hour string to the model.
+- **Time Display:** Always run backend time strings through `window.formatTime12h(timeStr)` (defined in `main.js`) or use `{ hour12: true }` in `toLocaleTimeString` before rendering them in the DOM.
+
 ### Interaction
 - Hover on any meaningful surface: lift `-2px`, surface brightens to `--surface-1-hover`, border to `--border-hover`, shadow to `--shadow-card-hover`, monogram chip more saturated, "Open →" cue slides in.
 - Active/selected: stronger surface tone or hairline accent underline. Never a colored glow.

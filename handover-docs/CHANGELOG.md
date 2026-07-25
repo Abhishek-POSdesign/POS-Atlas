@@ -2,6 +2,18 @@
 
 All notable changes to the Atlas project will be documented in this file.
 
+## Phase 2 & 3: Project Restructure and Final Visual Polish (2026-07-26) — ✅ shipped, live at atlas.abhisheksikka.com
+
+**Project Model Restructure:** Shifted the formal project model around two clearer planning layers (Short-term goal + date, Long-term goal + date). Fully deprecated the old "Current focus", "Next step", and "Future plans" from the UI, retaining them only in DB (Migration 012) for safety.
+**Unified Project Header:** Combined the project header and goals into a single unified card (40/60 split) at the top of the project workspace to maximize vertical space and emphasize Tasks/Work Log. Included editable goal fields (via `<textarea>` and native date inputs) that automatically sync with Supabase.
+
+**Final Visual Polish (Phase 3):**
+- **12-Hour AM/PM System:** Implemented a global 12-hour clock system across the entire application. Created a custom `timePicker12h` Alpine.js component and `window.formatTime12h` formatter to completely abstract 12-hour display/entry from the required 24-hour database format, avoiding any breakage to backend logic.
+- **Project Page Hierarchy:** Added a distinct visual boundary (`border-bottom` and weight changes) to workspace sections (Tasks, Work log) for better scan-ability without redesigning the workflow.
+- **Empty State Animations:** Replaced the generic "pulse" on empty tasks with a subtle breathing checkmark SVG (`atlas-task-breathe`). Scaled up the floating 'Z's for the Sleep empty state (`atlas-z-drift`) and the sliding line for Workout (`atlas-slide`), keeping the aesthetic calm and grounded.
+- **PWA Assets:** Added `icon-192.png`, `icon-512.png`, and `favicon.svg` to Deploy folder and updated `theme-color` headers to `#131316` to strictly match the dark color palette tokens.
+- **Restore View Completeness:** Ensured the Restore UI accurately tracks and restores previously "orphaned" entities (Project Notes, Notebook Entries, Checklist Items, Checklist History, Sleep Logs, Workout Logs).
+
 ## Phase 2: Checklist, streaks, Sleep/Workout, Today dashboard rebuild (2026-07-25) — ✅ shipped, live at atlas.abhisheksikka.com
 
 **Checklist built:** block-grouped items (Morning/Afternoon/Night/Sleep), collapsible with a per-block progress bar and mini-dots, a Log popup (time + optional note, then Done/Skip/Holiday/Undo) mirroring the old app's `openChecklistLog()` rather than a simplified inline-button version that shipped first and was rejected for missing the real feature. Item management (add/edit/reorder/archive, including a day-of-week restriction picker) lives inline. Migrated from the old app: 17 active items + 3 retired items holding orphaned history, 376 history rows (verified against the source), 2 real streaks (Sobriety since 2026-05-24, Smoke-free since 2026-06-28).
