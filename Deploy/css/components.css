@@ -1281,6 +1281,37 @@
 .nodata .h { color: var(--text-primary); font-size: 14px; font-weight: 500; }
 .nodata .p { color: var(--text-muted); font-size: 12px; }
 
+/* Subtle Sleep Cue */
+.empty-cue-sleep {
+    position: relative; width: 24px; height: 24px; margin-bottom: 2px;
+    color: var(--accent-lilac); font-family: var(--font-mono); font-weight: 500; font-style: italic;
+}
+.empty-cue-sleep span {
+    position: absolute; bottom: 0; left: 0;
+    opacity: 0; font-size: 12px;
+    animation: atlas-z-drift 4s linear infinite;
+}
+.empty-cue-sleep .z1 { left: 0; bottom: 0; animation-delay: 0s; }
+.empty-cue-sleep .z2 { left: 6px; bottom: 4px; animation-delay: 1.3s; font-size: 14px; }
+.empty-cue-sleep .z3 { left: 14px; bottom: 10px; animation-delay: 2.6s; font-size: 16px; }
+
+@keyframes atlas-z-drift {
+    0% { opacity: 0; transform: translate(0, 2px); }
+    20% { opacity: 0.6; }
+    80% { opacity: 0.6; }
+    100% { opacity: 0; transform: translate(4px, -6px); }
+}
+
+/* Subtle Workout Cue */
+.empty-cue-workout { color: var(--accent-coral); margin-bottom: 4px; opacity: 0.8; }
+.empty-cue-workout .track-line { stroke: var(--border-hover); }
+.empty-cue-workout .track-dot { animation: atlas-slide 3s ease-in-out infinite alternate; }
+
+@keyframes atlas-slide {
+    0% { transform: translateX(-8px); }
+    100% { transform: translateX(8px); }
+}
+
 /* Empty-tasks state: three slowly pulsing dots + one headline + one line
    of helper copy. Uses only tokens; the pulse animation collapses under
    prefers-reduced-motion via tokens.css's global override. */

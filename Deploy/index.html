@@ -382,8 +382,11 @@
                                             </div>
                                             <template x-if="!hasSleepData">
                                                 <div class="nodata">
-                                                    <span class="h">No sleep logged today.</span>
-                                                    <span class="p">Log your sleep metrics to keep your health data up to date.</span>
+                                                    <div class="empty-cue-sleep">
+                                                        <span class="z1">z</span><span class="z2">z</span><span class="z3">z</span>
+                                                    </div>
+                                                    <span class="h">Still sleeping?</span>
+                                                    <span class="p">Log your sleep data to keep your metrics current.</span>
                                                 </div>
                                             </template>
                                             <template x-if="hasSleepData">
@@ -405,8 +408,14 @@
                                             </div>
                                             <template x-if="!hasWorkoutData">
                                                 <div class="nodata">
-                                                    <span class="h">No workout logged today.</span>
-                                                    <span class="p">Log a workout to track your activity and stay on target.</span>
+                                                    <div class="empty-cue-workout">
+                                                        <svg width="24" height="8" viewBox="0 0 24 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                                            <path d="M2 4h20" class="track-line" />
+                                                            <circle cx="12" cy="4" r="3" class="track-dot" fill="currentColor" stroke="none" />
+                                                        </svg>
+                                                    </div>
+                                                    <span class="h">Ready to move?</span>
+                                                    <span class="p">Log a workout to track your activity today.</span>
                                                 </div>
                                             </template>
                                             <template x-if="hasWorkoutData">
