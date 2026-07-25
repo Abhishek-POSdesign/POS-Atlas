@@ -21,20 +21,23 @@ export function todayPage() {
         errorMsg: '',
 
         // ---- daily note (same atlas_notebook_entries table Notebook uses) ----
+        // Hidden by default -- a small toggle near the header opens/closes it, rather than
+        // a permanent card taking up space at the bottom of the page (2026-07-25 feedback).
         noteDate: todayIsoDate(),
         noteEntry: null,
         noteDraft: '',
         noteSaving: false,
+        journalOpen: false,
 
         // ---- sleep ----
         sleepEntry: null,
         sleepModalOpen: false,
-        sleepForm: { hours: '', minutes: '', score: '', note: '' },
+        sleepForm: { hours: '', minutes: '', score: '', deep: '', rem: '', restingHr: '', hrv: '', note: '' },
 
         // ---- workout ----
         workoutEntry: null,
         workoutModalOpen: false,
-        workoutForm: { minutes: '', type: '', calories: '', note: '' },
+        workoutForm: { minutes: '', type: '', score: '', calories: '', vo2Max: '', note: '' },
 
         // ---- streaks ----
         streaks: [],
@@ -89,14 +92,26 @@ export function todayPage() {
             }
             this.loading = false;
         },
+        // "Today" = due today, overdue-and-still-pending, or undated (always relevant).
+        // Kept in sync with recentlyCompleted below so the KPI card's fraction and the two
+        // panel sections always describe the same set of tasks -- these used to be two
+        // unrelated queries (all-time not-done vs. all-time ever-completed), which is why the
+        // KPI number and the visible completed list could disagree (2026-07-25 bug).
         get upcomingTasks() {
-            return this.tasks.filter(t => t.status !== 'done').slice(0, 20);
+            const today = todayIsoDate();
+            return this.tasks
+                .filter(t => t.status !== 'done' && (!t.scheduled_date || t.scheduled_date <= today))
+                .slice(0, 20);
         },
         get recentlyCompleted() {
+            const today = todayIsoDate();
             return this.tasks
-                .filter(t => t.status === 'done' && t.completed_at)
+                .filter(t => t.status === 'done' && t.completed_at && t.completed_at.slice(0, 10) === today)
                 .sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))
                 .slice(0, 6);
+        },
+        get tasksTodayTotal() {
+            return this.upcomingTasks.length + this.recentlyCompleted.length;
         },
         get activeProjectCount() {
             return this.projects.length;
@@ -207,13 +222,18 @@ export function todayPage() {
             return parts.length ? parts.join(' · ') : 'Logged, no details';
         },
         openSleepModal() {
-            const h = this.sleepEntry && this.sleepEntry.duration_minutes != null ? Math.floor(this.sleepEntry.duration_minutes / 60) : '';
-            const m = this.sleepEntry && this.sleepEntry.duration_minutes != null ? this.sleepEntry.duration_minutes % 60 : '';
+            const e = this.sleepEntry;
+            const h = e && e.duration_minutes != null ? Math.floor(e.duration_minutes / 60) : '';
+            const m = e && e.duration_minutes != null ? e.duration_minutes % 60 : '';
             this.sleepForm = {
                 hours: h === '' ? '' : String(h),
                 minutes: m === '' ? '' : String(m),
-                score: this.sleepEntry && this.sleepEntry.sleep_score != null ? String(this.sleepEntry.sleep_score) : '',
-                note: (this.sleepEntry && this.sleepEntry.note) || ''
+                score: e && e.sleep_score != null ? String(e.sleep_score) : '',
+                deep: e && e.deep_minutes != null ? String(e.deep_minutes) : '',
+                rem: e && e.rem_minutes != null ? String(e.rem_minutes) : '',
+                restingHr: e && e.resting_hr != null ? String(e.resting_hr) : '',
+                hrv: e && e.hrv != null ? String(e.hrv) : '',
+                note: (e && e.note) || ''
             };
             this.sleepModalOpen = true;
         },
@@ -221,10 +241,15 @@ export function todayPage() {
         async saveSleep() {
             const h = parseInt(this.sleepForm.hours, 10);
             const m = parseInt(this.sleepForm.minutes, 10);
-            const score = parseInt(this.sleepForm.score, 10);
+            const toInt = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
+            const toNum = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
             const patch = {
                 duration_minutes: (!isNaN(h) || !isNaN(m)) ? ((isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m)) : null,
-                sleep_score: isNaN(score) ? null : score,
+                sleep_score: toInt(this.sleepForm.score),
+                deep_minutes: toInt(this.sleepForm.deep),
+                rem_minutes: toInt(this.sleepForm.rem),
+                resting_hr: toInt(this.sleepForm.restingHr),
+                hrv: toNum(this.sleepForm.hrv),
                 note: this.sleepForm.note.trim() || null
             };
             try {
@@ -241,25 +266,31 @@ export function todayPage() {
             const parts = [];
             if (this.workoutEntry.duration_minutes != null) parts.push(this.workoutEntry.duration_minutes + ' min');
             if (this.workoutEntry.workout_type) parts.push(this.workoutEntry.workout_type);
+            if (this.workoutEntry.workout_score != null) parts.push(`Score ${this.workoutEntry.workout_score}`);
             return parts.length ? parts.join(' · ') : 'Logged, no details';
         },
         openWorkoutModal() {
+            const e = this.workoutEntry;
             this.workoutForm = {
-                minutes: this.workoutEntry && this.workoutEntry.duration_minutes != null ? String(this.workoutEntry.duration_minutes) : '',
-                type: (this.workoutEntry && this.workoutEntry.workout_type) || '',
-                calories: this.workoutEntry && this.workoutEntry.calories != null ? String(this.workoutEntry.calories) : '',
-                note: (this.workoutEntry && this.workoutEntry.note) || ''
+                minutes: e && e.duration_minutes != null ? String(e.duration_minutes) : '',
+                type: (e && e.workout_type) || '',
+                score: e && e.workout_score != null ? String(e.workout_score) : '',
+                calories: e && e.calories != null ? String(e.calories) : '',
+                vo2Max: e && e.vo2_max != null ? String(e.vo2_max) : '',
+                note: (e && e.note) || ''
             };
             this.workoutModalOpen = true;
         },
         closeWorkoutModal() { this.workoutModalOpen = false; },
         async saveWorkout() {
-            const minutes = parseInt(this.workoutForm.minutes, 10);
-            const calories = parseInt(this.workoutForm.calories, 10);
+            const toInt = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
+            const toNum = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
             const patch = {
-                duration_minutes: isNaN(minutes) ? null : minutes,
+                duration_minutes: toInt(this.workoutForm.minutes),
                 workout_type: this.workoutForm.type.trim() || null,
-                calories: isNaN(calories) ? null : calories,
+                workout_score: toInt(this.workoutForm.score),
+                calories: toInt(this.workoutForm.calories),
+                vo2_max: toNum(this.workoutForm.vo2Max),
                 note: this.workoutForm.note.trim() || null
             };
             try {

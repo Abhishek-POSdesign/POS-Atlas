@@ -193,8 +193,19 @@
                 <!-- Today tab -->
                 <template x-if="!overlay && tab==='today'">
                     <div x-data="todayPage()">
-                        <div class="section-header"><h1>Today</h1></div>
+                        <div class="section-header">
+                            <h1>Today</h1>
+                            <button class="icon-button" :class="{active: journalOpen}" @click="journalOpen = !journalOpen" title="Journal">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                            </button>
+                        </div>
                         <p class="sub" x-text="todayLabel"></p>
+                        <template x-if="journalOpen">
+                            <div class="card panel" style="margin-bottom: var(--pad-md);">
+                                <div class="field"><textarea x-model="noteDraft" rows="3" placeholder="Log an emotion, a thought, anything…" autofocus></textarea></div>
+                                <button class="btn btn-primary" @click="saveNote()" :disabled="noteSaving">Save</button>
+                            </div>
+                        </template>
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
                         <template x-if="loading"><p>Loading…</p></template>
                         <template x-if="!loading">
@@ -204,7 +215,6 @@
                                 <div class="hero-band">
                                     <template x-if="streaks[0]">
                                         <div class="card streak-card" :class="'color-' + streaks[0].color_key">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l2.4 6.8L21 11l-6.6 2.2L12 20l-2.4-6.8L3 11l6.6-2.2z"/></svg>
                                             <div class="streak-num" x-text="daysFor(streaks[0])"></div>
                                             <div class="streak-unit">days</div>
                                             <div class="streak-label" x-text="streaks[0].name"></div>
@@ -219,7 +229,7 @@
                                         <div class="card kpi-card">
                                             <div class="kpi-top">
                                                 <div class="kpi-icon blue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-                                                <div style="text-align:right;"><div class="kpi-num-lg" x-text="upcomingTasks.length"></div><div class="kpi-label">Tasks today</div></div>
+                                                <div style="text-align:right;"><div class="kpi-num-lg"><span x-text="recentlyCompleted.length"></span><span style="font-size:15px;color:var(--text-muted);" x-text="'/' + tasksTodayTotal"></span></div><div class="kpi-label">Tasks today</div></div>
                                             </div>
                                             <div class="kpi-dot-row">
                                                 <template x-for="(t, i) in upcomingTasks.slice(0,5)" :key="t.id"><span class="kpi-dot on"></span></template>
@@ -258,7 +268,6 @@
 
                                     <template x-if="streaks[1]">
                                         <div class="card streak-card" :class="'color-' + streaks[1].color_key">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l2.4 6.8L21 11l-6.6 2.2L12 20l-2.4-6.8L3 11l6.6-2.2z"/></svg>
                                             <div class="streak-num" x-text="daysFor(streaks[1])"></div>
                                             <div class="streak-unit">days</div>
                                             <div class="streak-label" x-text="streaks[1].name"></div>
@@ -313,17 +322,42 @@
 
                                     <div class="vitals-stack col-height">
                                         <div class="card vital-card">
-                                            <div class="vital-head">
-                                                <div class="vital-stat"><span class="num" x-text="sleepSummary"></span></div>
+                                            <div class="panel-head" style="margin-bottom: 8px;">
+                                                <h2 style="margin:0; font-size: 13px;">Sleep</h2>
+                                                <button class="btn-text" @click="openSleepModal()" x-text="sleepEntry ? 'Edit' : 'Log sleep'"></button>
                                             </div>
-                                            <button class="btn-text" @click="openSleepModal()" x-text="sleepEntry ? 'Edit' : 'Log sleep'"></button>
+                                            <template x-if="!sleepEntry">
+                                                <p class="project-focus" style="margin:0;">No sleep logged today.</p>
+                                            </template>
+                                            <template x-if="sleepEntry">
+                                                <div class="metric-grid">
+                                                    <div class="metric"><span class="v" x-text="sleepEntry.sleep_score ?? '—'"></span><span class="l">Score</span></div>
+                                                    <div class="metric"><span class="v" x-text="sleepEntry.duration_minutes != null ? Math.floor(sleepEntry.duration_minutes/60)+'h '+(sleepEntry.duration_minutes%60)+'m' : '—'"></span><span class="l">Duration</span></div>
+                                                    <div class="metric"><span class="v" x-text="sleepEntry.deep_minutes != null ? sleepEntry.deep_minutes+'m' : '—'"></span><span class="l">Deep</span></div>
+                                                    <div class="metric"><span class="v" x-text="sleepEntry.rem_minutes != null ? sleepEntry.rem_minutes+'m' : '—'"></span><span class="l">REM</span></div>
+                                                    <div class="metric"><span class="v" x-text="sleepEntry.resting_hr ?? '—'"></span><span class="l">Resting HR</span></div>
+                                                    <div class="metric"><span class="v" x-text="sleepEntry.hrv ?? '—'"></span><span class="l">HRV</span></div>
+                                                </div>
+                                            </template>
                                             <div class="ai-note">Auto-filled from your ring screenshot, once the AI reader is built</div>
                                         </div>
                                         <div class="card vital-card">
-                                            <div class="vital-head">
-                                                <div class="vital-stat"><span class="num" x-text="workoutSummary"></span></div>
+                                            <div class="panel-head" style="margin-bottom: 8px;">
+                                                <h2 style="margin:0; font-size: 13px;">Workout</h2>
+                                                <button class="btn-text" @click="openWorkoutModal()" x-text="workoutEntry ? 'Edit' : 'Log workout'"></button>
                                             </div>
-                                            <button class="btn-text" @click="openWorkoutModal()" x-text="workoutEntry ? 'Edit' : 'Log workout'"></button>
+                                            <template x-if="!workoutEntry">
+                                                <p class="project-focus" style="margin:0;">No workout logged today.</p>
+                                            </template>
+                                            <template x-if="workoutEntry">
+                                                <div class="metric-grid">
+                                                    <div class="metric"><span class="v" x-text="workoutEntry.workout_score ?? '—'"></span><span class="l">Score</span></div>
+                                                    <div class="metric"><span class="v" x-text="workoutEntry.workout_type || '—'"></span><span class="l">Type</span></div>
+                                                    <div class="metric"><span class="v" x-text="workoutEntry.duration_minutes != null ? workoutEntry.duration_minutes+'m' : '—'"></span><span class="l">Minutes</span></div>
+                                                    <div class="metric"><span class="v" x-text="workoutEntry.calories ?? '—'"></span><span class="l">Calories</span></div>
+                                                    <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
+                                                </div>
+                                            </template>
                                             <div class="ai-note">Same AI-screenshot pipeline as Sleep</div>
                                         </div>
                                     </div>
@@ -357,7 +391,7 @@
                                                             </div>
                                                         </div>
 
-                                                        <div class="cl-body">
+                                                        <div class="cl-block-body">
                                                             <template x-for="item in itemsForBlock(block.key)" :key="item.id">
                                                                 <div class="ck-row" :class="statusFor(item)==='done' ? 'is-done' : (statusFor(item)==='skipped' ? 'is-skipped' : '')">
                                                                     <template x-if="editingItemId !== item.id">
@@ -485,12 +519,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Today's note (shares the Notebook data/table) -->
-                                <div class="card workspace-section">
-                                    <h2>Today's note</h2>
-                                    <div class="field"><textarea x-model="noteDraft" rows="3" placeholder="Anything on your mind today?"></textarea></div>
-                                    <button class="btn btn-primary" @click="saveNote()" :disabled="noteSaving">Save</button>
-                                </div>
                             </div>
                         </template>
 
@@ -552,7 +580,15 @@
                                             <input type="number" x-model="sleepForm.minutes" placeholder="Minutes" min="0" max="59" style="flex:1;">
                                         </div>
                                     </div>
-                                    <div class="field"><label>Sleep score (optional)</label><input type="number" x-model="sleepForm.score" min="0" max="100"></div>
+                                    <div class="field-row">
+                                        <div class="field"><label>Sleep score</label><input type="number" x-model="sleepForm.score" min="0" max="100"></div>
+                                        <div class="field"><label>Resting HR</label><input type="number" x-model="sleepForm.restingHr" min="0"></div>
+                                    </div>
+                                    <div class="field-row">
+                                        <div class="field"><label>Deep sleep (min)</label><input type="number" x-model="sleepForm.deep" min="0"></div>
+                                        <div class="field"><label>REM sleep (min)</label><input type="number" x-model="sleepForm.rem" min="0"></div>
+                                    </div>
+                                    <div class="field"><label>HRV</label><input type="number" x-model="sleepForm.hrv" min="0" step="0.1"></div>
                                     <div class="field"><label>Note (optional)</label><input type="text" x-model="sleepForm.note"></div>
                                     <div class="modal-actions">
                                         <button class="btn-text" @click="closeSleepModal()">Cancel</button>
@@ -567,9 +603,15 @@
                             <div class="modal-overlay" @click.self="closeWorkoutModal()">
                                 <div class="modal">
                                     <h2>Log workout</h2>
-                                    <div class="field"><label>Duration (minutes)</label><input type="number" x-model="workoutForm.minutes" min="0"></div>
-                                    <div class="field"><label>Type (optional)</label><input type="text" x-model="workoutForm.type" placeholder="Strength, Cardio, Walk…"></div>
-                                    <div class="field"><label>Calories (optional)</label><input type="number" x-model="workoutForm.calories" min="0"></div>
+                                    <div class="field-row">
+                                        <div class="field"><label>Workout score</label><input type="number" x-model="workoutForm.score" min="0" max="100"></div>
+                                        <div class="field"><label>Type</label><input type="text" x-model="workoutForm.type" placeholder="Strength, Cardio, Walk…"></div>
+                                    </div>
+                                    <div class="field-row">
+                                        <div class="field"><label>Minutes</label><input type="number" x-model="workoutForm.minutes" min="0"></div>
+                                        <div class="field"><label>Calories burned</label><input type="number" x-model="workoutForm.calories" min="0"></div>
+                                    </div>
+                                    <div class="field"><label>VO2 max (optional)</label><input type="number" x-model="workoutForm.vo2Max" min="0" step="0.1"></div>
                                     <div class="field"><label>Note (optional)</label><input type="text" x-model="workoutForm.note"></div>
                                     <div class="modal-actions">
                                         <button class="btn-text" @click="closeWorkoutModal()">Cancel</button>
