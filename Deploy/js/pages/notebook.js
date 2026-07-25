@@ -2,8 +2,9 @@ import { DB } from '../db.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
 
-function todayIsoDate() {
+function todayKey() {
     const d = new Date();
+    d.setHours(d.getHours() - 6);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
@@ -15,7 +16,7 @@ export function notebookPage(nav) {
         draft: '',
         savedState: 'draft', // 'draft', 'saving', 'saved'
         todayEntry: null,
-        todayDate: todayIsoDate(),
+        todayDate: todayKey(),
         async init() {
             await this.load();
         },

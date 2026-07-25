@@ -23,7 +23,7 @@ export function todayPage() {
         // ---- daily note (same atlas_notebook_entries table Notebook uses) ----
         // Hidden by default -- a small toggle near the header opens/closes it, rather than
         // a permanent card taking up space at the bottom of the page (2026-07-25 feedback).
-        noteDate: todayIsoDate(),
+        noteDate: todayKey(),
         noteEntry: null,
         noteDraft: '',
         noteSaving: false,
