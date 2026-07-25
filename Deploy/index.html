@@ -827,12 +827,12 @@
                                 <div class="project-header-split">
                                     
                                     <!-- 40% Left Side: Identity & Actions -->
-                                    <div class="project-header-identity">
+                                    <div class="project-header-identity" style="height: 100%;">
                                         <div>
                                             <p class="project-title" x-text="project.name"></p>
                                             <div class="project-meta"><span class="status-text" x-text="project.status"></span></div>
                                         </div>
-                                        <div class="modal-actions" style="justify-content: flex-start; margin-top: var(--pad-lg);">
+                                        <div class="modal-actions" style="justify-content: flex-start; margin-top: auto; padding-top: var(--pad-lg);">
                                             <button class="btn-text" x-show="!project.archived_at" @click="archiveProject()">Archive</button>
                                             <button class="btn btn-danger" @click="softDeleteProject()">Delete project</button>
                                         </div>
@@ -842,15 +842,21 @@
                                     <div class="project-header-goals">
                                         <template x-if="!editingHeader">
                                             <div class="goals-display">
-                                                <div class="goal-block">
-                                                    <div class="heading-label">Short-term Goal <span class="goal-date" x-show="project.short_term_goal_date" x-text="'• ' + project.short_term_goal_date"></span></div>
-                                                    <p class="focus-text" x-text="project.short_term_goal || 'Not set.'"></p>
+                                                <div class="goal-block card-nested" style="padding: var(--pad-md); margin-bottom: 0;">
+                                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                                                        <div class="heading-label" style="margin: 0;">Short-term Goal</div>
+                                                        <span class="goal-date" x-show="project.short_term_goal_date" x-text="project.short_term_goal_date"></span>
+                                                    </div>
+                                                    <p class="user-text" style="margin: 0; font-size: 15px;" x-text="project.short_term_goal || 'Not set.'"></p>
                                                 </div>
-                                                <div class="goal-block">
-                                                    <div class="heading-label">Long-term Goal <span class="goal-date" x-show="project.long_term_goal_date" x-text="'• ' + project.long_term_goal_date"></span></div>
-                                                    <p class="focus-text" x-text="project.long_term_goal || 'Not set.'"></p>
+                                                <div class="goal-block card-nested" style="padding: var(--pad-md); margin-bottom: 0;">
+                                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+                                                        <div class="heading-label" style="margin: 0;">Long-term Goal</div>
+                                                        <span class="goal-date" x-show="project.long_term_goal_date" x-text="project.long_term_goal_date"></span>
+                                                    </div>
+                                                    <p class="user-text" style="margin: 0; font-size: 15px;" x-text="project.long_term_goal || 'Not set.'"></p>
                                                 </div>
-                                                <div class="modal-actions" style="justify-content: flex-start; margin-top: var(--pad-sm);">
+                                                <div class="modal-actions" style="justify-content: flex-start; margin-top: var(--pad-xs);">
                                                     <button class="btn-text" @click="startEditHeader()">Edit goals</button>
                                                 </div>
                                             </div>
