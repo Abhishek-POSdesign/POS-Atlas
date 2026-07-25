@@ -10,14 +10,21 @@ Abhishek is not technical. Talk to him in plain English. Never dump code at him 
 
 ## Current status (2026-07-25)
 
-**Phase 1 is complete and deployed live at `atlas.abhisheksikka.com`.** Projects (grid, create/edit, full workspace), unified Tasks (start/complete with optional notes), Notebook, Restore view, and real Supabase Auth are all built, tested through four rounds of real feedback, and pushed to `main`. Full detail in `CHANGELOG.md`'s Phase 1 entry — read it before touching any of this code, it documents several confirmed bugs (not just design opinions) and why specific things are built the way they are.
+**Phase 1 (Projects, Tasks, Notebook, Restore, real Auth) and Phase 2 (Checklist + streak/sleep/workout migration) are both complete and deployed live at `atlas.abhisheksikka.com`.** Full detail in `CHANGELOG.md` — read the relevant phase entry before touching any of this code, it documents confirmed bugs (not just design opinions) and why specific things are built the way they are.
+
+**The Today dashboard was rebuilt from three stat tiles into a real dashboard**, ahead of where the original roadmap had it — this happened because Abhishek pushed back hard mid-Phase-2 on the checklist-page-as-its-own-tab direction ("just four checklist items, why a whole page") and asked for a proper design pass instead. That review went through **three mockup rounds** (built as private Claude artifacts, iterated on his direct feedback, never touched the real app until he said "now you can start your build") before any code was written — see "Design review process" below. What shipped:
+- **Hero band**: Sobriety/Smoke-free streak cards (real day-count, relapse + one-time-grace-day mechanic, "Previous best" memory) flanking a KPI strip (Tasks today as a real fraction, Active projects as color chips, Checklist as a radial ring)
+- **Tasks & Reminders (60%) | Sleep + Workout (40%)**, pinned to equal height so neither side ever leaves dead space — the task list scrolls internally instead
+- **Routine** (checklist, no tab/toggle — it's just always there, full width, below the 60/40 row)
+- **Checklist Completion trend**, 30 days, real hover data (not decorative)
+- A hidden journal toggle (small icon next to "Today", not a permanent card) instead of an always-visible notes section
 
 **Deferred, explicitly, at Abhishek's request — do not build without picking these back up first:**
-- Today dashboard richness (charts/progress visuals) — waiting on Checklist + Targets (Phase 2/3) to exist first, so there's real data to visualize.
 - A floating/draggable Notebook window (stay open while using the rest of the app).
-- A further visual-hierarchy refinement pass — the current heading-chip treatment works but is uniform; Abhishek wants another pass later, not now.
+- A further visual-hierarchy refinement pass on the Phase-1-era heading-chip treatment — separate from the dashboard work above, still not revisited.
+- The AI-screenshot-parse pipeline for Sleep/Workout (upload a ring/app screenshot, Gemini via Vertex reads it, you review before it saves) — confirmed technically feasible (the Supabase project already has a working Vertex integration, `ai-teacher` edge function, using secret `VERTEX_API_KEY_POS`) and scoped as its own small isolated edge function, but not built. Sleep and Workout are manual-entry only right now.
 
-**Next up per the original roadmap:** Phase 2 (Checklist + streak migration, see `plan.md`) — not started, needs Abhishek's go-ahead first.
+**Next up:** Phase 3 (Targets/goal-cards — the `count_toward_goal` side of `atlas_targets` that streaks already share the table with) — not started, needs Abhishek's go-ahead first, same as every phase so far.
 
 ---
 
@@ -82,24 +89,26 @@ Completing something never archives it. Archiving something never deletes it. Ea
 - Hover translate: `translateY(-2px)`. Tap scale: `scale(0.985)`.
 - **Every transition is wrapped in `@media (prefers-reduced-motion: reduce) { transition: none; transform: none; }`.**
 
-### Charcoal Muse (dark)
+### Charcoal Muse (dark) — "Variant A", relifted 2026-07-25
+Abhishek compared three dark palette options side-by-side in a mockup (toggleable buttons in the artifact, not a guess) and picked this one because the original values below read "muddy" next to Paper Studio, which he confirmed looks right as-is. Surfaces raised, accents brightened slightly to stay legible against the lighter base. **If asked for other dark options again, the two he rejected (a cooler "Midnight Indigo" and a warmer "Warm Graphite") aren't preserved anywhere in code — they only ever existed in the throwaway mockup file, so they'd need to be redesigned from scratch, not "restored."**
 ```
---surface-0        : #0e0e10
---surface-1        : #17181a
---surface-1-hover  : #1d1e21
---surface-2        : #1f2023
---border           : rgba(240,240,242,0.08)
---border-hover     : rgba(240,240,242,0.16)
---top-edge         : inset 0 1px 0 rgba(255,255,255,0.04)
+--surface-0        : #131316
+--surface-1        : #1c1d20
+--surface-1-hover  : #222327
+--surface-2        : #26272b
+--border           : rgba(240,240,242,0.11)
+--border-hover     : rgba(240,240,242,0.20)
+--top-edge         : inset 0 1px 0 rgba(255,255,255,0.05)
 --shadow-card      : 0 1px 2px rgba(0,0,0,0.4), 0 6px 20px rgba(0,0,0,0.25)
 --shadow-card-hover: 0 2px 4px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.35)
---text-primary     : #ebe9e6
---text-secondary   : #93918e
---text-muted       : #66645f
---accent-sage      : #7ea28a
---accent-blue      : #6a8ec4
---accent-lilac     : #a598c9
---accent-coral     : #d17565
+--text-primary     : #f1efec
+--text-secondary   : #9d9b97
+--text-muted       : #706e69
+--accent-sage      : #86ab92
+--accent-blue      : #759ad0
+--accent-lilac     : #ac9fd2
+--accent-coral     : #dd8170
+--accent-amber     : #c9a04a   (added Phase 2 -- "Grace day used" streak meta text, the only user of amber so far)
 ```
 
 ### Paper Studio (light)
@@ -120,6 +129,7 @@ Completing something never archives it. Archiving something never deletes it. Ea
 --accent-blue      : #5e7fb0
 --accent-lilac     : #8776a8
 --accent-coral     : #b56b5d
+--accent-amber     : #b89a44
 ```
 
 ### Depth model
@@ -143,6 +153,20 @@ Three surface levels: `--surface-0` (page) → `--surface-1` (card) → `--surfa
 
 ### Design system classes — added Phase 1 (`heading-label`, `system-text`, `user-text`, `running-text`)
 Full rationale and current CSS in `ARCHITECTURE.md`. Short version: `heading-label` is a filled tinted-accent chip for a field label (e.g. "CURRENT FOCUS") — weight/color-only treatments were tried first and didn't read clearly enough against body text in real testing, a filled chip did. A **section title** (`.workspace-section h2`) is a separate, larger, plain-bold tier — no chip — so the section heading and the field labels inside it don't collapse into one indistinguishable style. `system-text` (muted italic) marks text the app auto-wrote (e.g. "Completed: task name"); `user-text` (full-strength, normal weight) marks anything typed by hand. Reuse these four classes for any new text needing this distinction — don't invent a fifth.
+
+### Today dashboard layout — added Phase 2 (2026-07-25)
+- **Hero band** (`.hero-band`, grid `190px 1fr 190px`): a streak card left and right of a 3-card KPI strip. Streak cards use `daysFor(streak)` (plain calendar diff from `streak_start_date`, not the 6am-shifted checklist boundary) and are a tinted-gradient hero card, **no icon** — an SVG "mature" icon was tried, turned out to render as a decorative star/sparkle shape and got called out directly ("remove these stars"); the number alone (56px, bold, no icon) is what's live now. KPI cards must never be "a number in a mostly-empty card" — each one carries something else: a dot row + "next up" preview (Tasks), stacked color chips (Active projects), or a radial `<svg>` progress ring (Checklist).
+- **`.split-60-40` + `.col-height`**: Tasks & Reminders and the Sleep+Workout column are pinned to the *same* explicit height (currently `468px`), not left to their natural content height. This is the fix for a real, explicitly-flagged complaint ("if I have fewer tasks there's dead space, if I have more there's dead space behind the chart") — the task list gets `overflow-y: auto` with `min-height: 0` (the classic flex-child gotcha: `flex: 1` alone does **not** let a flex child shrink below its content size enough for `overflow-y: auto` to engage inside a fixed-height parent). If either side's content changes shape later, keep both sides pinned to one shared height rather than reintroducing independent natural heights.
+- **Routine** (checklist) has **no Tasks/Checklist toggle** — that was tried, then explicitly reversed once Tasks got its own 60% panel ("there should not be a task toggle, just a checklist"). `checklistPage()` mounts directly, unconditionally, inside Today now.
+- **"Today's note"/journal** is deliberately hidden by default — a small icon-button next to the `<h1>Today</h1>` toggles `journalOpen`, which reveals an inline composer using the exact same `atlas_notebook_entries` data the header's Notebook overlay reads. A permanent always-visible note card at the bottom of the page was built first and explicitly removed ("it is not required... it should be hidden").
+- **"Today" KPI/task-count scoping is a real trap** — a bug shipped and had to be fixed: `upcomingTasks` originally had zero date filtering (all not-done tasks, any date, forever) while the "recently completed" list had zero date filtering the other direction (all-time completed). The two numbers could never agree with each other. Both are now scoped consistently around `todayIsoDate()` (due today, overdue-and-pending, or undated for the pending side; actually completed today — checked via `completed_at.slice(0,10)` — for the other), and the KPI shows a real fraction (`recentlyCompleted.length / tasksTodayTotal`), not a bare count. Any future "today" concept on this page must use the same scoping, not reinvent a third definition.
+- **Checklist Completion trend chart** — CSS lives in `components.css` under `.trend-*`. If touching this again: check there isn't a second, older rule set still present from a previous round shadowing the current one at a lower value (this exact thing happened — `.trend-bar { height: 70px }` from before the mockup redesign was never actually replaced when the bigger version was approved, and stayed live for a full round before anyone caught it).
+
+### Streaks — relapse + grace day (added Phase 2, migration 008)
+Real feature, not just a UI treatment. `atlas_targets` rows with `kind='streak'` gained `previous_best_days` and `grace_used`; a new `atlas_streak_relapses` table (`target_id, occurred_date, days, reason, was_grace`) logs every relapse. One verified RPC, `atlas_targets_log_relapse(p_id, p_current_days, p_reason, p_use_grace)`, handles both outcomes in one call: if grace is requested and hasn't been used yet on this streak, the row's `grace_used` flips true and `streak_start_date` is **untouched** (the run survives); otherwise `streak_start_date` resets to today and `previous_best_days` becomes `GREATEST(old best, current run)`. A reason is always required and always logged, win or reset. Mirrors the old Task Manager app's exact rule (checked directly against `resetStreak()`/`confirmStreakReset()` in that app's `ui/overlays.js` before building this) — grace is a once-per-streak-life forgiveness, not a recurring one.
+
+### Sleep & Workout tracking (added Phase 2, migrations 007/009/011)
+Manual entry only right now (AI-screenshot parsing is planned but not built — see "Current status"). Both tables are `entry_date UNIQUE` (one row per day, upserted via `.upsert(..., {onConflict:'entry_date'})` in `DB.Sleep.save()`/`DB.Workout.save()`, same pattern as `Checklist.setStatus`). **Sleep fields**: `duration_minutes, sleep_score, deep_minutes, rem_minutes, resting_hr, hrv, note` (+ unused `start_time, light_minutes, awake_minutes` reserved for the future AI parser). **Workout fields**: `duration_minutes, workout_type, workout_score, calories, vo2_max, note`. Both display as a `.metric-grid` (3-column label+value pairs) on Today, not a one-line summary — a one-line version shipped first and was explicitly rejected as too thin once the full field list was specified.
 
 ### Interaction
 - Hover on any meaningful surface: lift `-2px`, surface brightens to `--surface-1-hover`, border to `--border-hover`, shadow to `--shadow-card-hover`, monogram chip more saturated, "Open →" cue slides in.
@@ -182,6 +206,11 @@ Full rationale and current CSS in `ARCHITECTURE.md`. Short version: `heading-lab
 - Load Alpine.js via a separate `<script defer src="...cdn...">` tag — it races `main.js`'s own component registration and silently breaks the whole app. Alpine is imported as a module and started manually inside `main.js`, after every `Alpine.data()` call.
 - Ship a deploy-worthy change without bumping `CACHE_NAME` in `service-worker.js` — this caused real, confirmed confusion during testing (a save that worked looked "missing" because the browser was still running old cached JS).
 - Hardcode an `rgba(...)` tint color in `components.css` — use the theme's `--accent-*-tint` / `-tint-hover` custom properties from `tokens.css`, or it'll be wrong in the other theme.
+- Rename a CSS class in markup during a rewrite without grepping for its selector in `components.css` first — `class="cl-body"` vs. the actual rule `.cl-block-body` was a real, live, confirmed bug (checklist collapse silently did nothing) caused by exactly this during the Phase 2 dashboard rewrite.
+- Leave an old rule set live for a class you're "replacing" — verify the new values actually landed by reading the CSS file, not just the markup. The Checklist Completion trend chart's bigger bars were approved in the mockup but the old small `.trend-bar { height: 70px }` from a prior round was never actually deleted, and stayed live for a full shipped round before it was caught.
+- Build a "today" count/filter without an explicit date scope. `upcomingTasks`/`recentlyCompleted` originally had none at all in one direction or the other, producing two numbers that could never agree (see "Today dashboard layout" above) — a real, reported bug, not a hypothetical one.
+- Put a decorative icon (emoji or otherwise) on a streak or KPI card — tried once (fire emoji, then a "mature" SVG that still read as a star/sparkle), rejected both times. The number alone, bigger and bolder, is the current locked treatment.
+- Build any UI with real design-decision weight (a new dashboard section, a layout change, a new card type) directly in the app before Abhishek has seen and approved a mockup — see "Design review process" below.
 
 ---
 
@@ -225,3 +254,12 @@ The canonical copy of this checklist lives in `handover-docs/FUTURE-CHANGES-CHEC
 - Never claim a write succeeded until Supabase's response actually confirms it.
 - When something breaks, explain what happened in plain English and what the fix is — not a stack trace.
 - If a request contradicts a locked decision above (tokens, module boundaries, status semantics, reliability rules), flag the conflict explicitly rather than silently working around it.
+
+### Design review process — established Phase 2, after a direct correction
+
+For anything with real visual/layout weight (a new page section, a dashboard, a card redesign — not a copy tweak or a bug fix), Abhishek explicitly does **not** want code written first. What happened once: the Today dashboard got built directly in the app across a couple of rounds, and he stopped it hard — "you are making a decision and doing the things I never asked you to do... this looks like you are in a hurry." The corrected process, now standing:
+1. **Research first** — read the old Task Manager app's actual code for whatever's being referenced (not a description from memory), and look at any reference screenshots/inspiration he sends.
+2. **Mockup as a private Claude artifact**, built with Atlas's *real* CSS tokens (not a generic template) so it previews accurately, self-contained enough to actually interact with (real hover tooltips, real click-to-toggle, a working theme switcher) — not a static picture.
+3. **Show it, take the specific feedback, rebuild the same artifact** (same URL, republish in place) — this took three rounds on the Today dashboard before approval. Don't defend a choice he's rejected; fix it and show the fix.
+4. **Only once he says something like "now you can start your build"** does any of it touch the real app — and even then, write the plan (schema changes needed, files touched, verification steps) before the first line of real code.
+5. After building for real, expect a live-testing round to surface bugs the mockup couldn't show (data mismatches, CSS that didn't actually get ported, real interaction gaps) — treat that as a normal part of the cycle, fix everything found in one pass, and say plainly which items were bugs vs. which were the originally-requested features.

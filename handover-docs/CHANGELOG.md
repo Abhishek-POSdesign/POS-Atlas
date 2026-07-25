@@ -2,6 +2,29 @@
 
 All notable changes to the Atlas project will be documented in this file.
 
+## Phase 2: Checklist, streaks, Sleep/Workout, Today dashboard rebuild (2026-07-25) — ✅ shipped, live at atlas.abhisheksikka.com
+
+**Checklist built:** block-grouped items (Morning/Afternoon/Night/Sleep), collapsible with a per-block progress bar and mini-dots, a Log popup (time + optional note, then Done/Skip/Holiday/Undo) mirroring the old app's `openChecklistLog()` rather than a simplified inline-button version that shipped first and was rejected for missing the real feature. Item management (add/edit/reorder/archive, including a day-of-week restriction picker) lives inline. Migrated from the old app: 17 active items + 3 retired items holding orphaned history, 376 history rows (verified against the source), 2 real streaks (Sobriety since 2026-05-24, Smoke-free since 2026-06-28).
+
+**Today dashboard rebuilt from three stat tiles into a real dashboard**, after Abhishek stopped a first pass mid-build and required a mockup-first process for the rest (see `CLAUDE.md`'s "Design review process"). Three artifact mockup rounds later: hero band (streak cards with a relapse+grace-day mechanic, KPI strip with real content per card), Tasks & Reminders (60%) beside Sleep+Workout (40%) pinned to equal height, Routine (checklist, no tab/toggle), a 30-day Checklist Completion trend with real hover data.
+
+**New real backend, not just UI:**
+- Migration 008: streak relapse/grace-day tracking (`atlas_streak_relapses` table, `atlas_targets.previous_best_days`/`grace_used`, one verified RPC `atlas_targets_log_relapse`) — mirrors the old app's exact rule, checked directly against its source before building.
+- Migrations 007/009/011: `atlas_sleep_logs` and `atlas_workout_logs`, manual entry now (duration, score, deep/REM sleep, resting HR, HRV for Sleep; type, score, minutes, calories, VO2 max for Workout), schema ready for an AI-screenshot-parse feature later (confirmed feasible, not built — the Supabase project already has a working Gemini/Vertex integration via the `ai-teacher` edge function).
+- Migration 010: `atlas_tasks.kind` (task/reminder) — didn't exist before, needed for the new Add Task modal and task-row display.
+- Dark theme relifted ("Variant A" — see `CLAUDE.md`) after a 3-way side-by-side comparison in the mockup.
+
+**Real bugs found and fixed during live testing** (not design opinions):
+- Alpine's `:class` binding doesn't merge a mixed array like `['color-x', {collapsed: bool}]` the way Vue does — the object half silently never applied. Caused two real bugs (checklist collapse, the Phase-1 color-swatch picker's selected-state) before being caught and switched to plain string class binding everywhere.
+- A markup/CSS class-name mismatch (`class="cl-body"` in markup vs. `.cl-block-body` in the actual collapse rule) reintroduced the same "collapse does nothing" bug during the dashboard rewrite, from a typo, not the binding pattern this time.
+- The Checklist Completion trend chart's bigger, approved bars from the mockup were never actually ported into the real app — an old, smaller rule set from before the redesign silently stayed live for a full shipped round.
+- "Tasks today" KPI could disagree with the visible completed-task count — `upcomingTasks` had no date scoping at all (all not-done tasks, forever) while the completed list was scoped the opposite way (all-time). Both are now consistently scoped to "today."
+
+**Deferred, explicitly, at Abhishek's request:**
+- The AI-screenshot-parse pipeline for Sleep/Workout — confirmed feasible, scoped as its own isolated edge function, not built.
+- Floating/draggable Notebook, and a further visual-hierarchy refinement pass — both still carried over unchanged from the Phase 1 deferred list.
+- Phase 3 (Targets/goal-cards, the `count_toward_goal` side of `atlas_targets`) — not started.
+
 ## Phase 1: Projects, Tasks, Notebook, Restore, real Auth (2026-07-25) — ✅ shipped, live at atlas.abhisheksikka.com
 
 **Authentication (added mid-phase, not in the original plan):** Phase 0 had assumed "no login screen" per the old app's original design. Abhishek asked for real safety instead: email+password via Supabase Auth, no public sign-up in the app (the one account is created directly in the Supabase dashboard so the password never passes through chat), session persists per-browser. Migration 002 adds `TO authenticated USING (true)` RLS to every `atlas_` table.
