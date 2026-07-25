@@ -659,15 +659,11 @@
 }
 
 .workspace-section h2 {
-    display: inline-block;
-    font-size: 12px;
+    font-size: 17px;
     font-weight: 700;
-    color: var(--accent-blue);
-    background-color: var(--accent-blue-tint);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 5px 12px;
-    border-radius: 6px;
+    color: var(--text-primary);
+    text-transform: none;
+    letter-spacing: normal;
     margin: 0 0 var(--pad-md);
 }
 
