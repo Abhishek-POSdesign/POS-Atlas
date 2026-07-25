@@ -39,6 +39,14 @@
   --accent-blue: #6a8ec4;
   --accent-lilac: #a598c9;
   --accent-coral: #d17565;
+  --accent-sage-tint: rgba(126, 162, 138, 0.16);
+  --accent-sage-tint-hover: rgba(126, 162, 138, 0.30);
+  --accent-blue-tint: rgba(106, 142, 196, 0.16);
+  --accent-blue-tint-hover: rgba(106, 142, 196, 0.30);
+  --accent-lilac-tint: rgba(165, 152, 201, 0.16);
+  --accent-lilac-tint-hover: rgba(165, 152, 201, 0.30);
+  --accent-coral-tint: rgba(209, 117, 101, 0.16);
+  --accent-coral-tint-hover: rgba(209, 117, 101, 0.30);
 }
 
 @media (prefers-color-scheme: light) {
@@ -59,6 +67,14 @@
     --accent-blue: #5e7fb0;
     --accent-lilac: #8776a8;
     --accent-coral: #b56b5d;
+    --accent-sage-tint: rgba(111, 143, 101, 0.14);
+    --accent-sage-tint-hover: rgba(111, 143, 101, 0.24);
+    --accent-blue-tint: rgba(94, 127, 176, 0.14);
+    --accent-blue-tint-hover: rgba(94, 127, 176, 0.24);
+    --accent-lilac-tint: rgba(135, 118, 168, 0.14);
+    --accent-lilac-tint-hover: rgba(135, 118, 168, 0.24);
+    --accent-coral-tint: rgba(181, 107, 93, 0.14);
+    --accent-coral-tint-hover: rgba(181, 107, 93, 0.24);
   }
 }
 
@@ -83,6 +99,14 @@
   --accent-blue: #5e7fb0;
   --accent-lilac: #8776a8;
   --accent-coral: #b56b5d;
+  --accent-sage-tint: rgba(111, 143, 101, 0.14);
+  --accent-sage-tint-hover: rgba(111, 143, 101, 0.24);
+  --accent-blue-tint: rgba(94, 127, 176, 0.14);
+  --accent-blue-tint-hover: rgba(94, 127, 176, 0.24);
+  --accent-lilac-tint: rgba(135, 118, 168, 0.14);
+  --accent-lilac-tint-hover: rgba(135, 118, 168, 0.24);
+  --accent-coral-tint: rgba(181, 107, 93, 0.14);
+  --accent-coral-tint-hover: rgba(181, 107, 93, 0.24);
 }
 
 /* Reduced Motion Fallback */

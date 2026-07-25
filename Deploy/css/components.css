@@ -84,12 +84,16 @@
    fifth variant for a sixth screen. */
 
 .heading-label {
-    font-size: 12px;
+    display: inline-block;
+    font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-primary);
-    margin: 0 0 4px;
+    color: var(--accent-blue);
+    background-color: var(--accent-blue-tint);
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin: 0 0 8px;
 }
 
 .system-text {
@@ -357,10 +361,10 @@
     filter: saturate(1.3);
 }
 
-.monogram-chip.color-sage { background-color: rgba(126, 162, 138, 0.14); color: var(--accent-sage); }
-.monogram-chip.color-blue { background-color: rgba(106, 142, 196, 0.14); color: var(--accent-blue); }
-.monogram-chip.color-lilac { background-color: rgba(165, 152, 201, 0.14); color: var(--accent-lilac); }
-.monogram-chip.color-coral { background-color: rgba(209, 117, 101, 0.14); color: var(--accent-coral); }
+.monogram-chip.color-sage { background-color: var(--accent-sage-tint); color: var(--accent-sage); }
+.monogram-chip.color-blue { background-color: var(--accent-blue-tint); color: var(--accent-blue); }
+.monogram-chip.color-lilac { background-color: var(--accent-lilac-tint); color: var(--accent-lilac); }
+.monogram-chip.color-coral { background-color: var(--accent-coral-tint); color: var(--accent-coral); }
 
 .color-dot {
     width: 7px;
@@ -591,20 +595,21 @@
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    background: none;
+    background-color: var(--accent-blue-tint);
     border: none;
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-primary);
-    padding: 4px;
+    color: var(--accent-blue);
+    padding: 6px 10px;
     cursor: pointer;
     min-height: 32px;
 }
 
 .log-date-header:hover {
-    color: var(--text-secondary);
+    background-color: var(--accent-blue-tint-hover);
 }
 
 .date-card-entries {
@@ -654,11 +659,15 @@
 }
 
 .workspace-section h2 {
-    font-size: 15px;
+    display: inline-block;
+    font-size: 12px;
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--accent-blue);
+    background-color: var(--accent-blue-tint);
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    padding: 5px 12px;
+    border-radius: 6px;
     margin: 0 0 var(--pad-md);
 }
 
