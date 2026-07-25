@@ -15,8 +15,6 @@ function minutesToHM(mins) {
 
 export function todayPage() {
     return {
-        viewMode: 'tasks', // 'tasks' | 'checklist'
-
         tasks: [],
         projects: [],
         loading: true,
@@ -33,6 +31,25 @@ export function todayPage() {
         sleepModalOpen: false,
         sleepForm: { hours: '', minutes: '', score: '', note: '' },
 
+        // ---- workout ----
+        workoutEntry: null,
+        workoutModalOpen: false,
+        workoutForm: { minutes: '', type: '', calories: '', note: '' },
+
+        // ---- streaks ----
+        streaks: [],
+        relapseTarget: null,
+        relapseForm: { reason: '', useGrace: false },
+        relapseError: '',
+
+        // ---- add task modal ----
+        taskModalOpen: false,
+        taskForm: { name: '', kind: 'task', date: '', time: '', projectId: '', notify: false },
+
+        // ---- checklist KPI (today's done/total, for the ring) ----
+        checklistDoneToday: 0,
+        checklistTotalToday: 0,
+
         // ---- trend (last 30 days, checklist done/skipped/missed) ----
         trendDays: [],
 
@@ -43,17 +60,29 @@ export function todayPage() {
             this.loading = true;
             this.errorMsg = '';
             try {
-                const [tasks, projects, noteEntry, sleepEntry] = await Promise.all([
+                const today = todayKey();
+                const dow = getLogicalDate().getDay();
+                const [tasks, projects, noteEntry, sleepEntry, workoutEntry, streaks, checklistItems, checklistHistory] = await Promise.all([
                     DB.Tasks.listActive(),
                     DB.Projects.listActive(),
                     DB.Notebook.getByDate(this.noteDate),
-                    DB.Sleep.getByDate(todayKey())
+                    DB.Sleep.getByDate(today),
+                    DB.Workout.getByDate(today),
+                    DB.Targets.listStreaks(),
+                    DB.Checklist.listItems(),
+                    DB.Checklist.listHistoryForDate(today)
                 ]);
                 this.tasks = tasks;
                 this.projects = projects;
                 this.noteEntry = noteEntry;
                 this.noteDraft = noteEntry ? noteEntry.body : '';
                 this.sleepEntry = sleepEntry;
+                this.workoutEntry = workoutEntry;
+                this.streaks = streaks;
+                const todaysItems = checklistItems.filter(i => !i.days || i.days.includes(dow));
+                const doneIds = new Set(checklistHistory.filter(h => h.status === 'done').map(h => h.item_id));
+                this.checklistTotalToday = todaysItems.length;
+                this.checklistDoneToday = todaysItems.filter(i => doneIds.has(i.id)).length;
                 await this.loadTrend();
             } catch (e) {
                 this.errorMsg = 'Could not load Today: ' + e.message;
@@ -63,11 +92,93 @@ export function todayPage() {
         get upcomingTasks() {
             return this.tasks.filter(t => t.status !== 'done').slice(0, 20);
         },
+        get recentlyCompleted() {
+            return this.tasks
+                .filter(t => t.status === 'done' && t.completed_at)
+                .sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))
+                .slice(0, 6);
+        },
         get activeProjectCount() {
             return this.projects.length;
         },
         get inProgressProjectCount() {
             return this.projects.filter(p => p.status === 'in_progress').length;
+        },
+        get checklistPct() {
+            return this.checklistTotalToday ? Math.round(this.checklistDoneToday / this.checklistTotalToday * 100) : 0;
+        },
+        get checklistRemaining() {
+            return Math.max(0, this.checklistTotalToday - this.checklistDoneToday);
+        },
+        get todayLabel() {
+            return new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+        },
+        projectFor(task) {
+            if (!task.project_id) return null;
+            return this.projects.find(p => p.id === task.project_id) || null;
+        },
+        projectInitial(project) {
+            return (project.monogram_letter || project.name?.[0] || '?').toUpperCase();
+        },
+
+        // ---- streaks ----
+        daysFor(streak) {
+            const start = new Date(streak.streak_start_date);
+            const today = new Date(todayKey());
+            return Math.max(0, Math.floor((today - start) / 86400000));
+        },
+        streakMeta(streak) {
+            const days = this.daysFor(streak);
+            if (streak.grace_used) return { text: 'Grace day used', grace: true };
+            if (streak.previous_best_days && days < streak.previous_best_days) {
+                return { text: `Previous best: ${streak.previous_best_days} days`, grace: false };
+            }
+            return null;
+        },
+        openRelapseModal(streak) {
+            this.relapseTarget = streak;
+            this.relapseForm = { reason: '', useGrace: false };
+            this.relapseError = '';
+        },
+        closeRelapseModal() { this.relapseTarget = null; },
+        async confirmRelapse() {
+            const reason = this.relapseForm.reason.trim();
+            if (!reason) { this.relapseError = 'A reason is required.'; return; }
+            try {
+                const days = this.daysFor(this.relapseTarget);
+                const updated = await DB.Targets.logRelapse(this.relapseTarget.id, days, reason, this.relapseForm.useGrace);
+                this.streaks = this.streaks.map(s => s.id === updated.id ? updated : s);
+                this.relapseTarget = null;
+            } catch (e) {
+                this.relapseError = e.message;
+            }
+        },
+
+        // ---- add task ----
+        openTaskModal() {
+            this.taskForm = { name: '', kind: 'task', date: todayIsoDate(), time: '', projectId: '', notify: false };
+            this.taskModalOpen = true;
+        },
+        closeTaskModal() { this.taskModalOpen = false; },
+        async submitTask() {
+            const name = this.taskForm.name.trim();
+            if (!name) return;
+            try {
+                const row = await DB.Tasks.create({
+                    name,
+                    kind: this.taskForm.kind,
+                    status: 'not_started',
+                    priority: 'normal',
+                    project_id: this.taskForm.projectId || null,
+                    scheduled_date: this.taskForm.date || null,
+                    scheduled_time: this.taskForm.time || null,
+                    notify_enabled: this.taskForm.notify
+                });
+                this.tasks = [...this.tasks, row];
+                this.taskModalOpen = false;
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
         },
 
         // ---- daily note ----
@@ -119,6 +230,41 @@ export function todayPage() {
             try {
                 this.sleepEntry = await DB.Sleep.save(todayKey(), patch);
                 this.sleepModalOpen = false;
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+
+        // ---- workout ----
+        get workoutSummary() {
+            if (!this.workoutEntry) return 'No workout logged today';
+            const parts = [];
+            if (this.workoutEntry.duration_minutes != null) parts.push(this.workoutEntry.duration_minutes + ' min');
+            if (this.workoutEntry.workout_type) parts.push(this.workoutEntry.workout_type);
+            return parts.length ? parts.join(' · ') : 'Logged, no details';
+        },
+        openWorkoutModal() {
+            this.workoutForm = {
+                minutes: this.workoutEntry && this.workoutEntry.duration_minutes != null ? String(this.workoutEntry.duration_minutes) : '',
+                type: (this.workoutEntry && this.workoutEntry.workout_type) || '',
+                calories: this.workoutEntry && this.workoutEntry.calories != null ? String(this.workoutEntry.calories) : '',
+                note: (this.workoutEntry && this.workoutEntry.note) || ''
+            };
+            this.workoutModalOpen = true;
+        },
+        closeWorkoutModal() { this.workoutModalOpen = false; },
+        async saveWorkout() {
+            const minutes = parseInt(this.workoutForm.minutes, 10);
+            const calories = parseInt(this.workoutForm.calories, 10);
+            const patch = {
+                duration_minutes: isNaN(minutes) ? null : minutes,
+                workout_type: this.workoutForm.type.trim() || null,
+                calories: isNaN(calories) ? null : calories,
+                note: this.workoutForm.note.trim() || null
+            };
+            try {
+                this.workoutEntry = await DB.Workout.save(todayKey(), patch);
+                this.workoutModalOpen = false;
             } catch (e) {
                 this.errorMsg = e.message;
             }

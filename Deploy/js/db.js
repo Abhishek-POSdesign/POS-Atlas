@@ -299,7 +299,65 @@ export const DB = {
         async restoreFromTrash(id) { return (await verifiedRpc('atlas_sleep_logs_restore_trash'))(id); }
     },
 
+    Workout: {
+        async getByDate(entryDate) {
+            const { data, error } = await supabase
+                .from('atlas_workout_logs')
+                .select('*')
+                .eq('entry_date', entryDate)
+                .is('deleted_at', null)
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async listRecent(limit = 14) {
+            const { data, error } = await supabase
+                .from('atlas_workout_logs')
+                .select('*')
+                .is('deleted_at', null)
+                .order('entry_date', { ascending: false })
+                .limit(limit);
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async save(entryDate, patch) {
+            const payload = { entry_date: entryDate, deleted_at: null, ...patch };
+            const { data, error } = await supabase
+                .from('atlas_workout_logs')
+                .upsert(payload, { onConflict: 'entry_date' })
+                .select()
+                .single();
+            if (error || !data) throw new Error(error?.message || 'Workout log save was not confirmed');
+            return data;
+        },
+        async softDelete(id) { return (await verifiedRpc('atlas_workout_logs_soft_delete'))(id); },
+        async restoreFromTrash(id) { return (await verifiedRpc('atlas_workout_logs_restore_trash'))(id); }
+    },
+
+    // Only the streak (kind='streak') side of Targets is built -- Phase 3 owns
+    // the count_toward_goal card UI and its own methods here.
     Targets: {
-        // Phase 3 -- not built yet.
+        async listStreaks() {
+            const { data, error } = await supabase
+                .from('atlas_targets')
+                .select('*')
+                .eq('kind', 'streak')
+                .is('deleted_at', null)
+                .is('archived_at', null)
+                .order('created_at', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        // One verified transition: logs the relapse row and either resets the
+        // streak (previous_best_days updated) or, if useGrace and grace hasn't
+        // been used yet on this streak, keeps it alive and just flips grace_used.
+        async logRelapse(id, currentDays, reason, useGrace) {
+            const { data, error } = await supabase.rpc('atlas_targets_log_relapse', {
+                p_id: id, p_current_days: currentDays, p_reason: reason, p_use_grace: !!useGrace
+            });
+            if (error) throw new Error(error.message);
+            if (!data || data.length === 0) throw new Error('Log relapse affected zero rows');
+            return data[0];
+        }
     }
 };

@@ -6,47 +6,52 @@
   --pad-md: 16px;
   --pad-lg: 20px;
   --pad-xl: 28px;
-  
+
   /* Motion Tokens */
   --dur-fast: 100ms;
   --dur-base: 180ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  
+
   /* Typography */
   --font-serif: Georgia, 'Times New Roman', serif;
   --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
-/* 
- * Theme: Charcoal Muse (dark) 
+/*
+ * Theme: Charcoal Muse (dark) -- "Variant A", lifted 2026-07-25 after Abhishek compared
+ * three dark options side by side (mockup) and picked this one: surfaces raised from the
+ * original values so the theme doesn't read muddy/too-dark, same idea kept everywhere else.
  * Used when data-theme="dark", or data-theme="auto" and prefers-color-scheme is dark
  */
 :root[data-theme="dark"],
 :root[data-theme="auto"] {
-  --surface-0: #0e0e10;
-  --surface-1: #17181a;
-  --surface-1-hover: #1d1e21;
-  --surface-2: #1f2023;
-  --border: rgba(240, 240, 242, 0.08);
-  --border-hover: rgba(240, 240, 242, 0.16);
-  --top-edge: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --surface-0: #131316;
+  --surface-1: #1c1d20;
+  --surface-1-hover: #222327;
+  --surface-2: #26272b;
+  --border: rgba(240, 240, 242, 0.11);
+  --border-hover: rgba(240, 240, 242, 0.20);
+  --top-edge: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.25);
   --shadow-card-hover: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.35);
-  --text-primary: #ebe9e6;
-  --text-secondary: #93918e;
-  --text-muted: #66645f;
-  --accent-sage: #7ea28a;
-  --accent-blue: #6a8ec4;
-  --accent-lilac: #a598c9;
-  --accent-coral: #d17565;
-  --accent-sage-tint: rgba(126, 162, 138, 0.16);
-  --accent-sage-tint-hover: rgba(126, 162, 138, 0.30);
-  --accent-blue-tint: rgba(106, 142, 196, 0.16);
-  --accent-blue-tint-hover: rgba(106, 142, 196, 0.30);
-  --accent-lilac-tint: rgba(165, 152, 201, 0.16);
-  --accent-lilac-tint-hover: rgba(165, 152, 201, 0.30);
-  --accent-coral-tint: rgba(209, 117, 101, 0.16);
-  --accent-coral-tint-hover: rgba(209, 117, 101, 0.30);
+  --text-primary: #f1efec;
+  --text-secondary: #9d9b97;
+  --text-muted: #706e69;
+  --accent-sage: #86ab92;
+  --accent-blue: #759ad0;
+  --accent-lilac: #ac9fd2;
+  --accent-coral: #dd8170;
+  --accent-amber: #c9a04a;
+  --accent-sage-tint: rgba(134, 171, 146, 0.17);
+  --accent-sage-tint-hover: rgba(134, 171, 146, 0.32);
+  --accent-blue-tint: rgba(117, 154, 208, 0.17);
+  --accent-blue-tint-hover: rgba(117, 154, 208, 0.32);
+  --accent-lilac-tint: rgba(172, 159, 210, 0.17);
+  --accent-lilac-tint-hover: rgba(172, 159, 210, 0.32);
+  --accent-coral-tint: rgba(221, 129, 112, 0.17);
+  --accent-coral-tint-hover: rgba(221, 129, 112, 0.32);
+  --accent-amber-tint: rgba(201, 160, 74, 0.17);
+  --accent-amber-tint-hover: rgba(201, 160, 74, 0.32);
 }
 
 @media (prefers-color-scheme: light) {
@@ -67,6 +72,7 @@
     --accent-blue: #5e7fb0;
     --accent-lilac: #8776a8;
     --accent-coral: #b56b5d;
+    --accent-amber: #b89a44;
     --accent-sage-tint: rgba(111, 143, 101, 0.14);
     --accent-sage-tint-hover: rgba(111, 143, 101, 0.24);
     --accent-blue-tint: rgba(94, 127, 176, 0.14);
@@ -75,11 +81,13 @@
     --accent-lilac-tint-hover: rgba(135, 118, 168, 0.24);
     --accent-coral-tint: rgba(181, 107, 93, 0.14);
     --accent-coral-tint-hover: rgba(181, 107, 93, 0.24);
+    --accent-amber-tint: rgba(184, 154, 68, 0.14);
+    --accent-amber-tint-hover: rgba(184, 154, 68, 0.24);
   }
 }
 
-/* 
- * Theme: Paper Studio (light) 
+/*
+ * Theme: Paper Studio (light)
  * Used when data-theme="light"
  */
 :root[data-theme="light"] {
@@ -99,6 +107,7 @@
   --accent-blue: #5e7fb0;
   --accent-lilac: #8776a8;
   --accent-coral: #b56b5d;
+  --accent-amber: #b89a44;
   --accent-sage-tint: rgba(111, 143, 101, 0.14);
   --accent-sage-tint-hover: rgba(111, 143, 101, 0.24);
   --accent-blue-tint: rgba(94, 127, 176, 0.14);
@@ -107,6 +116,8 @@
   --accent-lilac-tint-hover: rgba(135, 118, 168, 0.24);
   --accent-coral-tint: rgba(181, 107, 93, 0.14);
   --accent-coral-tint-hover: rgba(181, 107, 93, 0.24);
+  --accent-amber-tint: rgba(184, 154, 68, 0.14);
+  --accent-amber-tint-hover: rgba(184, 154, 68, 0.24);
 }
 
 /* Reduced Motion Fallback */

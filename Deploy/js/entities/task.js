@@ -1,9 +1,10 @@
 export default {
-    shapeVersion: 2,
+    shapeVersion: 3,
     fields: {
         id: { type: 'uuid', system: true },
         project_id: { type: 'uuid', optional: true, editable: true },
         name: { type: 'text', required: true, editable: true },
+        kind: { type: 'enum', values: ['task', 'reminder'], required: true, editable: true },
         status: { type: 'enum', values: ['not_started', 'in_progress', 'done'], required: true },
         scheduled_date: { type: 'date', optional: true, editable: true },
         scheduled_time: { type: 'time', optional: true, editable: true },
