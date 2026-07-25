@@ -62,11 +62,11 @@ That principle led to four cuts from earlier drafts:
 [Compass · Atlas]  [Notebook]  Abhishek     [Auto|Light|Dark]  [ Today | Projects | Checklist ]
 ```
 
-**Today** — landing dashboard. Header stat tiles (checklist / tasks today / active projects), project-movement summary, target cards row, upcoming tasks/reminders side column.
+**Today** — landing dashboard. Header stat tiles (checklist / tasks today / active projects), project-movement summary, target cards row, upcoming tasks/reminders side column. **As of the Phase 2 dashboard rebuild (2026-07-25), the Checklist lives here as the "Routine" section, no separate tab — see the CLAUDE.md standing decision.**
 
 **Projects** — colorful card grid at top. Each project uses the monogram-chip + color-dot standard. Click a card → full **Project workspace** page: Header · Current focus · Next step · Current running task · Related tasks (add / complete / log a note on completion) · Work log (day-by-day narrative + auto-entries when tasks complete) · Future plans · Notes (plain textarea in v1).
 
-**Checklist** — daily checklist, ported from the current app (display + edit page). 6 AM logical-day boundary. Accent-edge blocks refreshed in Atlas theme.
+**Checklist** (~~third top tab~~ **now inside Today**, Phase 2) — daily checklist, ported from the current app (display + edit page). 6 AM logical-day boundary. Accent-edge blocks refreshed in Atlas theme.
 
 **Notebook** (top-nav icon, not a tab) — dated entries, one per day, plain textarea in v1 (rich text is optional Phase 6 only if plain proves insufficient).
 
@@ -321,7 +321,7 @@ D:\Calude\POS\
     │       ├── auth.js              (single owner of the auth session)
     │       ├── theme.js             (theme switcher: auto/light/dark + persistence)
     │       ├── db.js                (single Supabase choke-point, sectioned by entity)
-    │       ├── entities\
+    │       ├── entities\               (shape/version/validation metadata, no runtime imports)
     │       │   ├── project.js
     │       │   ├── task.js
     │       │   ├── task-log.js
@@ -330,23 +330,26 @@ D:\Calude\POS\
     │       │   ├── checklist-item.js
     │       │   ├── checklist-history.js
     │       │   ├── target.js
-    │       │   └── target-log.js
+    │       │   ├── target-log.js
+    │       │   ├── sleep-log.js         (added Phase 2)
+    │       │   └── workout-log.js       (added Phase 2)
     │       ├── pages\
     │       │   ├── today.js
     │       │   ├── projects-list.js
     │       │   ├── project-workspace.js
-    │       │   ├── checklist.js
-    │       │   ├── checklist-edit.js
+    │       │   ├── checklist.js         (checklist edit + display in one file; no separate checklist-edit.js)
     │       │   ├── notebook.js
-    │       │   └── restore.js       (soft-deleted rows, restore + hard delete)
+    │       │   └── restore.js           (soft-deleted rows across all 9 entity types, collapsed sections + hard delete)
     │       └── components\
     │           ├── project-card.js
-    │           ├── task-row.js
-    │           ├── target-card.js
-    │           ├── stat-tile.js
-    │           ├── color-picker.js
     │           ├── theme-switcher.js
-    │           └── undo-toast.js
+    │           ├── login-form.js        (added Phase 1 -- real Supabase Auth)
+    │           ├── undo-toast.js
+    │           ├── confirm-dialog.js    (added Phase 1 -- replaces window.confirm)
+    │           └── note-prompt.js       (added Phase 1 -- replaces window.prompt)
+    │       # Note: earlier drafts listed task-row.js / target-card.js / stat-tile.js /
+    │       # color-picker.js as separate components. They were inlined into their
+    │       # pages instead. Do not recreate as standalone files without a real reason.
     ├── migrations\                  (numbered SQL migrations, never edited after commit)
     │   ├── 001_init.sql
     │   └── ...

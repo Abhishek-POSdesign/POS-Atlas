@@ -7,7 +7,10 @@
 
     <!-- PWA Manifest -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0e0e10">
+    <meta name="theme-color" content="#131316">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+    <link rel="apple-touch-icon" href="/icon-192.png">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -143,36 +146,35 @@
                             <h1>Restore</h1>
                             <button class="btn-text" @click="close()">Close</button>
                         </div>
+                        <p class="project-focus">Anything you deleted lives here. Restore brings it back; Delete forever cannot be undone.</p>
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
                         <template x-if="loading"><p>Loading…</p></template>
                         <template x-if="!loading">
                             <div class="stack">
-                                <div class="card workspace-section">
-                                    <h2>Deleted projects</h2>
-                                    <template x-if="deletedProjects.length===0"><p class="project-focus">Nothing here.</p></template>
-                                    <template x-for="p in deletedProjects" :key="p.id">
-                                        <div class="restore-row card-nested">
-                                            <span x-text="p.name"></span>
-                                            <div class="restore-row-actions">
-                                                <button class="btn-text" @click="restoreProject(p)">Restore</button>
-                                                <button class="btn-text" style="color: var(--accent-coral)" @click="askHardDeleteProject(p)">Delete forever</button>
+                                <template x-for="section in sections" :key="section.key">
+                                    <div class="card workspace-section">
+                                        <button class="log-date-header" @click="toggleSection(section)" style="width:100%;">
+                                            <span x-text="`${section.label}: ${section.items.length}`"></span>
+                                            <span x-text="section.expanded ? '−' : '+'"></span>
+                                        </button>
+                                        <template x-if="section.expanded && section.items.length === 0">
+                                            <p class="project-focus" style="margin-top: var(--pad-sm);">Nothing here.</p>
+                                        </template>
+                                        <template x-if="section.expanded && section.items.length > 0">
+                                            <div style="margin-top: var(--pad-sm);">
+                                                <template x-for="row in section.items" :key="row.id">
+                                                    <div class="restore-row card-nested">
+                                                        <span x-text="labelOf(section, row)"></span>
+                                                        <div class="restore-row-actions">
+                                                            <button class="btn-text" @click="restoreRow(section, row)">Restore</button>
+                                                            <button class="btn-text" style="color: var(--accent-coral)" @click="askHardDeleteRow(section, row)">Delete forever</button>
+                                                        </div>
+                                                    </div>
+                                                </template>
                                             </div>
-                                        </div>
-                                    </template>
-                                </div>
-                                <div class="card workspace-section">
-                                    <h2>Deleted tasks</h2>
-                                    <template x-if="deletedTasks.length===0"><p class="project-focus">Nothing here.</p></template>
-                                    <template x-for="t in deletedTasks" :key="t.id">
-                                        <div class="restore-row card-nested">
-                                            <span x-text="t.name"></span>
-                                            <div class="restore-row-actions">
-                                                <button class="btn-text" @click="restoreTask(t)">Restore</button>
-                                                <button class="btn-text" style="color: var(--accent-coral)" @click="askHardDeleteTask(t)">Delete forever</button>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
+                                        </template>
+                                    </div>
+                                </template>
                             </div>
                         </template>
                         <template x-if="confirmingHardDelete">

@@ -1,8 +1,11 @@
-const CACHE_NAME = 'atlas-offline-shell-v13';
+const CACHE_NAME = 'atlas-offline-shell-v14';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
     '/manifest.json',
+    '/favicon.svg',
+    '/icon-192.png',
+    '/icon-512.png',
     '/css/tokens.css',
     '/css/layout.css',
     '/css/components.css',

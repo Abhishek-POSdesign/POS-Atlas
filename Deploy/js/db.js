@@ -151,10 +151,20 @@ export const DB = {
             if (error) throw new Error(error.message);
             return data;
         },
+        async listDeleted() {
+            const { data, error } = await supabase
+                .from('atlas_task_logs')
+                .select('*')
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         create(row) { return verifiedInsert('atlas_task_logs', row); },
         update(id, patch) { return verifiedUpdate('atlas_task_logs', id, patch); },
         async softDelete(id) { return (await verifiedRpc('atlas_task_logs_soft_delete'))(id); },
-        async restoreFromTrash(id) { return (await verifiedRpc('atlas_task_logs_restore_trash'))(id); }
+        async restoreFromTrash(id) { return (await verifiedRpc('atlas_task_logs_restore_trash'))(id); },
+        hardDelete(id) { return verifiedHardDelete('atlas_task_logs', id); }
     },
 
     ProjectNotes: {
@@ -168,11 +178,20 @@ export const DB = {
             if (error) throw new Error(error.message);
             return data;
         },
+        async listDeleted() {
+            const { data, error } = await supabase
+                .from('atlas_project_notes')
+                .select('*')
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         create(row) { return verifiedInsert('atlas_project_notes', row); },
         update(id, patch) { return verifiedUpdate('atlas_project_notes', id, patch); },
-        update(id, patch) { return verifiedUpdate('atlas_project_notes', id, patch); },
         async softDelete(id) { return (await verifiedRpc('atlas_project_notes_soft_delete'))(id); },
-        async restoreFromTrash(id) { return (await verifiedRpc('atlas_project_notes_restore_trash'))(id); }
+        async restoreFromTrash(id) { return (await verifiedRpc('atlas_project_notes_restore_trash'))(id); },
+        hardDelete(id) { return verifiedHardDelete('atlas_project_notes', id); }
     },
 
     Notebook: {
@@ -196,10 +215,20 @@ export const DB = {
             if (error) throw new Error(error.message);
             return data;
         },
+        async listDeleted() {
+            const { data, error } = await supabase
+                .from('atlas_notebook_entries')
+                .select('*')
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         create(row) { return verifiedInsert('atlas_notebook_entries', row); },
         update(id, patch) { return verifiedUpdate('atlas_notebook_entries', id, patch); },
         async softDelete(id) { return (await verifiedRpc('atlas_notebook_entries_soft_delete'))(id); },
-        async restoreFromTrash(id) { return (await verifiedRpc('atlas_notebook_entries_restore_trash'))(id); }
+        async restoreFromTrash(id) { return (await verifiedRpc('atlas_notebook_entries_restore_trash'))(id); },
+        hardDelete(id) { return verifiedHardDelete('atlas_notebook_entries', id); }
     },
 
     Checklist: {
@@ -213,6 +242,36 @@ export const DB = {
             if (error) throw new Error(error.message);
             return data;
         },
+        // For Restore -- includes archived-and-then-deleted, so a label
+        // lookup for a deleted history row can still find its item's name.
+        async listAllItems() {
+            const { data, error } = await supabase
+                .from('atlas_checklist_items')
+                .select('*')
+                .order('order_index', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async listDeletedItems() {
+            const { data, error } = await supabase
+                .from('atlas_checklist_items')
+                .select('*')
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async listDeletedHistory() {
+            const { data, error } = await supabase
+                .from('atlas_checklist_history')
+                .select('*')
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        hardDeleteItem(id) { return verifiedHardDelete('atlas_checklist_items', id); },
+        hardDeleteHistory(id) { return verifiedHardDelete('atlas_checklist_history', id); },
         async listHistoryForDate(entryDate) {
             const { data, error } = await supabase
                 .from('atlas_checklist_history')
@@ -248,6 +307,9 @@ export const DB = {
             return data;
         },
         async undoStatus(historyId) { return (await verifiedRpc('atlas_checklist_history_soft_delete'))(historyId); },
+        // Restore counterpart for undoStatus -- brings a mis-undone mark back
+        // from the trash (used by the Restore view).
+        async restoreHistory(historyId) { return (await verifiedRpc('atlas_checklist_history_restore_trash'))(historyId); },
         // For the trend graph -- all history rows across a date range, in one query.
         async listHistoryRange(startDate, endDate) {
             const { data, error } = await supabase
@@ -295,8 +357,18 @@ export const DB = {
             if (error || !data) throw new Error(error?.message || 'Sleep log save was not confirmed');
             return data;
         },
+        async listDeleted() {
+            const { data, error } = await supabase
+                .from('atlas_sleep_logs')
+                .select('*')
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         async softDelete(id) { return (await verifiedRpc('atlas_sleep_logs_soft_delete'))(id); },
-        async restoreFromTrash(id) { return (await verifiedRpc('atlas_sleep_logs_restore_trash'))(id); }
+        async restoreFromTrash(id) { return (await verifiedRpc('atlas_sleep_logs_restore_trash'))(id); },
+        hardDelete(id) { return verifiedHardDelete('atlas_sleep_logs', id); }
     },
 
     Workout: {
@@ -330,8 +402,18 @@ export const DB = {
             if (error || !data) throw new Error(error?.message || 'Workout log save was not confirmed');
             return data;
         },
+        async listDeleted() {
+            const { data, error } = await supabase
+                .from('atlas_workout_logs')
+                .select('*')
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         async softDelete(id) { return (await verifiedRpc('atlas_workout_logs_soft_delete'))(id); },
-        async restoreFromTrash(id) { return (await verifiedRpc('atlas_workout_logs_restore_trash'))(id); }
+        async restoreFromTrash(id) { return (await verifiedRpc('atlas_workout_logs_restore_trash'))(id); },
+        hardDelete(id) { return verifiedHardDelete('atlas_workout_logs', id); }
     },
 
     // Only the streak (kind='streak') side of Targets is built -- Phase 3 owns

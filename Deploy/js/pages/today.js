@@ -63,17 +63,22 @@ export function todayPage() {
             this.loading = true;
             this.errorMsg = '';
             try {
-                const today = todayKey();
+                // Checklist uses the 6am-shifted logical date (habit rollover).
+                // Sleep, workout, journal, tasks, projects all use the plain
+                // midnight calendar date -- Abhishek's explicit rule (2026-07-26):
+                // the 6am rule is *only* for checklist-style end-of-day habits.
+                const checklistDate = todayKey();
+                const calendarDate = todayIsoDate();
                 const dow = getLogicalDate().getDay();
                 const [tasks, projects, noteEntry, sleepEntry, workoutEntry, streaks, checklistItems, checklistHistory] = await Promise.all([
                     DB.Tasks.listActive(),
                     DB.Projects.listActive(),
                     DB.Notebook.getByDate(this.noteDate),
-                    DB.Sleep.getByDate(today),
-                    DB.Workout.getByDate(today),
+                    DB.Sleep.getByDate(calendarDate),
+                    DB.Workout.getByDate(calendarDate),
                     DB.Targets.listStreaks(),
                     DB.Checklist.listItems(),
-                    DB.Checklist.listHistoryForDate(today)
+                    DB.Checklist.listHistoryForDate(checklistDate)
                 ]);
                 this.tasks = tasks;
                 this.projects = projects;
@@ -253,7 +258,8 @@ export function todayPage() {
                 note: this.sleepForm.note.trim() || null
             };
             try {
-                this.sleepEntry = await DB.Sleep.save(todayKey(), patch);
+                // Midnight calendar date, per date-rule split (see load()).
+                this.sleepEntry = await DB.Sleep.save(todayIsoDate(), patch);
                 this.sleepModalOpen = false;
             } catch (e) {
                 this.errorMsg = e.message;
@@ -294,7 +300,8 @@ export function todayPage() {
                 note: this.workoutForm.note.trim() || null
             };
             try {
-                this.workoutEntry = await DB.Workout.save(todayKey(), patch);
+                // Midnight calendar date, per date-rule split (see load()).
+                this.workoutEntry = await DB.Workout.save(todayIsoDate(), patch);
                 this.workoutModalOpen = false;
             } catch (e) {
                 this.errorMsg = e.message;
