@@ -65,9 +65,13 @@
         <div>
             <header class="top-header">
                 <div class="logo">
+                    <!-- Compass polygon filled (2026-07-26 polish) so the mark has
+                         real presence at 24px, not a wire silhouette next to the
+                         weightier wordmark. Circle stays a stroke -- filling both
+                         would over-boldify the icon. -->
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="10"></circle>
-                        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" stroke="none"></polygon>
                     </svg>
                     <span class="wordmark">Atlas</span>
                 </div>
@@ -196,12 +200,18 @@
                 <template x-if="!overlay && tab==='today'">
                     <div x-data="todayPage()">
                         <div class="section-header">
-                            <h1>Today</h1>
-                            <button class="icon-button" :class="{active: journalOpen}" @click="journalOpen = !journalOpen" title="Journal">
+                            <!-- Today title block: H1 above its own date, so the page title
+                                 clearly outranks the top-nav tabs (Today / Projects). Replaces
+                                 the old H1 + separate <p class="sub"> below. -->
+                            <div class="today-block">
+                                <h1>Today</h1>
+                                <div class="today-date" x-text="todayLabel"></div>
+                            </div>
+                            <button class="icon-button journal-btn" :class="{active: journalOpen}" @click="journalOpen = !journalOpen" aria-label="Log an emotion or thought about today">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                <span class="tooltip">Log an emotion or thought about today</span>
                             </button>
                         </div>
-                        <p class="sub" x-text="todayLabel"></p>
                         <template x-if="journalOpen">
                             <div class="card panel" style="margin-bottom: var(--pad-md);">
                                 <div class="field"><textarea x-model="noteDraft" rows="3" placeholder="Log an emotion, a thought, anything…" autofocus></textarea></div>
@@ -231,7 +241,7 @@
                                         <div class="card kpi-card">
                                             <div class="kpi-top">
                                                 <div class="kpi-icon blue"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-                                                <div style="text-align:right;"><div class="kpi-num-lg"><span x-text="recentlyCompleted.length"></span><span style="font-size:15px;color:var(--text-muted);" x-text="'/' + tasksTodayTotal"></span></div><div class="kpi-label">Tasks today</div></div>
+                                                <div style="text-align:right;"><div class="kpi-num-lg"><span x-text="recentlyCompleted.length"></span><span class="denom" x-text="'/' + tasksTodayTotal"></span></div><div class="kpi-label">Tasks today</div></div>
                                             </div>
                                             <div class="kpi-dot-row">
                                                 <template x-for="(t, i) in upcomingTasks.slice(0,5)" :key="t.id"><span class="kpi-dot on"></span></template>
@@ -257,8 +267,12 @@
 
                                         <div class="card kpi-card hero">
                                             <div class="kpi-label" style="align-self:flex-start;">Checklist today</div>
+                                            <!-- Ring auto-scales to its .kpi-ring-wrap size (128px) via
+                                                 the SVG width:100%/height:100% rule in components.css; the
+                                                 viewBox stays 100x100 so the stroke-dasharray maths still
+                                                 works. Don't hardcode width/height here. -->
                                             <div class="kpi-ring-wrap">
-                                                <svg width="90" height="90" viewBox="0 0 100 100">
+                                                <svg viewBox="0 0 100 100">
                                                     <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-2)" stroke-width="10"/>
                                                     <circle cx="50" cy="50" r="42" fill="none" stroke="var(--accent-sage)" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" :stroke-dashoffset="264 - (264 * checklistPct / 100)"/>
                                                 </svg>
@@ -289,7 +303,18 @@
                                             <button class="add-btn" @click="openTaskModal()">+ Add task</button>
                                         </div>
                                         <div class="task-list">
-                                            <template x-if="upcomingTasks.length === 0"><p class="project-focus">Nothing scheduled.</p></template>
+                                            <!-- Empty state: three pulsing dots + one headline + one line of
+                                                 helper copy. Mature, no cartoon. Animation collapses under
+                                                 prefers-reduced-motion via tokens.css's global override. Only
+                                                 shows when both upcoming and recently-completed are empty -- a
+                                                 few completed items today still says "you were busy". -->
+                                            <template x-if="upcomingTasks.length === 0 && recentlyCompleted.length === 0">
+                                                <div class="empty-tasks">
+                                                    <div class="empty-pulse"><span></span><span></span><span></span></div>
+                                                    <div class="headline">Nothing scheduled today</div>
+                                                    <div class="help">Add a task above, or check the Routine section below for what's next.</div>
+                                                </div>
+                                            </template>
                                             <template x-for="task in upcomingTasks" :key="task.id">
                                                 <div class="task-row">
                                                     <template x-if="task.kind==='reminder'">
@@ -309,6 +334,7 @@
 
                                             <template x-if="recentlyCompleted.length > 0">
                                                 <div>
+                                                    <!-- system-generated label (like "Next up") -- muted secondary style -->
                                                     <div class="task-list-divider">Recently completed</div>
                                                     <template x-for="task in recentlyCompleted" :key="task.id">
                                                         <div class="task-row done">
@@ -329,7 +355,10 @@
                                                 <button class="btn-text" @click="openSleepModal()" x-text="sleepEntry ? 'Edit' : 'Log sleep'"></button>
                                             </div>
                                             <template x-if="!sleepEntry">
-                                                <p class="project-focus" style="margin:0;">No sleep logged today.</p>
+                                                <div class="nodata">
+                                                    <span class="h">No sleep logged today.</span>
+                                                    <span class="p">Enter manually, or wait for the auto-parse from your ring screenshot (planned).</span>
+                                                </div>
                                             </template>
                                             <template x-if="sleepEntry">
                                                 <div class="metric-grid">
@@ -349,7 +378,10 @@
                                                 <button class="btn-text" @click="openWorkoutModal()" x-text="workoutEntry ? 'Edit' : 'Log workout'"></button>
                                             </div>
                                             <template x-if="!workoutEntry">
-                                                <p class="project-focus" style="margin:0;">No workout logged today.</p>
+                                                <div class="nodata">
+                                                    <span class="h">No workout logged today.</span>
+                                                    <span class="p">Enter manually, or wait for the same AI screenshot parse as Sleep (planned).</span>
+                                                </div>
                                             </template>
                                             <template x-if="workoutEntry">
                                                 <div class="metric-grid">

@@ -3,9 +3,10 @@
 .tab {
     background: none;
     border: none;
-    padding: var(--pad-md) 0;
+    padding: 10px 0;
     color: var(--text-secondary);
-    font-size: 1rem;
+    font-size: 14px;
+    letter-spacing: .01em;
     font-family: inherit;
     cursor: pointer;
     border-bottom: 2px solid transparent;
@@ -16,8 +17,11 @@
     color: var(--text-primary);
 }
 
+/* Active tab: primary text carries the emphasis; accent lives on the underline only.
+   Keeps navigation quiet -- Today H1 becomes the loudest thing on the page. */
 .tab.active {
-    color: var(--accent-blue);
+    color: var(--text-primary);
+    font-weight: 600;
     border-bottom-color: var(--accent-blue);
 }
 
@@ -484,6 +488,48 @@
     margin: 0;
 }
 
+/* Today title block: H1 sits over its own date line, so the page title
+   clearly outranks the top-nav tabs (the "where am I" cue). Only used
+   on the Today page -- workspace/other sections keep the plain H1. */
+.today-block { display: flex; flex-direction: column; }
+.today-block h1 {
+    font-family: var(--font-serif);
+    font-size: 34px;
+    font-weight: 400;
+    letter-spacing: -.005em;
+    margin: 0;
+    line-height: 1.15;
+}
+.today-date {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-top: 4px;
+}
+
+/* Tooltip: reused wherever an icon-button needs to name itself on hover
+   or keyboard focus (currently: the Journal pencil on the Today header).
+   Reuses surface-2 + border + shadow-card tokens -- no new colours. */
+.journal-btn { position: relative; }
+.journal-btn .tooltip {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 6px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    box-shadow: var(--shadow-card);
+    z-index: 20;
+}
+.journal-btn:hover .tooltip,
+.journal-btn:focus-visible .tooltip,
+.journal-btn:focus-within .tooltip { display: block; }
+
 .stack {
     display: flex;
     flex-direction: column;
@@ -638,9 +684,16 @@
     border-radius: 50%;
 }
 
+/* Routine mini-dots -- SAME colour language as the trend chart legend
+   (2026-07-26 polish). done/skipped/missed here read exactly the same way
+   as the segments in the Checklist Completion chart below. Pending is a
+   hollow ring so "not marked yet today" reads as a placeholder rather
+   than a fourth colour. */
 .cl-mini-dot.done { background-color: var(--accent-sage); }
-.cl-mini-dot.skip { background-color: var(--text-muted); }
-.cl-mini-dot.pending { background-color: var(--border); }
+.cl-mini-dot.skip,
+.cl-mini-dot.skipped { background-color: var(--text-muted); opacity: .5; }
+.cl-mini-dot.missed { background-color: var(--accent-coral); }
+.cl-mini-dot.pending { background-color: transparent; border: 1px solid var(--border-hover); }
 
 .cl-mini-bar {
     width: 60px;
@@ -752,6 +805,14 @@
 
 .ck-status-done { color: var(--accent-sage); }
 .ck-status-skipped, .ck-status-holiday { color: var(--text-muted); }
+
+/* Muted Log button on already-marked rows (2026-07-26 polish) -- keeps
+   the button reachable (hover restores full opacity) but visually says
+   "this row is settled, no action needed right now". */
+.ck-row.is-done .ck-log-btn,
+.ck-row.is-skipped .ck-log-btn { opacity: .35; transition: opacity var(--dur-fast) var(--ease-out); }
+.ck-row.is-done .ck-log-btn:hover,
+.ck-row.is-skipped .ck-log-btn:hover { opacity: 1; }
 
 .ck-log-btn {
     font-size: 12px;
@@ -886,19 +947,25 @@
     margin-top: 4px;
 }
 
+/* Trend legend strengthened (2026-07-26 polish) -- bigger dots, weight 500
+   secondary text so it stays scannable at a glance without competing with
+   the chart above it. */
 .trend-legend {
     display: flex;
-    gap: var(--pad-md);
-    font-size: 12px;
-    color: var(--text-muted);
+    gap: 22px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    align-items: center;
 }
+.trend-legend span { display: inline-flex; align-items: center; }
 
 .trend-dot {
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 11px;
+    height: 11px;
     border-radius: 50%;
-    margin-right: 4px;
+    margin-right: 6px;
 }
 
 .trend-dot.trend-done { background-color: var(--accent-sage); }
@@ -1108,26 +1175,37 @@
 .streak-label { font-size: 14px; font-weight: 600; margin-top: 2px; color: var(--text-primary); }
 .streak-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
 .streak-meta.grace { color: var(--accent-amber); }
+/* Relapse action -- deliberately quiet (2026-07-26 polish pass). Was a coral
+   outline pill that read as a button; now a text-only link at 55% opacity so
+   it can never be mistaken for the card's primary action, but stays coral so
+   the "caution / harm" meaning survives. Hover underlines instead of filling. */
 .streak-action {
-    margin-top: 10px; font-size: 11px; font-weight: 600; padding: 5px 14px; border-radius: 20px;
-    cursor: pointer; font-family: var(--font-sans); background: none; border: 1px solid var(--accent-coral);
-    color: var(--accent-coral); opacity: .75;
+    margin-top: 10px; font-size: 11.5px; font-weight: 500; padding: 4px 6px;
+    letter-spacing: .04em; cursor: pointer; font-family: var(--font-sans);
+    background: none; border: none; color: var(--accent-coral); opacity: .55;
+    transition: opacity var(--dur-fast) var(--ease-out);
 }
-.streak-action:hover { opacity: 1; background: var(--accent-coral-tint); }
+.streak-action:hover,
+.streak-action:focus-visible { opacity: 1; text-decoration: underline; text-underline-offset: 3px; }
 
 /* KPI cards: filled, not cornered */
 .kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--pad-md); }
 .kpi-card {
-    padding: var(--pad-md) var(--pad-lg); display: flex; flex-direction: column; justify-content: space-between; gap: 10px; min-height: 190px;
+    padding: var(--pad-md) var(--pad-lg); display: flex; flex-direction: column; justify-content: space-between; gap: 10px; min-height: 210px;
     transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 .kpi-card:hover { transform: translateY(-3px); box-shadow: var(--top-edge), var(--shadow-card-hover); }
 .kpi-top { display: flex; align-items: flex-start; justify-content: space-between; }
-.kpi-icon { width: 32px; height: 32px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.kpi-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .kpi-icon.blue { background: var(--accent-blue-tint); color: var(--accent-blue); }
 .kpi-icon.lilac { background: var(--accent-lilac-tint); color: var(--accent-lilac); }
-.kpi-num-lg { font-family: var(--font-serif); font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; }
-.kpi-label { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+/* KPI number grows 26 -> 40 (Georgia already reads bold at that size, keep
+   weight 400 so it stays calm). Denominator ("/17") drops to a supporting
+   role via .denom -- visibly secondary, so the achieved number is what
+   registers first. */
+.kpi-num-lg { font-family: var(--font-serif); font-size: 40px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi-num-lg .denom { font-size: 20px; color: var(--text-muted); font-weight: 400; }
+.kpi-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-top: 4px; }
 
 .kpi-dot-row { display: flex; gap: 6px; margin-top: 4px; }
 .kpi-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); }
@@ -1147,23 +1225,38 @@
 .kpi-proj-chip.color-coral { background: var(--accent-coral); color: var(--surface-0); }
 
 .kpi-card.hero { background: linear-gradient(160deg, var(--accent-sage-tint), var(--surface-1) 75%); align-items: center; text-align: center; }
-.kpi-ring-wrap { position: relative; width: 90px; height: 90px; align-self: center; }
-.kpi-ring-wrap svg { transform: rotate(-90deg); }
+/* Ring grew 90 -> 128 so it reads as the hero of the Checklist card, not a
+   badge. Inner number grew to match. Ring-wrap is a fixed square so the SVG
+   can sit centered without layout jump when the % changes. */
+.kpi-ring-wrap { position: relative; width: 128px; height: 128px; align-self: center; }
+.kpi-ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
 .kpi-ring-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-.kpi-ring-num .n { font-family: var(--font-serif); font-size: 19px; line-height: 1; color: var(--accent-sage); }
-.kpi-ring-num .d { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+.kpi-ring-num .n { font-family: var(--font-serif); font-size: 28px; line-height: 1; color: var(--accent-sage); font-variant-numeric: tabular-nums; }
+.kpi-ring-num .d { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
 /* 60/40 row, equal height so neither side leaves (or creates) dead space */
 .split-60-40 { display: grid; grid-template-columns: 3fr 2fr; gap: var(--pad-md); margin-bottom: var(--pad-md); }
 @media (max-width: 900px) { .split-60-40 { grid-template-columns: 1fr; } }
 
-.col-height { height: 468px; display: flex; flex-direction: column; }
+/* Task column + vitals column share a shape, not a fixed pixel height
+   (2026-07-26 polish). min-height keeps the split from collapsing when
+   the task list is empty; max-height stops it from stretching endlessly.
+   Once tasks exceed max, .task-list's own overflow-y:auto kicks in and
+   scrolls internally instead of pushing the card taller. */
+.col-height { min-height: 380px; max-height: 560px; display: flex; flex-direction: column; }
 
 .task-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 .task-list-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: var(--pad-sm) 0 4px; }
 .task-row.done { opacity: .6; }
 .task-row.done .task-badge.reminder { background: var(--accent-sage-tint); color: var(--accent-sage); }
 .task-badge.plain { background: var(--surface-2); border: 1.5px solid var(--border-hover); border-radius: 50%; width: 10px; height: 10px; margin: 0 8px; }
+
+/* System-generated meta inside .task-row -- project chip label and the
+   time/date column. Both were inheriting body text color, which read as
+   equal-weight data next to the task name. They're metadata; treat them
+   as such. tabular-nums keeps the time column visually aligned. */
+.task-row .task-proj { color: var(--text-muted); font-size: 12px; }
+.task-row .task-time { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 
 .vitals-stack { display: flex; flex-direction: column; gap: var(--pad-md); }
 .vital-card {
@@ -1179,3 +1272,34 @@
 .metric { display: flex; flex-direction: column; }
 .metric .v { font-family: var(--font-serif); font-size: 17px; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .metric .l { font-size: 9.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
+
+/* No-data helper for Sleep / Workout vitals (2026-07-26 polish). Was a
+   single italic line that read as decorative filler; now a two-line stack
+   that says (a) what's missing, (b) how it fills. .ai-note below stays as
+   very-small italic metadata, structurally secondary to real values. */
+.nodata { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.nodata .h { color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.nodata .p { color: var(--text-muted); font-size: 12px; }
+
+/* Empty-tasks state: three slowly pulsing dots + one headline + one line
+   of helper copy. Uses only tokens; the pulse animation collapses under
+   prefers-reduced-motion via tokens.css's global override. */
+.empty-tasks {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    padding: var(--pad-lg); gap: 4px;
+}
+.empty-tasks .headline { font-size: 15px; color: var(--text-primary); font-weight: 500; }
+.empty-tasks .help { font-size: 13px; color: var(--text-secondary); max-width: 320px; line-height: 1.45; }
+.empty-pulse { display: flex; gap: 8px; margin-bottom: var(--pad-md); }
+.empty-pulse span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-blue-tint);
+    animation: atlas-empty-pulse 1.6s var(--ease-out) infinite;
+}
+.empty-pulse span:nth-child(2) { animation-delay: .2s; }
+.empty-pulse span:nth-child(3) { animation-delay: .4s; }
+@keyframes atlas-empty-pulse {
+    0%, 100% { opacity: .3; transform: scale(1); background: var(--accent-blue-tint); }
+    50% { opacity: 1; transform: scale(1.25); background: var(--accent-blue); }
+}

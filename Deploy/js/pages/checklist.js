@@ -17,7 +17,11 @@ export function checklistPage() {
         historyByItem: {}, // item_id -> today's history row
         today: '',
         blocks: BLOCKS,
-        collapsedBlocks: {},
+        // Collapsed by default on every fresh mount (2026-07-26 polish pass).
+        // Explicitly session-only -- never persisted to localStorage, so a
+        // hard-refresh always starts the routine calmly closed. Toggling a
+        // block just flips the in-memory boolean for the rest of the session.
+        collapsedBlocks: { morning: true, afternoon: true, night: true, sleep: true },
         dayNames: DAY_NAMES,
 
         managing: false,

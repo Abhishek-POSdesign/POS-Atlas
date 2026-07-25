@@ -4,7 +4,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--pad-md) var(--pad-lg);
+    padding: 14px var(--pad-lg);
     background-color: var(--surface-1);
     border-bottom: 1px solid var(--border);
     box-shadow: var(--top-edge);
@@ -13,27 +13,27 @@
 .logo {
     display: flex;
     align-items: center;
-    gap: var(--pad-sm);
+    gap: 10px;
     color: var(--accent-blue);
 }
 
 .wordmark {
     font-family: var(--font-serif);
-    font-size: 1.25rem;
-    letter-spacing: 0.05em;
+    font-size: 1.35rem;
+    letter-spacing: 0.07em;
     color: var(--text-primary);
 }
 
 .header-actions {
     display: flex;
     align-items: center;
-    gap: var(--pad-lg);
+    gap: 22px;
 }
 
 .top-tabs {
     display: flex;
-    padding: 0 var(--pad-lg);
-    gap: var(--pad-lg);
+    padding: 6px var(--pad-lg);
+    gap: 22px;
     background-color: var(--surface-1);
     border-bottom: 1px solid var(--border);
 }
