@@ -388,7 +388,9 @@ Each phase must be approved before the next begins. Each phase ends with a runni
 - GitHub Actions deploy pipeline to the chosen Atlas URL on MilesWeb (subfolder or subdomain — decided at Phase 0 kickoff so it never touches the live current app)
 - **Approval gate**: schema reviewed, entity files reviewed, empty app loads at the Atlas URL with theme switcher working, deploy pipeline confirmed
 
-### Phase 1 — Projects + Tasks (v1, the first real usable release)
+### Phase 1 — Projects + Tasks (v1, the first real usable release) — ✅ COMPLETE, live at atlas.abhisheksikka.com (2026-07-25)
+Full detail in `CHANGELOG.md`. Shipped everything below, plus real Supabase Auth (added mid-phase — see "Authentication" above), in-app confirm/note dialogs replacing browser popups, and a design-system pass (heading chips, date-grouped work log and notes, project-card click-to-expand) that took four rounds of real testing to land. **Deferred to a later phase, explicitly**: Today dashboard richness (charts/visuals — waiting on Checklist/Targets to exist first), a floating/draggable Notebook, and a further visual-hierarchy refinement pass.
+
 - 3-tab nav + Notebook icon + user name + theme switcher (all in top header)
 - **Projects tab**: card grid using the locked monogram-chip standard, create/edit project (name, color, monogram override, description), full workspace page with all sections (header, current focus, next step, running task, related tasks with add/complete/log-note, work log, future plans, project notes as plain textarea)
 - **Task model**: unified (task with optional time + optional notify toggle), attached to a project or standalone
@@ -509,6 +511,8 @@ Every phase ends with a **live demonstration**, not a code diff.
 
 ---
 
-## Ready for Phase 0
+## Status
 
-Architecture approved. Design approved. Tokens locked. Plan and CLAUDE.md written. The next session begins Phase 0.
+Phase 0 ✅ · Phase 1 ✅ (live at atlas.abhisheksikka.com, 2026-07-25) · Phase 2 (Checklist + streak migration) not started, needs Abhishek's go-ahead before beginning.
+
+Deferred, explicitly, not forgotten: Today dashboard richness (Phase 3+, once Checklist/Targets exist), a floating Notebook window, a further visual-hierarchy refinement pass.
