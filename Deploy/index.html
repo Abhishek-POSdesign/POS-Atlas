@@ -291,7 +291,8 @@
                                             <div class="kpi-ring-wrap">
                                                 <svg viewBox="0 0 100 100">
                                                     <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-2)" stroke-width="10"/>
-                                                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--accent-sage)" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" :stroke-dashoffset="264 - (264 * checklistPct / 100)"/>
+                                                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border-hover)" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" :stroke-dashoffset="checklistTotalToday ? (264 - (264 * (checklistDoneToday + checklistSkippedToday) / checklistTotalToday)) : 264"/>
+                                                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--accent-sage)" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" :stroke-dashoffset="checklistTotalToday ? (264 - (264 * checklistDoneToday / checklistTotalToday)) : 264"/>
                                                 </svg>
                                                 <div class="kpi-ring-num"><span class="n" x-text="`${checklistDoneToday}/${checklistTotalToday}`"></span><span class="d" x-text="checklistPct + '%'"></span></div>
                                             </div>
@@ -379,13 +380,13 @@
                                                 <h2 style="margin:0; font-size: 13px;">Sleep</h2>
                                                 <button class="btn-text" @click="openSleepModal()" x-text="sleepEntry ? 'Edit' : 'Log sleep'"></button>
                                             </div>
-                                            <template x-if="!sleepEntry">
+                                            <template x-if="!hasSleepData">
                                                 <div class="nodata">
                                                     <span class="h">No sleep logged today.</span>
                                                     <span class="p">Log your sleep metrics to keep your health data up to date.</span>
                                                 </div>
                                             </template>
-                                            <template x-if="sleepEntry">
+                                            <template x-if="hasSleepData">
                                                 <div class="metric-grid">
                                                     <div class="metric"><span class="v" x-text="sleepEntry.sleep_score ?? '—'"></span><span class="l">Score</span></div>
                                                     <div class="metric"><span class="v" x-text="sleepEntry.duration_minutes != null ? Math.floor(sleepEntry.duration_minutes/60)+'h '+(sleepEntry.duration_minutes%60)+'m' : '—'"></span><span class="l">Duration</span></div>
@@ -402,13 +403,13 @@
                                                 <h2 style="margin:0; font-size: 13px;">Workout</h2>
                                                 <button class="btn-text" @click="openWorkoutModal()" x-text="workoutEntry ? 'Edit' : 'Log workout'"></button>
                                             </div>
-                                            <template x-if="!workoutEntry">
+                                            <template x-if="!hasWorkoutData">
                                                 <div class="nodata">
                                                     <span class="h">No workout logged today.</span>
                                                     <span class="p">Log a workout to track your activity and stay on target.</span>
                                                 </div>
                                             </template>
-                                            <template x-if="workoutEntry">
+                                            <template x-if="hasWorkoutData">
                                                 <div class="metric-grid">
                                                     <div class="metric"><span class="v" x-text="workoutEntry.workout_score ?? '—'"></span><span class="l">Score</span></div>
                                                     <div class="metric"><span class="v" x-text="workoutEntry.workout_type || '—'"></span><span class="l">Type</span></div>

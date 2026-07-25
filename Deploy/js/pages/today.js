@@ -75,10 +75,15 @@ export function todayPage() {
                 // For Dashboard lag optimization, we can pull the trend load out of the blocking Promise.all.
                 // We'll address that in the lag optimization step. For now, just fix the checklist math.
                 
-                const [tasks, projects, noteEntry, sleepEntry, workoutEntry, streaks, checklistItems, checklistHistory] = await Promise.all([
+                // noteEntry is hidden by default behind the journalOpen toggle, so it can load asynchronously without flashing
+                DB.Notebook.getByDate(this.noteDate).then(entry => {
+                    this.noteEntry = entry;
+                    this.noteDraft = entry ? entry.body : '';
+                }).catch(console.error);
+
+                const [tasks, projects, sleepEntry, workoutEntry, streaks, checklistItems, checklistHistory] = await Promise.all([
                     DB.Tasks.listActive(),
                     DB.Projects.listActive(),
-                    DB.Notebook.getByDate(this.noteDate),
                     DB.Sleep.getByDate(calendarDate),
                     DB.Workout.getByDate(calendarDate),
                     DB.Targets.listStreaks(),
@@ -87,8 +92,6 @@ export function todayPage() {
                 ]);
                 this.tasks = tasks;
                 this.projects = projects;
-                this.noteEntry = noteEntry;
-                this.noteDraft = noteEntry ? noteEntry.body : '';
                 this.sleepEntry = sleepEntry;
                 this.workoutEntry = workoutEntry;
                 this.streaks = streaks;
@@ -231,11 +234,16 @@ export function todayPage() {
 
         // ---- sleep ----
         get sleepSummary() {
-            if (!this.sleepEntry) return 'No sleep logged today';
+            if (!this.hasSleepData) return 'No sleep logged today';
             const parts = [];
             if (this.sleepEntry.duration_minutes != null) parts.push(minutesToHM(this.sleepEntry.duration_minutes));
             if (this.sleepEntry.sleep_score != null) parts.push(`Score ${this.sleepEntry.sleep_score}`);
             return parts.length ? parts.join(' · ') : 'Logged, no details';
+        },
+        get hasSleepData() {
+            if (!this.sleepEntry) return false;
+            const e = this.sleepEntry;
+            return e.duration_minutes != null || e.sleep_score != null || e.deep_minutes != null || e.rem_minutes != null || e.resting_hr != null || e.hrv != null || e.note;
         },
         openSleepModal() {
             const e = this.sleepEntry;
@@ -279,12 +287,17 @@ export function todayPage() {
 
         // ---- workout ----
         get workoutSummary() {
-            if (!this.workoutEntry) return 'No workout logged today';
+            if (!this.hasWorkoutData) return 'No workout logged today';
             const parts = [];
             if (this.workoutEntry.duration_minutes != null) parts.push(this.workoutEntry.duration_minutes + ' min');
             if (this.workoutEntry.workout_type) parts.push(this.workoutEntry.workout_type);
             if (this.workoutEntry.workout_score != null) parts.push(`Score ${this.workoutEntry.workout_score}`);
             return parts.length ? parts.join(' · ') : 'Logged, no details';
+        },
+        get hasWorkoutData() {
+            if (!this.workoutEntry) return false;
+            const e = this.workoutEntry;
+            return e.duration_minutes != null || e.workout_type || e.workout_score != null || e.calories != null || e.vo2_max != null || e.note;
         },
         openWorkoutModal() {
             const e = this.workoutEntry;
