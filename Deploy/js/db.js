@@ -232,10 +232,16 @@ export const DB = {
         // constraint -- one status per item per day. deleted_at is reset to null
         // here too, so re-marking a day whose entry was previously undone (soft
         // deleted) revives that same row instead of colliding with it.
-        async setStatus(itemId, entryDate, status) {
+        // extra.loggedTime / extra.note are plain user-entered fields (like a
+        // task's scheduled_time), not system audit timestamps -- fine to upsert
+        // directly, no RPC needed.
+        async setStatus(itemId, entryDate, status, extra = {}) {
+            const payload = { item_id: itemId, entry_date: entryDate, status, deleted_at: null };
+            if (extra.loggedTime !== undefined) payload.logged_time = extra.loggedTime || null;
+            if (extra.note !== undefined) payload.note = extra.note || null;
             const { data, error } = await supabase
                 .from('atlas_checklist_history')
-                .upsert({ item_id: itemId, entry_date: entryDate, status, deleted_at: null }, { onConflict: 'item_id,entry_date' })
+                .upsert(payload, { onConflict: 'item_id,entry_date' })
                 .select()
                 .single();
             if (error || !data) throw new Error(error?.message || 'Checklist status update was not confirmed');

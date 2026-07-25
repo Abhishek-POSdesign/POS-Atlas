@@ -2,6 +2,11 @@ import { DB } from '../db.js';
 import { getLogicalDate, todayKey } from '../date-utils.js';
 import { BLOCKS } from '../checklist-blocks.js';
 
+function nowHHMM() {
+    const n = new Date();
+    return String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
+}
+
 export function checklistPage() {
     return {
         loading: true,
@@ -10,12 +15,16 @@ export function checklistPage() {
         historyByItem: {}, // item_id -> today's history row
         today: '',
         blocks: BLOCKS,
+        collapsedBlocks: {},
 
         managing: false,
         addingToBlock: null,
         addForm: { name: '', icon: '' },
         editingItemId: null,
         editForm: { name: '', block: '', icon: '' },
+
+        logItem: null,
+        logForm: { time: '', note: '' },
 
         async init() {
             await this.load();
@@ -53,31 +62,63 @@ export function checklistPage() {
             const h = this.historyByItem[item.id];
             return h ? h.status : null;
         },
+        statusLabel(item) {
+            const h = this.historyByItem[item.id];
+            if (!h) return 'Pending';
+            if (h.status === 'done') return 'Done' + (h.logged_time ? ' · ' + h.logged_time.slice(0, 5) : '');
+            if (h.status === 'skipped') return 'Skipped';
+            if (h.status === 'holiday') return 'Holiday';
+            return 'Pending';
+        },
         doneCountForBlock(blockKey) {
             return this.itemsForBlock(blockKey).filter(i => this.statusFor(i) === 'done').length;
+        },
+        blockProgress(blockKey) {
+            const items = this.itemsForBlock(blockKey);
+            if (!items.length) return 0;
+            return Math.round(this.doneCountForBlock(blockKey) / items.length * 100);
         },
         get totalDoneToday() {
             return this.items.filter(i => this.statusFor(i) === 'done').length;
         },
 
-        async mark(item, status) {
-            const current = this.statusFor(item);
-            if (current === status) return this.undoMark(item);
+        toggleBlock(blockKey) {
+            this.collapsedBlocks = { ...this.collapsedBlocks, [blockKey]: !this.collapsedBlocks[blockKey] };
+        },
+
+        // ---- Log popup: time + optional note, then Done/Skip/Holiday/Undo ----
+        openLog(item) {
+            const h = this.historyByItem[item.id];
+            this.logItem = item;
+            this.logForm = {
+                time: (h && h.logged_time) ? h.logged_time.slice(0, 5) : nowHHMM(),
+                note: (h && h.note) || ''
+            };
+        },
+        closeLog() { this.logItem = null; },
+        async confirmLog(status) {
+            if (!this.logItem) return;
+            const item = this.logItem;
             try {
-                const row = await DB.Checklist.setStatus(item.id, this.today, status);
+                const extra = { note: this.logForm.note.trim() };
+                if (status === 'done' || status === 'holiday') extra.loggedTime = this.logForm.time;
+                const row = await DB.Checklist.setStatus(item.id, this.today, status, extra);
                 this.historyByItem = { ...this.historyByItem, [item.id]: row };
+                this.closeLog();
             } catch (e) {
                 this.errorMsg = e.message;
             }
         },
-        async undoMark(item) {
-            const h = this.historyByItem[item.id];
-            if (!h) return;
+        async clearLog() {
+            if (!this.logItem) return;
+            const h = this.historyByItem[this.logItem.id];
+            if (!h) { this.closeLog(); return; }
             try {
                 await DB.Checklist.undoStatus(h.id);
                 const copy = { ...this.historyByItem };
-                delete copy[item.id];
+                delete copy[this.logItem.id];
                 this.historyByItem = copy;
+                this.closeLog();
             } catch (e) {
                 this.errorMsg = e.message;
             }

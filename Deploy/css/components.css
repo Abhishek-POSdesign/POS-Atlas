@@ -570,58 +570,200 @@
 
 /* ---------- Checklist ---------- */
 
-.checklist-row {
-    padding: 10px var(--pad-md);
-    margin-bottom: 6px;
+.cl-block {
+    margin-bottom: var(--pad-md);
+    background-color: var(--surface-1);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color var(--dur-fast) var(--ease-out);
 }
 
-.checklist-row-main {
+.cl-block.color-coral { border-left-color: var(--accent-coral); }
+.cl-block.color-blue { border-left-color: var(--accent-blue); }
+.cl-block.color-lilac { border-left-color: var(--accent-lilac); }
+.cl-block.color-sage { border-left-color: var(--accent-sage); }
+
+.cl-block-header {
+    display: flex;
+    align-items: center;
+    gap: var(--pad-sm);
+    padding: var(--pad-md);
+    cursor: pointer;
+    user-select: none;
+}
+
+.cl-block-header:hover {
+    background-color: var(--surface-2);
+}
+
+.cl-block-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.cl-block-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.cl-block-stats {
     display: flex;
     align-items: center;
     gap: 10px;
-    flex-wrap: wrap;
 }
 
-.checklist-icon {
-    font-size: 18px;
-    line-height: 1;
-    width: 22px;
-    text-align: center;
-}
-
-.checklist-name {
-    flex: 1;
-    min-width: 120px;
-}
-
-.checklist-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.checklist-status-btn {
-    font-family: var(--font-sans);
+.cl-block-count {
     font-size: 13px;
     font-weight: 500;
-    padding: 6px 12px;
-    min-height: 32px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.cl-mini-dots {
+    display: none;
+    align-items: center;
+    gap: 4px;
+}
+
+.cl-mini-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.cl-mini-dot.done { background-color: var(--accent-sage); }
+.cl-mini-dot.skip { background-color: var(--text-muted); }
+.cl-mini-dot.pending { background-color: var(--border); }
+
+.cl-mini-bar {
+    width: 60px;
+    height: 5px;
+    border-radius: 3px;
+    background-color: var(--border);
+    overflow: hidden;
+}
+
+.cl-mini-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width var(--dur-base) var(--ease-out);
+}
+
+.cl-mini-fill.color-coral { background-color: var(--accent-coral); }
+.cl-mini-fill.color-blue { background-color: var(--accent-blue); }
+.cl-mini-fill.color-lilac { background-color: var(--accent-lilac); }
+.cl-mini-fill.color-sage { background-color: var(--accent-sage); }
+
+.cl-chevron {
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: transform var(--dur-base) var(--ease-out);
+}
+
+.cl-block.collapsed .cl-chevron {
+    transform: rotate(-90deg);
+}
+
+.cl-block-body {
+    padding: 0 var(--pad-md) var(--pad-sm);
+    max-height: 2000px;
+    overflow: hidden;
+    transition: max-height var(--dur-base) var(--ease-out), padding var(--dur-fast) var(--ease-out);
+}
+
+.cl-block.collapsed .cl-block-body {
+    max-height: 0;
+    padding: 0 var(--pad-md);
+}
+
+@media (min-width: 480px) {
+    .cl-mini-dots { display: flex; }
+}
+
+.ck-row {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.ck-row:last-child {
+    border-bottom: none;
+}
+
+.ck-row.is-done { opacity: .55; }
+.ck-row.is-done .ck-title { text-decoration: line-through; }
+.ck-row.is-skipped { opacity: .45; }
+.ck-row.is-skipped .ck-title { text-decoration: line-through; color: var(--accent-coral); }
+
+.ck-row-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ck-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    background-color: var(--surface-2);
+}
+
+.ck-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.ck-title {
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.ck-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.ck-status {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.ck-status-done { color: var(--accent-sage); }
+.ck-status-skipped, .ck-status-holiday { color: var(--text-muted); }
+
+.ck-log-btn {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 12px;
+    min-height: 30px;
     border-radius: 6px;
     border: 1px solid var(--border);
-    background-color: var(--surface-1);
-    color: var(--text-muted);
+    background: none;
+    color: var(--text-primary);
     cursor: pointer;
-    transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+    transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
-.checklist-status-btn:hover {
-    border-color: var(--border-hover);
-}
-
-.checklist-status-btn.active {
-    background-color: var(--accent-blue-tint);
+.ck-log-btn:hover {
     border-color: var(--accent-blue);
     color: var(--accent-blue);
+}
+
+.ck-edit-form {
+    padding-top: 6px;
 }
 
 /* ---------- Saved-state readability (Current focus / Next step / Future plans) ---------- */
