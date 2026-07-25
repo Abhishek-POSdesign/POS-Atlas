@@ -52,6 +52,7 @@ export function todayPage() {
         // ---- checklist KPI (today's done/total, for the ring) ----
         checklistDoneToday: 0,
         checklistTotalToday: 0,
+        checklistSkippedToday: 0,
 
         // ---- trend (last 30 days, checklist done/skipped/missed) ----
         trendDays: [],
@@ -70,6 +71,10 @@ export function todayPage() {
                 const checklistDate = todayKey();
                 const calendarDate = todayIsoDate();
                 const dow = getLogicalDate().getDay();
+                
+                // For Dashboard lag optimization, we can pull the trend load out of the blocking Promise.all.
+                // We'll address that in the lag optimization step. For now, just fix the checklist math.
+                
                 const [tasks, projects, noteEntry, sleepEntry, workoutEntry, streaks, checklistItems, checklistHistory] = await Promise.all([
                     DB.Tasks.listActive(),
                     DB.Projects.listActive(),
@@ -89,9 +94,13 @@ export function todayPage() {
                 this.streaks = streaks;
                 const todaysItems = checklistItems.filter(i => !i.days || i.days.includes(dow));
                 const doneIds = new Set(checklistHistory.filter(h => h.status === 'done').map(h => h.item_id));
+                const skippedIds = new Set(checklistHistory.filter(h => h.status === 'skipped').map(h => h.item_id));
                 this.checklistTotalToday = todaysItems.length;
                 this.checklistDoneToday = todaysItems.filter(i => doneIds.has(i.id)).length;
-                await this.loadTrend();
+                this.checklistSkippedToday = todaysItems.filter(i => skippedIds.has(i.id)).length;
+                
+                // We will move loadTrend out of blocking flow so the main dashboard renders faster
+                this.loadTrend().catch(console.error);
             } catch (e) {
                 this.errorMsg = 'Could not load Today: ' + e.message;
             }
@@ -125,10 +134,12 @@ export function todayPage() {
             return this.projects.filter(p => p.status === 'in_progress').length;
         },
         get checklistPct() {
+            // Note: KPI ring percentage explicitly tracks DONE items vs Total, excluding skipped from the 'progress'.
             return this.checklistTotalToday ? Math.round(this.checklistDoneToday / this.checklistTotalToday * 100) : 0;
         },
         get checklistRemaining() {
-            return Math.max(0, this.checklistTotalToday - this.checklistDoneToday);
+            // Unmarked / not done / not skipped
+            return Math.max(0, this.checklistTotalToday - this.checklistDoneToday - this.checklistSkippedToday);
         },
         get todayLabel() {
             return new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });

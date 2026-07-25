@@ -1172,8 +1172,8 @@
    read as decoration, removed). */
 .streak-num { font-family: var(--font-serif); font-size: 56px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .streak-unit { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); font-weight: 600; }
-.streak-label { font-size: 14px; font-weight: 600; margin-top: 2px; color: var(--text-primary); }
-.streak-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+.streak-label { font-size: 15px; font-weight: 600; margin-top: 3px; color: var(--text-primary); }
+.streak-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 3px; }
 .streak-meta.grace { color: var(--accent-amber); }
 /* Relapse action -- deliberately quiet (2026-07-26 polish pass). Was a coral
    outline pill that read as a button; now a text-only link at 55% opacity so

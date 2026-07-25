@@ -106,7 +106,7 @@
                 </div>
             </header>
 
-            <nav class="top-tabs" x-show="!overlay">
+            <nav class="top-tabs">
                 <button class="tab" :class="{active: tab==='today'}" @click="setTab('today')">Today</button>
                 <button class="tab" :class="{active: tab==='projects'}" @click="setTab('projects')">Projects</button>
             </nav>
@@ -115,41 +115,56 @@
 
                 <!-- Notebook overlay -->
                 <template x-if="overlay==='notebook'">
-                    <div x-data="notebookPage({ onClose: () => overlay=null })">
-                        <div class="section-header">
-                            <h1>Notebook</h1>
-                            <button class="btn-text" @click="close()">Close</button>
-                        </div>
-                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
-                        <template x-if="loading"><p>Loading…</p></template>
-                        <template x-if="!loading">
-                            <div class="stack">
-                                <div class="card workspace-section">
-                                    <h2 x-text="todayDate"></h2>
-                                    <div class="field">
-                                        <textarea x-model="draft" rows="6" placeholder="What happened today?"></textarea>
-                                    </div>
-                                    <button class="btn btn-primary" @click="save()">Save</button>
-                                </div>
-                                <template x-for="entry in pastEntries" :key="entry.id">
-                                    <div class="card note-entry">
-                                        <div class="note-date" x-text="entry.entry_date"></div>
-                                        <p x-text="entry.body"></p>
-                                        <button class="btn-text" @click="deleteEntry(entry)">Delete</button>
-                                    </div>
-                                </template>
+                    <div class="modal-overlay" @click.self="overlay=null">
+                        <div class="modal" x-data="notebookPage({ onClose: () => overlay=null })" style="max-width: 680px; width: 95%; max-height: 90vh; overflow-y: auto;">
+                            <div class="section-header" style="margin-top: 0;">
+                                <h1 style="font-size: 24px; margin: 0;">Notebook</h1>
+                                <button class="btn-text" @click="close()">Close</button>
                             </div>
-                        </template>
+                            <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                            <template x-if="loading"><p>Loading…</p></template>
+                            <template x-if="!loading">
+                                <div class="stack">
+                                    <div class="card workspace-section">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--pad-sm);">
+                                            <h2 x-text="todayDate" style="margin: 0;"></h2>
+                                            <span class="system-text" x-show="savedState === 'saved'" style="color: var(--accent-sage);">✓ Saved</span>
+                                        </div>
+                                        <div class="field">
+                                            <textarea x-model="draft" rows="12" placeholder="What happened today?" @input="savedState = 'draft'"></textarea>
+                                        </div>
+                                        <button class="btn btn-primary" @click="save()" :disabled="savedState === 'saving'">
+                                            <span x-text="savedState === 'saving' ? 'Saving...' : 'Save'"></span>
+                                        </button>
+                                    </div>
+                                    <template x-if="pastEntries.length > 0">
+                                        <div style="margin-top: var(--pad-lg);">
+                                            <h3 class="system-text" style="margin-bottom: var(--pad-sm);">Previous entries</h3>
+                                            <div class="stack">
+                                                <template x-for="entry in pastEntries" :key="entry.id">
+                                                    <div class="card note-entry">
+                                                        <div class="note-date" x-text="entry.entry_date"></div>
+                                                        <p x-text="entry.body" style="white-space: pre-wrap;"></p>
+                                                        <button class="btn-text" @click="deleteEntry(entry)">Delete</button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </template>
 
                 <!-- Restore overlay -->
                 <template x-if="overlay==='restore'">
-                    <div x-data="restorePage({ onClose: () => overlay=null })">
-                        <div class="section-header">
-                            <h1>Restore</h1>
-                            <button class="btn-text" @click="close()">Close</button>
-                        </div>
+                    <div class="modal-overlay" @click.self="overlay=null">
+                        <div class="modal" x-data="restorePage({ onClose: () => overlay=null })" style="max-width: 680px; width: 95%; max-height: 90vh; overflow-y: auto;">
+                            <div class="section-header" style="margin-top: 0;">
+                                <h1 style="font-size: 24px; margin: 0;">Restore</h1>
+                                <button class="btn-text" @click="close()">Close</button>
+                            </div>
                         <p class="project-focus">Anything you deleted lives here. Restore brings it back; Delete forever cannot be undone.</p>
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
                         <template x-if="loading"><p>Loading…</p></template>
@@ -181,8 +196,9 @@
                                 </template>
                             </div>
                         </template>
+                        <!-- Delete Confirmation Modal handled inside Restore Overlay is already fine, wait, modal in modal might conflict if nested modal-overlay is used, but z-index handles it -->
                         <template x-if="confirmingHardDelete">
-                            <div class="modal-overlay" @click.self="cancelHardDelete()">
+                            <div class="modal-overlay" style="z-index: 200;" @click.self="cancelHardDelete()">
                                 <div class="modal">
                                     <h2>Delete forever?</h2>
                                     <p class="project-focus">This permanently removes "<span x-text="confirmingHardDelete.label"></span>" — it cannot be undone.</p>
@@ -193,11 +209,12 @@
                                 </div>
                             </div>
                         </template>
+                        </div>
                     </div>
                 </template>
 
                 <!-- Today tab -->
-                <template x-if="!overlay && tab==='today'">
+                <template x-if="tab==='today'">
                     <div x-data="todayPage()">
                         <div class="section-header">
                             <!-- Today title block: H1 above its own date, so the page title
@@ -278,7 +295,15 @@
                                                 </svg>
                                                 <div class="kpi-ring-num"><span class="n" x-text="`${checklistDoneToday}/${checklistTotalToday}`"></span><span class="d" x-text="checklistPct + '%'"></span></div>
                                             </div>
-                                            <div class="kpi-label" x-text="checklistRemaining + ' items left today'"></div>
+                                            <div class="kpi-label">
+                                                <span x-text="checklistRemaining + (checklistRemaining === 1 ? ' item left today' : ' items left today')"></span>
+                                                <template x-if="checklistSkippedToday > 0">
+                                                    <span style="margin-left: 6px;">
+                                                        <span class="trend-dot trend-skipped" style="width:8px;height:8px;margin-right:4px;"></span>
+                                                        <span x-text="checklistSkippedToday + (checklistSkippedToday === 1 ? ' skipped' : ' skipped')"></span>
+                                                    </span>
+                                                </template>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -357,7 +382,7 @@
                                             <template x-if="!sleepEntry">
                                                 <div class="nodata">
                                                     <span class="h">No sleep logged today.</span>
-                                                    <span class="p">Enter manually, or wait for the auto-parse from your ring screenshot (planned).</span>
+                                                    <span class="p">Log your sleep metrics to keep your health data up to date.</span>
                                                 </div>
                                             </template>
                                             <template x-if="sleepEntry">
@@ -370,7 +395,7 @@
                                                     <div class="metric"><span class="v" x-text="sleepEntry.hrv ?? '—'"></span><span class="l">HRV</span></div>
                                                 </div>
                                             </template>
-                                            <div class="ai-note">Auto-filled from your ring screenshot, once the AI reader is built</div>
+                                            <div class="ai-note" style="display: none;">Auto-filled from your ring screenshot, once the AI reader is built</div>
                                         </div>
                                         <div class="card vital-card">
                                             <div class="panel-head" style="margin-bottom: 8px;">
@@ -380,7 +405,7 @@
                                             <template x-if="!workoutEntry">
                                                 <div class="nodata">
                                                     <span class="h">No workout logged today.</span>
-                                                    <span class="p">Enter manually, or wait for the same AI screenshot parse as Sleep (planned).</span>
+                                                    <span class="p">Log a workout to track your activity and stay on target.</span>
                                                 </div>
                                             </template>
                                             <template x-if="workoutEntry">
@@ -392,7 +417,7 @@
                                                     <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
                                                 </div>
                                             </template>
-                                            <div class="ai-note">Same AI-screenshot pipeline as Sleep</div>
+                                            <div class="ai-note" style="display: none;">Same AI-screenshot pipeline as Sleep</div>
                                         </div>
                                     </div>
                                 </div>
@@ -657,8 +682,8 @@
                     </div>
                 </template>
 
-                <!-- Projects tab: grid -->
-                <template x-if="!overlay && tab==='projects' && !projectViewId">
+                <!-- Projects tab -->
+                <template x-if="tab==='projects' && !projectViewId">
                     <div x-data="projectsListPage({ onOpen: (id) => openProject(id) })">
                         <div class="section-header">
                             <h1>Projects</h1>

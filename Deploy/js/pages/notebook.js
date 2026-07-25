@@ -13,6 +13,7 @@ export function notebookPage(nav) {
         loading: true,
         errorMsg: '',
         draft: '',
+        savedState: 'draft', // 'draft', 'saving', 'saved'
         todayEntry: null,
         todayDate: todayIsoDate(),
         async init() {
@@ -33,6 +34,7 @@ export function notebookPage(nav) {
         async save() {
             const body = this.draft.trim();
             if (!body) return;
+            this.savedState = 'saving';
             try {
                 if (this.todayEntry) {
                     const updated = await DB.Notebook.update(this.todayEntry.id, { body });
@@ -43,8 +45,10 @@ export function notebookPage(nav) {
                     this.entries = [created, ...this.entries];
                     this.todayEntry = created;
                 }
+                this.savedState = 'saved';
             } catch (e) {
                 this.errorMsg = 'Save failed: ' + e.message;
+                this.savedState = 'draft';
             }
         },
         get pastEntries() {
