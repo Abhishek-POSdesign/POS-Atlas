@@ -1283,17 +1283,17 @@
 
 /* Subtle Sleep Cue */
 .empty-cue-sleep {
-    position: relative; width: 24px; height: 24px; margin-bottom: 2px;
+    position: relative; width: 28px; height: 28px; margin-bottom: 2px;
     color: var(--accent-lilac); font-family: var(--font-mono); font-weight: 500; font-style: italic;
 }
 .empty-cue-sleep span {
     position: absolute; bottom: 0; left: 0;
-    opacity: 0; font-size: 12px;
+    opacity: 0; font-size: 14px;
     animation: atlas-z-drift 4s linear infinite;
 }
 .empty-cue-sleep .z1 { left: 0; bottom: 0; animation-delay: 0s; }
-.empty-cue-sleep .z2 { left: 6px; bottom: 4px; animation-delay: 1.3s; font-size: 14px; }
-.empty-cue-sleep .z3 { left: 14px; bottom: 10px; animation-delay: 2.6s; font-size: 16px; }
+.empty-cue-sleep .z2 { left: 8px; bottom: 6px; animation-delay: 1.3s; font-size: 16px; }
+.empty-cue-sleep .z3 { left: 16px; bottom: 12px; animation-delay: 2.6s; font-size: 18px; }
 
 @keyframes atlas-z-drift {
     0% { opacity: 0; transform: translate(0, 2px); }
@@ -1333,4 +1333,51 @@
 @keyframes atlas-empty-pulse {
     0%, 100% { opacity: .3; transform: scale(1); background: var(--accent-blue-tint); }
     50% { opacity: 1; transform: scale(1.25); background: var(--accent-blue); }
+}
+
+/* Project Header Layout (Phase 2) */
+.project-header-split {
+    display: grid;
+    grid-template-columns: 4fr 6fr;
+    gap: var(--pad-xl);
+}
+@media (max-width: 768px) {
+    .project-header-split {
+        grid-template-columns: 1fr;
+        gap: var(--pad-md);
+    }
+}
+.project-header-identity {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    padding-right: var(--pad-xl);
+}
+@media (max-width: 768px) {
+    .project-header-identity {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+        padding-right: 0;
+        padding-bottom: var(--pad-md);
+    }
+}
+.project-header-goals {
+    display: flex;
+    flex-direction: column;
+}
+.goals-display {
+    display: flex;
+    flex-direction: column;
+    gap: var(--pad-md);
+}
+.goal-block .heading-label {
+    margin-bottom: 2px;
+}
+.goal-date {
+    font-weight: normal;
+    color: var(--text-muted);
+}
+.goals-edit {
+    display: flex;
+    flex-direction: column;
 }

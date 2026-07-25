@@ -822,15 +822,65 @@
                 <template x-if="!overlay && tab==='projects' && projectViewId">
                     <div x-data="projectWorkspacePage({ onBack: () => closeProject() })" x-init="open(projectViewId)">
                         <div class="card workspace-header">
-                            <button class="btn-text" @click="back()">← Back to Projects</button>
+                            <button class="btn-text" @click="back()" style="margin-bottom: var(--pad-md);">← Back to Projects</button>
                             <template x-if="project">
-                                <div>
-                                    <p class="project-title" x-text="project.name"></p>
-                                    <div class="project-meta"><span class="status-text" x-text="project.status"></span></div>
-                                    <div class="modal-actions">
-                                        <button class="btn-text" x-show="!project.archived_at" @click="archiveProject()">Archive</button>
-                                        <button class="btn btn-danger" @click="softDeleteProject()">Delete project</button>
+                                <div class="project-header-split">
+                                    
+                                    <!-- 40% Left Side: Identity & Actions -->
+                                    <div class="project-header-identity">
+                                        <div>
+                                            <p class="project-title" x-text="project.name"></p>
+                                            <div class="project-meta"><span class="status-text" x-text="project.status"></span></div>
+                                        </div>
+                                        <div class="modal-actions" style="justify-content: flex-start; margin-top: var(--pad-lg);">
+                                            <button class="btn-text" x-show="!project.archived_at" @click="archiveProject()">Archive</button>
+                                            <button class="btn btn-danger" @click="softDeleteProject()">Delete project</button>
+                                        </div>
                                     </div>
+                                    
+                                    <!-- 60% Right Side: Goals -->
+                                    <div class="project-header-goals">
+                                        <template x-if="!editingHeader">
+                                            <div class="goals-display">
+                                                <div class="goal-block">
+                                                    <div class="heading-label">Short-term Goal <span class="goal-date" x-show="project.short_term_goal_date" x-text="'• ' + project.short_term_goal_date"></span></div>
+                                                    <p class="focus-text" x-text="project.short_term_goal || 'Not set.'"></p>
+                                                </div>
+                                                <div class="goal-block">
+                                                    <div class="heading-label">Long-term Goal <span class="goal-date" x-show="project.long_term_goal_date" x-text="'• ' + project.long_term_goal_date"></span></div>
+                                                    <p class="focus-text" x-text="project.long_term_goal || 'Not set.'"></p>
+                                                </div>
+                                                <div class="modal-actions" style="justify-content: flex-start; margin-top: var(--pad-sm);">
+                                                    <button class="btn-text" @click="startEditHeader()">Edit goals</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template x-if="editingHeader">
+                                            <div class="goals-edit">
+                                                <div class="field">
+                                                    <label>Short-term Goal</label>
+                                                    <textarea x-model="headerForm.short_term_goal" rows="2"></textarea>
+                                                </div>
+                                                <div class="field">
+                                                    <label>Target Date</label>
+                                                    <input type="date" x-model="headerForm.short_term_goal_date">
+                                                </div>
+                                                <div class="field" style="margin-top: var(--pad-md);">
+                                                    <label>Long-term Goal</label>
+                                                    <textarea x-model="headerForm.long_term_goal" rows="2"></textarea>
+                                                </div>
+                                                <div class="field">
+                                                    <label>Target Date</label>
+                                                    <input type="date" x-model="headerForm.long_term_goal_date">
+                                                </div>
+                                                <div class="modal-actions" style="margin-top: var(--pad-sm);">
+                                                    <button class="btn-text" @click="editingHeader=false">Cancel</button>
+                                                    <button class="btn btn-primary" @click="saveHeader()">Save</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
                                 </div>
                             </template>
                         </div>
@@ -840,35 +890,6 @@
 
                         <template x-if="!loading && project">
                             <div class="stack">
-                                <div class="card workspace-section">
-                                    <h2>Current focus &amp; next step</h2>
-                                    <template x-if="!editingHeader">
-                                        <div>
-                                            <div class="heading-label">Current Focus</div>
-                                            <p class="focus-text" x-text="project.current_focus || 'Not set.'"></p>
-                                            <template x-if="project.next_step">
-                                                <div>
-                                                    <div class="heading-label">Next Step</div>
-                                                    <p class="focus-text">
-                                                        <span x-text="project.next_step"></span>
-                                                    </p>
-                                                </div>
-                                            </template>
-                                            <button class="btn-text" @click="startEditHeader()">Edit</button>
-                                        </div>
-                                    </template>
-                                    <template x-if="editingHeader">
-                                        <div>
-                                            <div class="field"><label>Current focus</label><textarea x-model="headerForm.current_focus" rows="2"></textarea></div>
-                                            <div class="field"><label>Next step</label><textarea x-model="headerForm.next_step" rows="2"></textarea></div>
-                                            <div class="field"><label>Future plans</label><textarea x-model="headerForm.future_plans" rows="2"></textarea></div>
-                                            <div class="modal-actions">
-                                                <button class="btn-text" @click="editingHeader=false">Cancel</button>
-                                                <button class="btn btn-primary" @click="saveHeader()">Save</button>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
 
                                 <div class="card workspace-section" x-show="runningTask">
                                     <h2>Running now</h2>
@@ -939,10 +960,7 @@
                                     </template>
                                 </div>
 
-                                <div class="card workspace-section">
-                                    <h2>Future plans</h2>
-                                    <p class="focus-text" x-text="project.future_plans || 'Not set.'"></p>
-                                </div>
+
                             </div>
                         </template>
                     </div>

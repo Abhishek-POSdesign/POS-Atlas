@@ -13,7 +13,7 @@ export function projectWorkspacePage(nav) {
         loading: false,
         errorMsg: '',
         editingHeader: false,
-        headerForm: { current_focus: '', next_step: '', future_plans: '' },
+        headerForm: { short_term_goal: '', short_term_goal_date: '', long_term_goal: '', long_term_goal_date: '' },
         newTaskName: '',
         newTaskDate: '',
         newTaskTime: '',
@@ -61,9 +61,10 @@ export function projectWorkspacePage(nav) {
         },
         startEditHeader() {
             this.headerForm = {
-                current_focus: this.project.current_focus || '',
-                next_step: this.project.next_step || '',
-                future_plans: this.project.future_plans || ''
+                short_term_goal: this.project.short_term_goal || '',
+                short_term_goal_date: this.project.short_term_goal_date || '',
+                long_term_goal: this.project.long_term_goal || '',
+                long_term_goal_date: this.project.long_term_goal_date || ''
             };
             this.editingHeader = true;
         },

@@ -2,12 +2,13 @@
 
 Supabase project `vcndlorrrtueofzuynvi` ("Sikka Personal Apps" — shared with the old Task Manager and Finance Manager, `atlas_` prefix keeps this app's tables separate). Every table: `id uuid pk default gen_random_uuid()`, `created_at`/`updated_at timestamptz` (server-defaulted, `updated_at` auto-bumped by trigger — see below), `deleted_at timestamptz` nullable. Tables that can be archived also get `archived_at timestamptz` nullable.
 
-Migrations are numbered and live in `Atlas/migrations/`. Never edit an old one — add a new one. **Current state: `001_init.sql` through `011_atlas_workout_logs_add_score_vo2.sql`, all applied to the live database (last verified 2026-07-26).**
+Migrations are numbered and live in `Atlas/migrations/`. Never edit an old one — add a new one. **Current state: `001_init.sql` through `012_atlas_projects_restructure.sql`, all applied to the live database (last verified 2026-07-26).**
 
 ## Tables
 
 ### `atlas_projects`
-`name` (required), `monogram_letter` (required), `color_key` (required, one of sage/blue/lilac/coral), `description`, `current_focus`, `next_step`, `future_plans`, `status` (planned/in_progress/completed, default planned), `started_at` (date, default today), `target_date`, `order_index`, `cover_image_url` (unused so far), `archived_at`, `deleted_at`.
+`name` (required), `monogram_letter` (required), `color_key` (required, one of sage/blue/lilac/coral), `description`, `short_term_goal` (added migration 012), `short_term_goal_date` (added migration 012), `long_term_goal` (added migration 012), `long_term_goal_date` (added migration 012), `status` (planned/in_progress/completed, default planned), `started_at` (date, default today), `order_index`, `cover_image_url` (unused so far), `archived_at`, `deleted_at`. 
+*(Note: `current_focus`, `next_step`, `future_plans`, and `target_date` were retained in DB in migration 012 for safety, but are fully deprecated in the entity/UI).*
 
 ### `atlas_tasks`
 `project_id` (nullable — a task can stand alone), `name` (required), `kind` (`task`/`reminder`, default `task` — added migration 010, drives the dashboard's Add Task modal and task-row rendering), `status` (not_started/in_progress/done, default not_started), `scheduled_date`, `scheduled_time`, `notify_enabled` (bool, default false — toggle only, push itself is Phase 5), `priority` (normal/high, default normal), `completed_at`, `completion_note` (set on complete), `running_note` (added migration 004 — set on start, shown on the "Running now" card), `archived_at`, `deleted_at`.
