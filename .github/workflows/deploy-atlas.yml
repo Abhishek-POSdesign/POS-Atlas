@@ -25,7 +25,7 @@ jobs:
       - name: Deploy to MilesWeb
         uses: easingthemes/ssh-deploy@main
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.MILESWEB_SSH_KEY }}
+          SSH_PRIVATE_KEY: ${{ secrets.MILESWEB_SSH_KEY || secrets.SSH_PRIVATE_KEY }}
           REMOTE_HOST: "103.191.209.159"
           REMOTE_USER: "abhishek2"
           REMOTE_PORT: "22"
