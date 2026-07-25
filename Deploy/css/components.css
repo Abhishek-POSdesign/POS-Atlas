@@ -568,6 +568,62 @@
     padding-left: 2px;
 }
 
+/* ---------- Checklist ---------- */
+
+.checklist-row {
+    padding: 10px var(--pad-md);
+    margin-bottom: 6px;
+}
+
+.checklist-row-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.checklist-icon {
+    font-size: 18px;
+    line-height: 1;
+    width: 22px;
+    text-align: center;
+}
+
+.checklist-name {
+    flex: 1;
+    min-width: 120px;
+}
+
+.checklist-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.checklist-status-btn {
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    min-height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background-color: var(--surface-1);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.checklist-status-btn:hover {
+    border-color: var(--border-hover);
+}
+
+.checklist-status-btn.active {
+    background-color: var(--accent-blue-tint);
+    border-color: var(--accent-blue);
+    color: var(--accent-blue);
+}
+
 /* ---------- Saved-state readability (Current focus / Next step / Future plans) ---------- */
 
 .focus-text {

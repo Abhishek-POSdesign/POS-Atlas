@@ -203,7 +203,45 @@ export const DB = {
     },
 
     Checklist: {
-        // Phase 2 -- not built yet.
+        async listItems() {
+            const { data, error } = await supabase
+                .from('atlas_checklist_items')
+                .select('*')
+                .is('deleted_at', null)
+                .is('archived_at', null)
+                .order('order_index', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async listHistoryForDate(entryDate) {
+            const { data, error } = await supabase
+                .from('atlas_checklist_history')
+                .select('*')
+                .eq('entry_date', entryDate)
+                .is('deleted_at', null);
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        createItem(row) { return verifiedInsert('atlas_checklist_items', row); },
+        updateItem(id, patch) { return verifiedUpdate('atlas_checklist_items', id, patch); },
+        async archiveItem(id) { return (await verifiedRpc('atlas_checklist_items_archive'))(id); },
+        async restoreItemFromArchive(id) { return (await verifiedRpc('atlas_checklist_items_restore_archive'))(id); },
+        async softDeleteItem(id) { return (await verifiedRpc('atlas_checklist_items_soft_delete'))(id); },
+        async restoreItemFromTrash(id) { return (await verifiedRpc('atlas_checklist_items_restore_trash'))(id); },
+        // Marking a status is an upsert keyed on the (item_id, entry_date) unique
+        // constraint -- one status per item per day. deleted_at is reset to null
+        // here too, so re-marking a day whose entry was previously undone (soft
+        // deleted) revives that same row instead of colliding with it.
+        async setStatus(itemId, entryDate, status) {
+            const { data, error } = await supabase
+                .from('atlas_checklist_history')
+                .upsert({ item_id: itemId, entry_date: entryDate, status, deleted_at: null }, { onConflict: 'item_id,entry_date' })
+                .select()
+                .single();
+            if (error || !data) throw new Error(error?.message || 'Checklist status update was not confirmed');
+            return data;
+        },
+        async undoStatus(historyId) { return (await verifiedRpc('atlas_checklist_history_soft_delete'))(historyId); }
     },
 
     Targets: {

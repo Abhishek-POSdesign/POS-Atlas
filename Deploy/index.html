@@ -193,7 +193,7 @@
 
                 <!-- Today tab -->
                 <template x-if="!overlay && tab==='today'">
-                    <div x-data="todayPage()">
+                    <div x-data="todayPage({ onGoToChecklist: () => setTab('checklist') })">
                         <div class="section-header"><h1>Today</h1></div>
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
                         <template x-if="loading"><p>Loading…</p></template>
@@ -215,8 +215,9 @@
                                         </div>
                                     </div>
                                     <div class="card workspace-section">
-                                        <h2>Checklist &amp; Targets</h2>
-                                        <p class="project-focus">Coming in Phase 2 and Phase 3.</p>
+                                        <h2>Checklist</h2>
+                                        <p class="focus-text" x-text="`${checklistDoneCount} of ${checklistTotalToday} done today`"></p>
+                                        <button class="btn-text" @click="goToChecklist()">Open checklist →</button>
                                     </div>
                                 </div>
                                 <div class="card workspace-section">
@@ -490,11 +491,79 @@
                     </div>
                 </template>
 
-                <!-- Checklist tab (placeholder -- Phase 2) -->
+                <!-- Checklist tab -->
                 <template x-if="!overlay && tab==='checklist'">
-                    <div class="empty-state">
-                        <h1>Checklist</h1>
-                        <p>Coming in Phase 2 — ported from the current app with streak migration.</p>
+                    <div x-data="checklistPage()">
+                        <div class="section-header">
+                            <h1>Checklist</h1>
+                            <button class="btn-text" @click="toggleManaging()" x-text="managing ? 'Done managing' : 'Manage items'"></button>
+                        </div>
+                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                        <template x-if="loading"><p>Loading…</p></template>
+                        <template x-if="!loading">
+                            <div class="stack">
+                                <template x-for="block in blocks" :key="block.key">
+                                    <div class="card workspace-section" x-show="itemsForBlock(block.key).length > 0 || managing">
+                                        <div class="section-header" style="margin-bottom: var(--pad-sm);">
+                                            <h2 x-text="block.label"></h2>
+                                            <span class="system-text" x-text="`${doneCountForBlock(block.key)}/${itemsForBlock(block.key).length}`"></span>
+                                        </div>
+
+                                        <template x-for="item in itemsForBlock(block.key)" :key="item.id">
+                                            <div class="card-nested checklist-row">
+                                                <template x-if="editingItemId !== item.id">
+                                                    <div class="checklist-row-main">
+                                                        <span class="checklist-icon" x-text="item.icon || '📋'"></span>
+                                                        <span class="user-text checklist-name" x-text="item.name"></span>
+                                                        <div class="checklist-actions" x-show="!managing">
+                                                            <button class="checklist-status-btn" :class="{active: statusFor(item)==='done'}" @click="mark(item,'done')">Done</button>
+                                                            <button class="checklist-status-btn" :class="{active: statusFor(item)==='skipped'}" @click="mark(item,'skipped')">Skip</button>
+                                                            <button class="checklist-status-btn" :class="{active: statusFor(item)==='holiday'}" @click="mark(item,'holiday')">Holiday</button>
+                                                        </div>
+                                                        <div class="checklist-actions" x-show="managing">
+                                                            <button class="icon-button" @click="moveItem(item,'up')" title="Move up">↑</button>
+                                                            <button class="icon-button" @click="moveItem(item,'down')" title="Move down">↓</button>
+                                                            <button class="btn-text" @click="startEditItem(item)">Edit</button>
+                                                            <button class="btn-text" style="color: var(--accent-coral)" @click="archiveItem(item)">Archive</button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <template x-if="editingItemId === item.id">
+                                                    <div>
+                                                        <div class="field"><label>Name</label><input type="text" x-model="editForm.name"></div>
+                                                        <div class="field">
+                                                            <label>Block</label>
+                                                            <select x-model="editForm.block">
+                                                                <template x-for="b in blocks" :key="b.key"><option :value="b.key" x-text="b.label"></option></template>
+                                                            </select>
+                                                        </div>
+                                                        <div class="field"><label>Icon (optional)</label><input type="text" x-model="editForm.icon" maxlength="4"></div>
+                                                        <div class="modal-actions">
+                                                            <button class="btn-text" @click="cancelEditItem()">Cancel</button>
+                                                            <button class="btn btn-primary" @click="saveEditItem(item)">Save</button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="managing && addingToBlock !== block.key">
+                                            <button class="btn-text" @click="openAdd(block.key)">+ Add item</button>
+                                        </template>
+                                        <template x-if="managing && addingToBlock === block.key">
+                                            <div class="card-nested">
+                                                <div class="field"><input type="text" x-model="addForm.name" placeholder="Item name" @keydown.enter="submitAdd()"></div>
+                                                <div class="field"><input type="text" x-model="addForm.icon" placeholder="Icon (optional)" maxlength="4"></div>
+                                                <div class="modal-actions">
+                                                    <button class="btn-text" @click="cancelAdd()">Cancel</button>
+                                                    <button class="btn btn-primary" @click="submitAdd()">Add</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                 </template>
 

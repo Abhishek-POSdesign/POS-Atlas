@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v7';
+const CACHE_NAME = 'atlas-offline-shell-v8';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -13,6 +13,8 @@ const ASSETS_TO_CACHE = [
     '/js/db.js',
     '/js/supabase-client.js',
     '/js/date-groups.js',
+    '/js/date-utils.js',
+    '/js/checklist-blocks.js',
     '/js/components/theme-switcher.js',
     '/js/components/login-form.js',
     '/js/components/undo-toast.js',
@@ -24,6 +26,7 @@ const ASSETS_TO_CACHE = [
     '/js/pages/project-workspace.js',
     '/js/pages/notebook.js',
     '/js/pages/restore.js',
+    '/js/pages/checklist.js',
     '/js/entities/project.js',
     '/js/entities/project-note.js',
     '/js/entities/task.js',
