@@ -247,7 +247,56 @@ export const DB = {
             if (error || !data) throw new Error(error?.message || 'Checklist status update was not confirmed');
             return data;
         },
-        async undoStatus(historyId) { return (await verifiedRpc('atlas_checklist_history_soft_delete'))(historyId); }
+        async undoStatus(historyId) { return (await verifiedRpc('atlas_checklist_history_soft_delete'))(historyId); },
+        // For the trend graph -- all history rows across a date range, in one query.
+        async listHistoryRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_checklist_history')
+                .select('*')
+                .gte('entry_date', startDate)
+                .lte('entry_date', endDate)
+                .is('deleted_at', null);
+            if (error) throw new Error(error.message);
+            return data;
+        }
+    },
+
+    Sleep: {
+        async getByDate(entryDate) {
+            const { data, error } = await supabase
+                .from('atlas_sleep_logs')
+                .select('*')
+                .eq('entry_date', entryDate)
+                .is('deleted_at', null)
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async listRecent(limit = 14) {
+            const { data, error } = await supabase
+                .from('atlas_sleep_logs')
+                .select('*')
+                .is('deleted_at', null)
+                .order('entry_date', { ascending: false })
+                .limit(limit);
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        // One row per day (entry_date unique) -- same upsert pattern as
+        // Checklist.setStatus, since "log tonight's sleep" is naturally an
+        // upsert against today's date, not an insert-then-update dance.
+        async save(entryDate, patch) {
+            const payload = { entry_date: entryDate, deleted_at: null, ...patch };
+            const { data, error } = await supabase
+                .from('atlas_sleep_logs')
+                .upsert(payload, { onConflict: 'entry_date' })
+                .select()
+                .single();
+            if (error || !data) throw new Error(error?.message || 'Sleep log save was not confirmed');
+            return data;
+        },
+        async softDelete(id) { return (await verifiedRpc('atlas_sleep_logs_soft_delete'))(id); },
+        async restoreFromTrash(id) { return (await verifiedRpc('atlas_sleep_logs_restore_trash'))(id); }
     },
 
     Targets: {

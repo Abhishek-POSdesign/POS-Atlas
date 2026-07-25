@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v10';
+const CACHE_NAME = 'atlas-offline-shell-v11';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -35,7 +35,8 @@ const ASSETS_TO_CACHE = [
     '/js/entities/checklist-item.js',
     '/js/entities/checklist-history.js',
     '/js/entities/target.js',
-    '/js/entities/target-log.js'
+    '/js/entities/target-log.js',
+    '/js/entities/sleep-log.js'
 ];
 
 self.addEventListener('install', (event) => {

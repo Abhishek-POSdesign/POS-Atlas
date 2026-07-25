@@ -102,7 +102,6 @@
             <nav class="top-tabs" x-show="!overlay">
                 <button class="tab" :class="{active: tab==='today'}" @click="setTab('today')">Today</button>
                 <button class="tab" :class="{active: tab==='projects'}" @click="setTab('projects')">Projects</button>
-                <button class="tab" :class="{active: tab==='routine'}" @click="setTab('routine')">Routine</button>
             </nav>
 
             <main class="content-area">
@@ -193,42 +192,236 @@
 
                 <!-- Today tab -->
                 <template x-if="!overlay && tab==='today'">
-                    <div x-data="todayPage({ onGoToChecklist: () => setTab('routine') })">
+                    <div x-data="todayPage()">
                         <div class="section-header"><h1>Today</h1></div>
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
                         <template x-if="loading"><p>Loading…</p></template>
                         <template x-if="!loading">
-                            <div class="today-grid">
-                                <div class="stack">
-                                    <div class="stat-row">
-                                        <div class="card stat-tile">
-                                            <div class="stat-number" x-text="upcomingTasks.length"></div>
-                                            <div class="stat-label">Tasks today</div>
-                                        </div>
-                                        <div class="card stat-tile">
-                                            <div class="stat-number" x-text="activeProjectCount"></div>
-                                            <div class="stat-label">Active projects</div>
-                                        </div>
-                                        <div class="card stat-tile">
-                                            <div class="stat-number" x-text="inProgressProjectCount"></div>
-                                            <div class="stat-label">In progress</div>
-                                        </div>
+                            <div class="stack">
+                                <div class="stat-row">
+                                    <div class="card stat-tile">
+                                        <div class="stat-number" x-text="upcomingTasks.length"></div>
+                                        <div class="stat-label">Tasks today</div>
                                     </div>
-                                    <div class="card workspace-section">
-                                        <h2>Checklist</h2>
-                                        <p class="focus-text" x-text="`${checklistDoneCount} of ${checklistTotalToday} done today`"></p>
-                                        <button class="btn-text" @click="goToChecklist()">Open Routine →</button>
+                                    <div class="card stat-tile">
+                                        <div class="stat-number" x-text="activeProjectCount"></div>
+                                        <div class="stat-label">Active projects</div>
+                                    </div>
+                                    <div class="card stat-tile">
+                                        <div class="stat-number" x-text="inProgressProjectCount"></div>
+                                        <div class="stat-label">In progress</div>
                                     </div>
                                 </div>
+
+                                <!-- Tasks / Checklist toggle -->
                                 <div class="card workspace-section">
-                                    <h2>Upcoming</h2>
-                                    <template x-if="upcomingTasks.length === 0"><p class="project-focus">Nothing scheduled.</p></template>
-                                    <template x-for="task in upcomingTasks" :key="task.id">
-                                        <div class="task-row card-nested">
-                                            <span class="task-name" x-text="task.name"></span>
-                                            <span class="task-meta" x-text="task.scheduled_date || ''"></span>
+                                    <div class="segmented">
+                                        <button class="segmented-btn" :class="{active: viewMode==='tasks'}" @click="viewMode='tasks'">Tasks</button>
+                                        <button class="segmented-btn" :class="{active: viewMode==='checklist'}" @click="viewMode='checklist'">Checklist</button>
+                                    </div>
+
+                                    <template x-if="viewMode==='tasks'">
+                                        <div style="margin-top: var(--pad-md);">
+                                            <template x-if="upcomingTasks.length === 0"><p class="project-focus">Nothing scheduled.</p></template>
+                                            <template x-for="task in upcomingTasks" :key="task.id">
+                                                <div class="task-row card-nested">
+                                                    <span class="task-name" x-text="task.name"></span>
+                                                    <span class="task-meta" x-text="task.scheduled_date || ''"></span>
+                                                </div>
+                                            </template>
                                         </div>
                                     </template>
+
+                                    <template x-if="viewMode==='checklist'">
+                                        <div style="margin-top: var(--pad-md);" x-data="checklistPage()">
+                                            <div class="section-header" style="margin-bottom: var(--pad-sm);">
+                                                <span></span>
+                                                <button class="btn-text" @click="toggleManaging()" x-text="managing ? 'Done managing' : 'Manage items'"></button>
+                                            </div>
+                                            <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                                            <template x-if="loading"><p>Loading…</p></template>
+                                            <template x-if="!loading">
+                                                <div class="stack">
+                                                    <template x-for="block in blocks" :key="block.key">
+                                                        <div class="cl-block" :class="'color-' + block.colorKey + (collapsedBlocks[block.key] ? ' collapsed' : '')" x-show="itemsForBlock(block.key).length > 0 || managing">
+                                                            <div class="cl-block-header" @click="toggleBlock(block.key)">
+                                                                <span class="cl-block-icon" x-text="block.icon"></span>
+                                                                <span class="cl-block-title" x-text="block.label"></span>
+                                                                <div class="cl-block-stats">
+                                                                    <span class="cl-block-count" x-text="`${doneCountForBlock(block.key)}/${itemsForBlock(block.key).length}`"></span>
+                                                                    <div class="cl-mini-dots">
+                                                                        <template x-for="item in itemsForBlock(block.key)" :key="item.id">
+                                                                            <span class="cl-mini-dot" :class="statusFor(item)==='done' ? 'done' : (statusFor(item) ? 'skip' : 'pending')" :title="item.name"></span>
+                                                                        </template>
+                                                                    </div>
+                                                                    <div class="cl-mini-bar"><div class="cl-mini-fill" :class="'color-' + block.colorKey" :style="`width:${blockProgress(block.key)}%`"></div></div>
+                                                                    <span class="cl-chevron">▼</span>
+                                                                </div>
+                                                            </div>
+
+                                                            <div class="cl-block-body">
+                                                                <template x-for="item in itemsForBlock(block.key)" :key="item.id">
+                                                                    <div class="ck-row" :class="statusFor(item)==='done' ? 'is-done' : (statusFor(item)==='skipped' ? 'is-skipped' : '')">
+                                                                        <template x-if="editingItemId !== item.id">
+                                                                            <div class="ck-row-main">
+                                                                                <div class="ck-icon" x-text="item.icon || '📋'"></div>
+                                                                                <div class="ck-info"><div class="ck-title" x-text="item.name"></div></div>
+                                                                                <template x-if="!managing">
+                                                                                    <div class="ck-row-actions">
+                                                                                        <span class="ck-status" :class="'ck-status-' + (statusFor(item) || 'pending')" x-text="statusLabel(item)"></span>
+                                                                                        <button class="ck-log-btn" @click="openLog(item)">Log</button>
+                                                                                    </div>
+                                                                                </template>
+                                                                                <template x-if="managing">
+                                                                                    <div class="ck-row-actions">
+                                                                                        <button class="icon-button" @click="moveItem(item,'up')" title="Move up">↑</button>
+                                                                                        <button class="icon-button" @click="moveItem(item,'down')" title="Move down">↓</button>
+                                                                                        <button class="btn-text" @click="startEditItem(item)">Edit</button>
+                                                                                        <button class="btn-text" style="color: var(--accent-coral)" @click="archiveItem(item)">Archive</button>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </div>
+                                                                        </template>
+                                                                        <template x-if="editingItemId === item.id">
+                                                                            <div class="ck-edit-form">
+                                                                                <div class="field"><label>Name</label><input type="text" x-model="editForm.name"></div>
+                                                                                <div class="field">
+                                                                                    <label>Block</label>
+                                                                                    <select x-model="editForm.block">
+                                                                                        <template x-for="b in blocks" :key="b.key"><option :value="b.key" x-text="b.label"></option></template>
+                                                                                    </select>
+                                                                                </div>
+                                                                                <div class="field"><label>Icon (optional)</label><input type="text" x-model="editForm.icon" maxlength="4"></div>
+                                                                                <div class="field">
+                                                                                    <label>Days (leave all off for every day)</label>
+                                                                                    <div class="day-picker">
+                                                                                        <template x-for="(d, idx) in dayNames" :key="idx">
+                                                                                            <button type="button" class="day-chip" :class="{active: editForm.days.includes(idx)}" @click="toggleEditDay(idx)" x-text="d"></button>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div class="modal-actions">
+                                                                                    <button class="btn-text" @click="cancelEditItem()">Cancel</button>
+                                                                                    <button class="btn btn-primary" @click="saveEditItem(item)">Save</button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+
+                                                                <template x-if="managing && addingToBlock !== block.key">
+                                                                    <button class="btn-text" @click="openAdd(block.key)">+ Add item</button>
+                                                                </template>
+                                                                <template x-if="managing && addingToBlock === block.key">
+                                                                    <div class="card-nested" style="padding: var(--pad-sm) var(--pad-md);">
+                                                                        <div class="field"><input type="text" x-model="addForm.name" placeholder="Item name" @keydown.enter="submitAdd()"></div>
+                                                                        <div class="field"><input type="text" x-model="addForm.icon" placeholder="Icon (optional)" maxlength="4"></div>
+                                                                        <div class="field">
+                                                                            <label>Days (leave all off for every day)</label>
+                                                                            <div class="day-picker">
+                                                                                <template x-for="(d, idx) in dayNames" :key="idx">
+                                                                                    <button type="button" class="day-chip" :class="{active: addForm.days.includes(idx)}" @click="toggleAddDay(idx)" x-text="d"></button>
+                                                                                </template>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="modal-actions">
+                                                                            <button class="btn-text" @click="cancelAdd()">Cancel</button>
+                                                                            <button class="btn btn-primary" @click="submitAdd()">Add</button>
+                                                                        </div>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+
+                                            <!-- Log popup: time + optional note, then Done / Skip / Holiday / Undo -->
+                                            <template x-if="logItem">
+                                                <div class="modal-overlay" @click.self="closeLog()">
+                                                    <div class="modal">
+                                                        <h2 x-text="logItem.name"></h2>
+                                                        <p class="system-text" x-text="'Currently: ' + statusLabel(logItem)"></p>
+                                                        <div class="field">
+                                                            <label>Time</label>
+                                                            <input type="time" x-model="logForm.time">
+                                                        </div>
+                                                        <div class="field">
+                                                            <label>Note (optional)</label>
+                                                            <input type="text" x-model="logForm.note" placeholder="Optional note...">
+                                                        </div>
+                                                        <div class="modal-actions" style="flex-wrap: wrap;">
+                                                            <button class="btn btn-primary" style="flex:1;" @click="confirmLog('done')">✓ Done</button>
+                                                            <button class="btn" style="flex:1;" @click="confirmLog('skipped')">Skip</button>
+                                                            <button class="btn" style="flex:1;" @click="confirmLog('holiday')">🏖️ Holiday</button>
+                                                        </div>
+                                                        <div class="modal-actions">
+                                                            <button class="btn-text" @click="closeLog()">Cancel</button>
+                                                            <button class="btn btn-danger" @click="clearLog()">Undo / Clear</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Checklist Completion trend -->
+                                <div class="card workspace-section">
+                                    <h2>Checklist Completion</h2>
+                                    <div class="trend-chart">
+                                        <template x-for="d in trendDays" :key="d.date">
+                                            <div class="trend-col" :title="d.date">
+                                                <div class="trend-bar">
+                                                    <div class="trend-seg trend-missed" :style="`height:${d.missed/d.total*100}%`"></div>
+                                                    <div class="trend-seg trend-skipped" :style="`height:${d.skipped/d.total*100}%`"></div>
+                                                    <div class="trend-seg trend-done" :style="`height:${d.done/d.total*100}%`"></div>
+                                                </div>
+                                                <span class="trend-label" x-text="d.label"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div class="trend-legend">
+                                        <span><span class="trend-dot trend-done"></span>Done</span>
+                                        <span><span class="trend-dot trend-skipped"></span>Skipped</span>
+                                        <span><span class="trend-dot trend-missed"></span>Missed</span>
+                                    </div>
+                                </div>
+
+                                <!-- Sleep -->
+                                <div class="card workspace-section">
+                                    <h2>Sleep</h2>
+                                    <p class="focus-text" x-text="sleepSummary"></p>
+                                    <button class="btn-text" @click="openSleepModal()" x-text="sleepEntry ? 'Edit' : 'Log sleep'"></button>
+                                </div>
+
+                                <!-- Today's note (shares the Notebook data/table) -->
+                                <div class="card workspace-section">
+                                    <h2>Today's note</h2>
+                                    <div class="field"><textarea x-model="noteDraft" rows="3" placeholder="Anything on your mind today?"></textarea></div>
+                                    <button class="btn btn-primary" @click="saveNote()" :disabled="noteSaving">Save</button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Sleep modal -->
+                        <template x-if="sleepModalOpen">
+                            <div class="modal-overlay" @click.self="closeSleepModal()">
+                                <div class="modal">
+                                    <h2>Log sleep</h2>
+                                    <div class="field">
+                                        <label>Duration</label>
+                                        <div style="display:flex; gap: var(--pad-sm);">
+                                            <input type="number" x-model="sleepForm.hours" placeholder="Hours" min="0" max="24" style="flex:1;">
+                                            <input type="number" x-model="sleepForm.minutes" placeholder="Minutes" min="0" max="59" style="flex:1;">
+                                        </div>
+                                    </div>
+                                    <div class="field"><label>Sleep score (optional)</label><input type="number" x-model="sleepForm.score" min="0" max="100"></div>
+                                    <div class="field"><label>Note (optional)</label><input type="text" x-model="sleepForm.note"></div>
+                                    <div class="modal-actions">
+                                        <button class="btn-text" @click="closeSleepModal()">Cancel</button>
+                                        <button class="btn btn-primary" @click="saveSleep()">Save</button>
+                                    </div>
                                 </div>
                             </div>
                         </template>
@@ -485,140 +678,6 @@
                                 <div class="card workspace-section">
                                     <h2>Future plans</h2>
                                     <p class="focus-text" x-text="project.future_plans || 'Not set.'"></p>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </template>
-
-                <!-- Routine tab -->
-                <template x-if="!overlay && tab==='routine'">
-                    <div x-data="checklistPage()">
-                        <div class="section-header">
-                            <h1>Routine</h1>
-                            <button class="btn-text" @click="toggleManaging()" x-text="managing ? 'Done managing' : 'Manage items'"></button>
-                        </div>
-                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
-                        <template x-if="loading"><p>Loading…</p></template>
-                        <template x-if="!loading">
-                            <div class="stack">
-                                <template x-for="block in blocks" :key="block.key">
-                                    <div class="cl-block" :class="'color-' + block.colorKey + (collapsedBlocks[block.key] ? ' collapsed' : '')" x-show="itemsForBlock(block.key).length > 0 || managing">
-                                        <div class="cl-block-header" @click="toggleBlock(block.key)">
-                                            <span class="cl-block-icon" x-text="block.icon"></span>
-                                            <span class="cl-block-title" x-text="block.label"></span>
-                                            <div class="cl-block-stats">
-                                                <span class="cl-block-count" x-text="`${doneCountForBlock(block.key)}/${itemsForBlock(block.key).length}`"></span>
-                                                <div class="cl-mini-dots">
-                                                    <template x-for="item in itemsForBlock(block.key)" :key="item.id">
-                                                        <span class="cl-mini-dot" :class="statusFor(item)==='done' ? 'done' : (statusFor(item) ? 'skip' : 'pending')" :title="item.name"></span>
-                                                    </template>
-                                                </div>
-                                                <div class="cl-mini-bar"><div class="cl-mini-fill" :class="'color-' + block.colorKey" :style="`width:${blockProgress(block.key)}%`"></div></div>
-                                                <span class="cl-chevron">▼</span>
-                                            </div>
-                                        </div>
-
-                                        <div class="cl-block-body">
-                                            <template x-for="item in itemsForBlock(block.key)" :key="item.id">
-                                                <div class="ck-row" :class="statusFor(item)==='done' ? 'is-done' : (statusFor(item)==='skipped' ? 'is-skipped' : '')">
-                                                    <template x-if="editingItemId !== item.id">
-                                                        <div class="ck-row-main">
-                                                            <div class="ck-icon" x-text="item.icon || '📋'"></div>
-                                                            <div class="ck-info"><div class="ck-title" x-text="item.name"></div></div>
-                                                            <template x-if="!managing">
-                                                                <div class="ck-row-actions">
-                                                                    <span class="ck-status" :class="'ck-status-' + (statusFor(item) || 'pending')" x-text="statusLabel(item)"></span>
-                                                                    <button class="ck-log-btn" @click="openLog(item)">Log</button>
-                                                                </div>
-                                                            </template>
-                                                            <template x-if="managing">
-                                                                <div class="ck-row-actions">
-                                                                    <button class="icon-button" @click="moveItem(item,'up')" title="Move up">↑</button>
-                                                                    <button class="icon-button" @click="moveItem(item,'down')" title="Move down">↓</button>
-                                                                    <button class="btn-text" @click="startEditItem(item)">Edit</button>
-                                                                    <button class="btn-text" style="color: var(--accent-coral)" @click="archiveItem(item)">Archive</button>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </template>
-                                                    <template x-if="editingItemId === item.id">
-                                                        <div class="ck-edit-form">
-                                                            <div class="field"><label>Name</label><input type="text" x-model="editForm.name"></div>
-                                                            <div class="field">
-                                                                <label>Block</label>
-                                                                <select x-model="editForm.block">
-                                                                    <template x-for="b in blocks" :key="b.key"><option :value="b.key" x-text="b.label"></option></template>
-                                                                </select>
-                                                            </div>
-                                                            <div class="field"><label>Icon (optional)</label><input type="text" x-model="editForm.icon" maxlength="4"></div>
-                                                            <div class="field">
-                                                                <label>Days (leave all off for every day)</label>
-                                                                <div class="day-picker">
-                                                                    <template x-for="(d, idx) in dayNames" :key="idx">
-                                                                        <button type="button" class="day-chip" :class="{active: editForm.days.includes(idx)}" @click="toggleEditDay(idx)" x-text="d"></button>
-                                                                    </template>
-                                                                </div>
-                                                            </div>
-                                                            <div class="modal-actions">
-                                                                <button class="btn-text" @click="cancelEditItem()">Cancel</button>
-                                                                <button class="btn btn-primary" @click="saveEditItem(item)">Save</button>
-                                                            </div>
-                                                        </div>
-                                                    </template>
-                                                </div>
-                                            </template>
-
-                                            <template x-if="managing && addingToBlock !== block.key">
-                                                <button class="btn-text" @click="openAdd(block.key)">+ Add item</button>
-                                            </template>
-                                            <template x-if="managing && addingToBlock === block.key">
-                                                <div class="card-nested" style="padding: var(--pad-sm) var(--pad-md);">
-                                                    <div class="field"><input type="text" x-model="addForm.name" placeholder="Item name" @keydown.enter="submitAdd()"></div>
-                                                    <div class="field"><input type="text" x-model="addForm.icon" placeholder="Icon (optional)" maxlength="4"></div>
-                                                    <div class="field">
-                                                        <label>Days (leave all off for every day)</label>
-                                                        <div class="day-picker">
-                                                            <template x-for="(d, idx) in dayNames" :key="idx">
-                                                                <button type="button" class="day-chip" :class="{active: addForm.days.includes(idx)}" @click="toggleAddDay(idx)" x-text="d"></button>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-actions">
-                                                        <button class="btn-text" @click="cancelAdd()">Cancel</button>
-                                                        <button class="btn btn-primary" @click="submitAdd()">Add</button>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-                        </template>
-
-                        <!-- Log popup: time + optional note, then Done / Skip / Holiday / Undo -->
-                        <template x-if="logItem">
-                            <div class="modal-overlay" @click.self="closeLog()">
-                                <div class="modal">
-                                    <h2 x-text="logItem.name"></h2>
-                                    <p class="system-text" x-text="'Currently: ' + statusLabel(logItem)"></p>
-                                    <div class="field">
-                                        <label>Time</label>
-                                        <input type="time" x-model="logForm.time">
-                                    </div>
-                                    <div class="field">
-                                        <label>Note (optional)</label>
-                                        <input type="text" x-model="logForm.note" placeholder="Optional note...">
-                                    </div>
-                                    <div class="modal-actions" style="flex-wrap: wrap;">
-                                        <button class="btn btn-primary" style="flex:1;" @click="confirmLog('done')">✓ Done</button>
-                                        <button class="btn" style="flex:1;" @click="confirmLog('skipped')">Skip</button>
-                                        <button class="btn" style="flex:1;" @click="confirmLog('holiday')">🏖️ Holiday</button>
-                                    </div>
-                                    <div class="modal-actions">
-                                        <button class="btn-text" @click="closeLog()">Cancel</button>
-                                        <button class="btn btn-danger" @click="clearLog()">Undo / Clear</button>
-                                    </div>
                                 </div>
                             </div>
                         </template>
