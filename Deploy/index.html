@@ -378,6 +378,9 @@
                                                                 <span class="trv2-confirm-hint">Tap ✓ again to confirm</span>
                                                             </template>
                                                         </div>
+                                                        <template x-if="task.status === 'paused' && task.running_note">
+                                                            <div class="trv2-pause-reason" x-text="task.running_note"></div>
+                                                        </template>
                                                     </div>
                                                     <div class="trv2-time-col">
                                                         <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || '')"></div>
@@ -863,7 +866,7 @@
                             <template x-for="p in projects" :key="p.id">
                                 <div class="card project-card"
                                      x-data="projectCard(p, tasksFor(p.id), { onOpen: openWorkspace, onEdit: openEdit, onDelete: softDelete })"
-                                     :class="{ expanded: expanded }"
+                                     :class="{ expanded: expanded, 'project-card-completed': project.status === 'completed' }"
                                      @click="handleClick()">
                                     <div class="project-card-top">
                                         <div class="monogram-chip" :class="'color-' + project.color_key" x-text="initial"></div>
@@ -1045,7 +1048,7 @@
                                         <div class="ws-metric">
                                             <div class="ws-metric-lbl">Tasks</div>
                                             <div class="ws-metric-val"><span x-text="doneCount"></span><span class="denom" x-text="'/' + totalCount"></span></div>
-                                            <div class="ws-metric-sub" x-text="inProgressCount + ' in progress · ' + notStartedCount + ' to start'"></div>
+                                            <div class="ws-metric-sub" x-text="inProgressCount + ' in progress · ' + (pausedCount ? pausedCount + ' paused · ' : '') + notStartedCount + ' to start'"></div>
                                         </div>
                                         <template x-if="project.short_term_goal_date">
                                             <div class="ws-metric">
@@ -1112,10 +1115,10 @@
                             <div>
 
                                 <!-- Running now (only if there is one) -->
-                                <div class="ws-section" x-show="runningTask">
-                                    <div class="ws-section-head"><h2>Running now</h2></div>
-                                    <p class="focus-text running-text" x-text="runningTask ? runningTask.name : ''"></p>
-                                    <p class="user-text" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
+                                <div class="ws-section running-card" x-show="runningTask">
+                                    <div class="heading-label">Running now</div>
+                                    <h2 class="focus-text" x-text="runningTask ? runningTask.name : ''"></h2>
+                                    <p class="user-text running-note" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
                                 </div>
 
                                 <!-- Tasks section -- same trv2-row anatomy as Today.
@@ -1138,14 +1141,17 @@
                                                     <div class="trv2-body">
                                                         <div class="trv2-name" x-text="task.name"></div>
                                                         <div class="trv2-meta">
-                                                            <span class="trv2-kind task" x-text="task.status==='in_progress' ? 'Task · In progress' : (task.status==='done' ? 'Task · Done' : 'Task')"></span>
-                                                            <template x-if="task.status==='not_started'">
-                                                                <button class="trv2-start" @click.stop="startTask(task)" title="Start task">▶ Start</button>
+                                                            <span class="trv2-kind task" x-text="task.status==='in_progress' ? 'Task · In progress' : (task.status==='done' ? 'Task · Done' : (task.status==='paused' ? 'Task · Paused' : 'Task'))"></span>
+                                                            <template x-if="task.status==='not_started' || task.status==='paused'">
+                                                                <button class="trv2-start" @click.stop="startTask(task)" :title="task.status==='paused' ? 'Resume task' : 'Start task'" x-text="task.status==='paused' ? '▶ Resume' : '▶ Start'"></button>
                                                             </template>
                                                             <template x-if="isPendingComplete(task)">
                                                                 <span class="trv2-confirm-hint">Tap ✓ again to confirm</span>
                                                             </template>
                                                         </div>
+                                                        <template x-if="task.status === 'paused' && task.running_note">
+                                                            <div class="trv2-pause-reason" x-text="task.running_note"></div>
+                                                        </template>
                                                     </div>
                                                     <div class="trv2-time-col">
                                                         <div class="trv2-time" x-text="task.status==='done' && task.completed_at ? ('Done · ' + window.formatTime12h(task.completed_at.slice(11,16))) : (task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || ''))"></div>

@@ -61,6 +61,7 @@ export function projectWorkspacePage(nav) {
         get totalCount() { return this.tasks.length; },
         get inProgressCount() { return this.tasks.filter(t => t.status === 'in_progress').length; },
         get notStartedCount() { return this.tasks.filter(t => t.status === 'not_started').length; },
+        get pausedCount() { return this.tasks.filter(t => t.status === 'paused').length; },
         get progressPct() { return this.totalCount ? Math.round((this.doneCount / this.totalCount) * 100) : 0; },
         statusLabel(s) {
             if (s === 'in_progress') return 'In progress';
@@ -177,8 +178,12 @@ export function projectWorkspacePage(nav) {
         },
         async pauseTask() {
             if (!this.editingTaskId) return;
+            const reason = await askNote('Why are you pausing?', {
+                submitLabel: 'Pause', skipLabel: 'Just pause'
+            });
+            if (reason === false) return;
             try {
-                const updated = await DB.Tasks.update(this.editingTaskId, { status: 'not_started', running_note: null });
+                const updated = await DB.Tasks.update(this.editingTaskId, { status: 'paused', running_note: reason || null });
                 this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
                 this.closeTaskModal();
             } catch (e) {
