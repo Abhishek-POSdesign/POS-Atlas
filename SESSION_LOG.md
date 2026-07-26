@@ -32,6 +32,37 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Opus 4.6)
+
+**Session scope:** Phase 5 Health — Bundle A fixes (blockers) + Bundle B (Health Trends chart).
+
+**What shipped (commits):**
+- `3fb78c6` — feat: Phase 5 Health — Bundle A fixes + Health Trends chart
+
+**Bundle A fixes (blockers):**
+1. Weekly targets dot grid moved OUTSIDE `workoutDayType === 'workout'` conditional — now shows on Recovery and Full Rest days too
+2. Gear icon was already wired to `openTargetsEditor()` — confirmed working
+3. Layout overflow fixed: `.col-height` max-height raised 600→720px, `.vitals-stack.col-height` gets `overflow-y: auto`
+4. Sleep card now surfaces morning reflection + context note below metrics after save (lilac left-edge for morning, neutral for context)
+5. Workout session rows use proper `.wo-session-row` CSS classes with visible Edit + Delete buttons (not hidden behind hover)
+6. Fixed 8 broken CSS token references (var(--mut), var(--text), var(--panel), var(--radius) → correct Atlas tokens)
+
+**Bundle B (Health Trends):**
+- New "Health Trends" card below Checklist Completion, with Sleep | Workout segmented tab toggle
+- Sleep tab: 30-day bar chart, score-based bar coloring (sage≥goal, amber≥85%, coral<85%), dashed goal line, 7-day avg summary, legend
+- Workout tab: 4-week consistency grid (per activity-type rows × W1-W4 columns), met/partial/missed dots, legend
+- All data loaded non-blocking via existing DB methods (no new migrations)
+
+**What's still open:**
+- Live testing on atlas.abhisheksikka.com: gear opens targets editor, targets grid visible on Recovery/Rest days, no overlap with Routine card, sleep notes show on card, Health Trends chart renders with real data
+- No dark-mode visual verification yet (need live screenshots)
+
+**What NOT to do:**
+- Don't revert targets grid back inside the `workoutDayType === 'workout'` conditional
+- Don't use `var(--mut)` / `var(--text)` / `var(--panel)` / `var(--radius)` — these aren't real Atlas tokens
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.7)
 
 **Session scope:** Phase 5 Health (Sleep + Workout) — planning, schema foundation, DB methods, and UI mockup for approval.
