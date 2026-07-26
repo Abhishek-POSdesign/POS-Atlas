@@ -486,6 +486,18 @@ export function todayPage() {
         },
         closeWorkoutModal() { this.workoutModalOpen = false; },
         
+        activityIcon(type) {
+            const icons = {
+                strength: '<path d="M6 4v16M18 4v16M4 8h4M4 16h4M16 8h4M16 16h4"/>',
+                cardio_walk: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>',
+                yoga_stretch: '<path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path>',
+                active_play: '<circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line>',
+                cleaning: '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline>'
+            };
+            const inner = icons[type] || '<circle cx="12" cy="12" r="10"></circle>';
+            return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+        },
+
         openWorkoutSessionForm(session = null) {
             if (session) {
                 this.editingSessionId = session.id;
