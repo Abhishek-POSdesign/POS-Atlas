@@ -507,15 +507,24 @@
                                             <template x-if="workoutDayType === 'workout' && hasWorkoutData">
                                                 <div class="stack">
                                                     <template x-for="session in workoutSessions" :key="session.id">
-                                                        <div class="card panel" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 8px;">
-                                                            <div>
-                                                                <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
-                                                                <div class="meta" style="color: var(--mut); font-size: 12px; margin-top: 4px;">
-                                                                    <span x-text="session.duration_minutes + ' min'"></span>
-                                                                    <template x-if="session.activity_type === 'strength' && session.intensity">
-                                                                        <span x-text="' · ' + session.intensity"></span>
+                                                        <div class="card panel" :style="'border-left: 4px solid ' + activityColor(session.activity_type) + '; padding: 12px; margin-bottom: 8px;'">
+                                                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                                                <div>
+                                                                    <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
+                                                                    <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
+                                                                        <span x-text="session.duration_minutes + ' min'"></span>
+                                                                        <template x-if="session.activity_type === 'strength' && session.intensity">
+                                                                            <span x-text="' · ' + session.intensity"></span>
+                                                                        </template>
+                                                                        <template x-if="session.program_tag">
+                                                                            <span x-text="' · ' + session.program_tag"></span>
+                                                                        </template>
+                                                                    </div>
+                                                                    <template x-if="session.note">
+                                                                        <div style="color: var(--text-secondary); font-size: 13px; margin-top: 6px; font-style: italic;" x-text="session.note"></div>
                                                                     </template>
                                                                 </div>
+                                                                <button class="btn-text" @click="openWorkoutModal()">Edit</button>
                                                             </div>
                                                         </div>
                                                     </template>
@@ -854,17 +863,28 @@
                                                 <div class="empty-state">No sessions logged yet.</div>
                                             </template>
                                             <template x-for="session in workoutSessions" :key="session.id">
-                                                <div class="card panel" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; cursor: pointer;" @click="openWorkoutSessionForm(session)">
-                                                    <div>
-                                                        <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
-                                                        <div class="meta" style="color: var(--mut); font-size: 12px; margin-top: 4px;">
-                                                            <span x-text="session.duration_minutes + ' min'"></span>
-                                                            <template x-if="session.activity_type === 'strength' && session.intensity">
-                                                                <span x-text="' · ' + session.intensity"></span>
+                                                <div class="card panel" :style="'border-left: 4px solid ' + activityColor(session.activity_type) + '; padding: 16px; margin-bottom: 12px;'">
+                                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                                        <div>
+                                                            <div style="font-weight: 600; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
+                                                            <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
+                                                                <span x-text="session.duration_minutes + ' min'"></span>
+                                                                <template x-if="session.activity_type === 'strength' && session.intensity">
+                                                                    <span x-text="' · ' + session.intensity"></span>
+                                                                </template>
+                                                                <template x-if="session.program_tag">
+                                                                    <span x-text="' · ' + session.program_tag"></span>
+                                                                </template>
+                                                            </div>
+                                                            <template x-if="session.note">
+                                                                <div style="color: var(--text-secondary); font-size: 13px; margin-top: 8px; font-style: italic;" x-text="session.note"></div>
                                                             </template>
                                                         </div>
+                                                        <div style="display: flex; gap: 8px;">
+                                                            <button class="btn-text" @click.stop="openWorkoutSessionForm(session)">Edit</button>
+                                                            <button class="btn-text" @click.stop="deleteWorkoutSession(session.id)" style="color: var(--accent-coral);">Delete</button>
+                                                        </div>
                                                     </div>
-                                                    <button class="btn-text" @click.stop="deleteWorkoutSession(session.id)" style="color: var(--danger-fg);">Delete</button>
                                                 </div>
                                             </template>
                                             <div class="modal-actions" style="margin-top: 16px;">

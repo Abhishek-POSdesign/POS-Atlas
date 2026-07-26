@@ -99,6 +99,11 @@ export function todayPage() {
                 this.projects = projects;
                 this.sleepEntry = sleepEntry;
                 this.workoutEntry = workoutEntry;
+                if (workoutEntry) {
+                    this.workoutSessions = await DB.WorkoutSessions.listForLog(workoutEntry.id);
+                } else {
+                    this.workoutSessions = [];
+                }
                 this.streaks = streaks;
                 const todaysItems = checklistItems.filter(i => !i.days || i.days.includes(dow));
                 const doneIds = new Set(checklistHistory.filter(h => h.status === 'done').map(h => h.item_id));
@@ -478,6 +483,17 @@ export function todayPage() {
         },
         closeWorkoutModal() { this.workoutModalOpen = false; },
         
+        activityColor(type) {
+            const m = {
+                strength: 'var(--accent-coral)',
+                cardio_walk: 'var(--accent-blue)',
+                yoga_stretch: 'var(--accent-lilac)',
+                active_play: 'var(--accent-sage)',
+                cleaning: 'var(--accent-amber)'
+            };
+            return m[type] || 'var(--border)';
+        },
+        
         openWorkoutSessionForm(session = null) {
             if (session) {
                 this.editingSessionId = session.id;
@@ -523,12 +539,14 @@ export function todayPage() {
             }
         },
         async deleteWorkoutSession(id) {
-            try {
-                await DB.WorkoutSessions.remove(id);
-                this.workoutSessions = this.workoutSessions.filter(s => s.id !== id);
-            } catch (e) {
-                this.errorMsg = e.message;
-            }
+            askConfirm('Delete this workout session?').then(async () => {
+                try {
+                    await DB.WorkoutSessions.remove(id);
+                    this.workoutSessions = this.workoutSessions.filter(s => s.id !== id);
+                } catch (e) {
+                    this.errorMsg = e.message;
+                }
+            }).catch(() => {});
         },
 
         // ---- trend: last 30 logical days, checklist done/skipped/missed ----
