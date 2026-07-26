@@ -862,11 +862,19 @@
                                 <p>Create your first project to get a real workspace for it.</p>
                             </div>
                         </template>
-                        <div class="project-grid" x-show="!loading && projects.length > 0">
-                            <template x-for="p in projects" :key="p.id">
-                                <div class="card project-card"
-                                     x-data="projectCard(p, tasksFor(p.id), { onOpen: openWorkspace, onEdit: openEdit, onDelete: softDelete })"
-                                     :class="{ expanded: expanded, 'project-card-completed': project.status === 'completed' }"
+                        <template x-if="!loading && projects.length > 0">
+                            <div>
+                                <template x-for="group in [
+                                    { title: 'Running Projects', list: projects.filter(p => p.status !== 'completed') },
+                                    { title: 'Completed Projects', list: projects.filter(p => p.status === 'completed') }
+                                ]">
+                                    <div x-show="group.list.length > 0">
+                                        <div class="heading-label" x-show="group.title === 'Completed Projects'" style="margin-top: var(--pad-xl); margin-bottom: var(--pad-md);" x-text="group.title"></div>
+                                        <div class="project-grid">
+                                            <template x-for="p in group.list" :key="p.id">
+                                                <div class="card project-card"
+                                                     x-data="projectCard(p, tasksFor(p.id), { onOpen: openWorkspace, onEdit: openEdit, onDelete: softDelete })"
+                                                     :class="{ expanded: expanded, 'project-card-completed': p.status === 'completed' }"
                                      @click="handleClick()">
                                     <div class="project-card-top">
                                         <div class="monogram-chip" :class="'color-' + project.color_key" x-text="initial"></div>
@@ -902,7 +910,11 @@
                                     </template>
                                 </div>
                             </template>
-                        </div>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
 
                         <!-- Projects-page notes (Round 2 build, item 6). Persistent
                              empty card removed; adding a note now opens a modal
@@ -1077,8 +1089,9 @@
                                         <button class="ws-overflow-btn" @click.stop="menuOpen = !menuOpen" aria-haspopup="menu" :aria-expanded="menuOpen" aria-label="Project actions">⋯</button>
                                         <template x-if="menuOpen">
                                             <div class="ws-overflow-menu" role="menu">
-                                                <button role="menuitem" @click="startEditHeader(); menuOpen = false">Edit goals</button>
+                                                <button role="menuitem" x-show="project.status !== 'completed'" @click="startEditHeader(); menuOpen = false">Edit goals</button>
                                                 <button role="menuitem" x-show="project.status !== 'completed'" @click="completeProject(); menuOpen = false">Mark as completed</button>
+                                                <button role="menuitem" x-show="project.status === 'completed'" @click="reopenProject(); menuOpen = false">Reopen project</button>
                                                 <button role="menuitem" x-show="!project.archived_at" @click="archiveProject(); menuOpen = false">Archive project</button>
                                                 <hr>
                                                 <button role="menuitem" class="danger" @click="menuOpen = false; softDeleteProject()">Delete project</button>
@@ -1086,7 +1099,7 @@
                                         </template>
                                     </div>
 
-                                    <div class="ws-goal" role="button" tabindex="0" @click="startEditHeader()" @keydown.enter.prevent="startEditHeader()" @keydown.space.prevent="startEditHeader()" aria-label="Edit short-term goal">
+                                    <div class="ws-goal" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit short-term goal">
                                         <div class="ws-goal-label">Short-term goal</div>
                                         <template x-if="project.short_term_goal">
                                             <p class="ws-goal-body" x-text="project.short_term_goal"></p>
@@ -1129,13 +1142,13 @@
                                 <div class="ws-section">
                                     <div class="ws-section-head">
                                         <h2>Tasks</h2>
-                                        <button class="head-action" @click="openAddTaskModal()">+ Add task</button>
+                                        <button class="head-action" x-show="project.status !== 'completed'" @click="openAddTaskModal()">+ Add task</button>
                                     </div>
                                     <div class="task-list" style="max-height: none; overflow: visible;">
                                         <template x-for="task in tasks" :key="task.id">
                                             <div>
-                                                <div class="trv2-row" :class="{ 'is-done': task.status==='done' }" @click="openEditTaskModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openEditTaskModal(task)" @keydown.space.prevent="openEditTaskModal(task)" :aria-label="'Edit task: ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
-                                                    <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task), 'is-done': task.status==='done' }" @click.stop="task.status==='done' ? null : handleCompleteClick(task)" :aria-label="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Confirm mark done' : 'Mark done')" :title="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done')">
+                                                <div class="trv2-row" :class="{ 'is-done': task.status==='done' }" @click="project.status === 'completed' ? null : openEditTaskModal(task)" role="button" tabindex="0" @keydown.enter.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" @keydown.space.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" :aria-label="'Edit task: ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
+                                                    <button class="trv2-check" :disabled="project.status === 'completed'" :class="{ 'is-pending': isPendingComplete(task), 'is-done': task.status==='done' }" @click.stop="(task.status==='done' || project.status === 'completed') ? null : handleCompleteClick(task)" :aria-label="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Confirm mark done' : 'Mark done')" :title="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done')">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                     </button>
                                                     <div class="trv2-body">
@@ -1172,10 +1185,14 @@
                                         <h2>Work log</h2>
                                         <span class="head-meta" x-text="logs.length + (logs.length === 1 ? ' entry' : ' entries')"></span>
                                     </div>
-                                    <div class="field"><textarea x-model="newLogBody" rows="2" placeholder="Add a note about today's work"></textarea></div>
-                                    <div class="modal-actions" style="justify-content: flex-start; margin-bottom: var(--pad-md);">
-                                        <button class="btn btn-primary" @click="addLog()">Add entry</button>
-                                    </div>
+                                    <template x-if="project.status !== 'completed'">
+                                        <div>
+                                            <div class="field"><textarea x-model="newLogBody" rows="2" placeholder="Add a note about today's work"></textarea></div>
+                                            <div class="modal-actions" style="justify-content: flex-start; margin-bottom: var(--pad-md);">
+                                                <button class="btn btn-primary" @click="addLog()">Add entry</button>
+                                            </div>
+                                        </div>
+                                    </template>
                                     <template x-for="group in logGroups" :key="group.date">
                                         <div class="worklog-day">
                                             <button class="worklog-day-head" @click="toggleDate(group.date)">

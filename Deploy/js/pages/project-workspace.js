@@ -308,12 +308,23 @@ export function projectWorkspacePage(nav) {
             }
         },
         async completeProject() {
+            if (this.tasks.some(t => t.status !== 'done')) {
+                alert('Please complete or remove all unfinished tasks before marking the project as completed.');
+                return;
+            }
             const ok = await askConfirm(`Mark project "${this.project.name}" as completed?`);
             if (!ok) return;
             try {
                 this.project = await DB.Projects.update(this.projectId, { status: 'completed' });
             } catch (e) {
                 this.errorMsg = 'Complete failed: ' + e.message;
+            }
+        },
+        async reopenProject() {
+            try {
+                this.project = await DB.Projects.update(this.projectId, { status: 'in_progress' });
+            } catch (e) {
+                this.errorMsg = 'Reopen failed: ' + e.message;
             }
         },
         async softDeleteProject() {
