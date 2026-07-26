@@ -54,6 +54,49 @@ export function projectWorkspacePage(nav) {
         get logGroups() {
             return groupByDate(this.logs, l => l.entry_date);
         },
+
+        // ---- Hero-header summary metrics (added for the redesigned
+        // workspace 2026-07-26). Purely derived from state.tasks + project
+        // dates; no separate fetch. ----
+        get doneCount() { return this.tasks.filter(t => t.status === 'done').length; },
+        get totalCount() { return this.tasks.length; },
+        get inProgressCount() { return this.tasks.filter(t => t.status === 'in_progress').length; },
+        get notStartedCount() { return this.tasks.filter(t => t.status === 'not_started').length; },
+        get progressPct() { return this.totalCount ? Math.round((this.doneCount / this.totalCount) * 100) : 0; },
+        statusLabel(s) {
+            if (s === 'in_progress') return 'In progress';
+            if (s === 'planned') return 'Planned';
+            if (s === 'completed') return 'Completed';
+            return s || '';
+        },
+        formatDate(iso) {
+            if (!iso) return '';
+            const d = new Date(iso + 'T00:00:00');
+            if (isNaN(d)) return iso;
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        },
+        daysUntil(iso) {
+            if (!iso) return '';
+            const d = new Date(iso + 'T00:00:00');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const diff = Math.round((d - today) / 86400000);
+            if (diff === 0) return 'Due today';
+            if (diff === 1) return 'Due tomorrow';
+            if (diff > 0) return diff + ' days';
+            if (diff === -1) return '1 day overdue';
+            return Math.abs(diff) + ' days overdue';
+        },
+        projectDotClass() {
+            return 'color-' + (this.project?.color_key || 'blue');
+        },
+        // Focus the inline "New task" input after clicking the section's
+        // "+ Add task" head-action. Uses querySelector because the input is
+        // rendered inside a template and can't take a static x-ref reliably.
+        focusAddTask() {
+            const el = document.querySelector('.ws-task-add input[type="text"]');
+            if (el) el.focus();
+        },
         isDateExpanded(date) {
             return this.expandedDates[date] !== false; // expanded by default
         },
@@ -111,17 +154,45 @@ export function projectWorkspacePage(nav) {
                 this.errorMsg = 'Start failed: ' + e.message;
             }
         },
+        // Two-step done confirmation, matching the Today Tasks & Reminders
+        // card. First click on the round checkbox arms the row (pending
+        // state); second click within 2.5s commits. Prevents an accidental
+        // tap from marking a task done. Delete already has askConfirm() +
+        // undo toast, so it already has two steps + a safety net.
+        pendingCompleteId: null,
+        _pendingCompleteTimer: null,
+        isPendingComplete(task) { return this.pendingCompleteId === task.id; },
+        handleCompleteClick(task) {
+            if (this.pendingCompleteId === task.id) {
+                this._clearPendingComplete();
+                this.completeTask(task);
+            } else {
+                this._clearPendingComplete();
+                this.pendingCompleteId = task.id;
+                this._pendingCompleteTimer = setTimeout(() => this._clearPendingComplete(), 2500);
+            }
+        },
+        _clearPendingComplete() {
+            if (this._pendingCompleteTimer) {
+                clearTimeout(this._pendingCompleteTimer);
+                this._pendingCompleteTimer = null;
+            }
+            this.pendingCompleteId = null;
+        },
+
+        // Complete-task on workspace: no separate note prompt (the double-tap
+        // confirm IS the deliberate second action). Still auto-creates a
+        // Work log entry so the completion is auditable in the project's own
+        // timeline -- Abhishek can hand-add a richer note as a normal Work
+        // log entry, or via Edit task, if he wants one.
         async completeTask(task) {
-            const note = await askNote(`Anything worth noting about finishing "${task.name}"?`, {
-                submitLabel: 'Complete', skipLabel: 'Complete without a note'
-            });
             try {
-                const updated = await DB.Tasks.complete(task.id, note);
+                const updated = await DB.Tasks.complete(task.id, null);
                 this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
                 const logRow = await DB.TaskLogs.create({
                     project_id: this.projectId,
                     task_id: task.id,
-                    body: `Completed: ${task.name}${note ? ' — ' + note : ''}`,
+                    body: `Completed: ${task.name}`,
                     entry_type: 'task_completion'
                 });
                 this.logs = [logRow, ...this.logs];

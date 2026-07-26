@@ -291,7 +291,13 @@
                                             <div class="kpi-ring-wrap">
                                                 <svg viewBox="0 0 100 100">
                                                     <circle cx="50" cy="50" r="42" fill="none" stroke="var(--surface-2)" stroke-width="10"/>
-                                                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--border-hover)" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" :stroke-dashoffset="checklistTotalToday ? (264 - (264 * (checklistDoneToday + checklistSkippedToday) / checklistTotalToday)) : 264"/>
+                                                    <!-- Layer 2 = done+skipped combined arc. Amber is Atlas's
+                                                         skipped color across the whole app (trend chart legend +
+                                                         checklist mini-dots), so the visible "skipped" segment in
+                                                         the ring now matches those. Was --border-hover, which was
+                                                         essentially invisible against --surface-2 (Abhishek's
+                                                         direct feedback, 2026-07-26). -->
+                                                    <circle cx="50" cy="50" r="42" fill="none" stroke="var(--accent-amber)" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" :stroke-dashoffset="checklistTotalToday ? (264 - (264 * (checklistDoneToday + checklistSkippedToday) / checklistTotalToday)) : 264"/>
                                                     <circle cx="50" cy="50" r="42" fill="none" stroke="var(--accent-sage)" stroke-width="10" stroke-linecap="round" stroke-dasharray="264" :stroke-dashoffset="checklistTotalToday ? (264 - (264 * checklistDoneToday / checklistTotalToday)) : 264"/>
                                                 </svg>
                                                 <div class="kpi-ring-num"><span class="n" x-text="`${checklistDoneToday}/${checklistTotalToday}`"></span><span class="d" x-text="checklistPct + '%'"></span></div>
@@ -346,42 +352,76 @@
                                                 </div>
                                             </template>
                                             <template x-for="task in upcomingTasks" :key="task.id">
-                                                <div class="task-row task-row-clickable" :class="{ 'is-overdue': isOverdue(task) }" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name">
-                                                    <template x-if="task.kind==='reminder'">
-                                                        <div class="task-badge reminder"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
-                                                    </template>
-                                                    <template x-if="task.kind!=='reminder' && projectFor(task)">
-                                                        <div class="task-badge" :class="'color-' + projectFor(task).color_key" x-text="projectInitial(projectFor(task))"></div>
-                                                    </template>
-                                                    <template x-if="task.kind!=='reminder' && !projectFor(task)">
-                                                        <div class="task-badge plain"></div>
-                                                    </template>
-                                                    <span class="task-name" x-text="task.name"></span>
-                                                    <template x-if="projectFor(task)"><span class="task-proj" x-text="projectFor(task).name"></span></template>
-                                                    <span class="task-time" :class="{ overdue: isOverdue(task) }" x-text="task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || '')"></span>
-                                                    <template x-if="isOverdue(task)">
-                                                        <span class="overdue-tag" aria-label="Overdue">Overdue</span>
-                                                    </template>
-                                                    <div class="task-row-actions" @click.stop>
-                                                        <button class="icon-button task-action-done" @click="completeTaskOnToday(task)" :aria-label="'Mark ' + task.name + ' done'" title="Mark done">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                                        </button>
-                                                        <button class="icon-button task-action-delete" @click="deleteTaskOnToday(task)" :aria-label="'Delete ' + task.name" title="Delete">
-                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                                        </button>
+                                                <div class="trv2-row" :class="{ 'is-overdue': isOverdue(task), 'is-done': task.status==='done' }" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name">
+                                                    <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                    </button>
+                                                    <div class="trv2-body">
+                                                        <div class="trv2-name" x-text="task.name"></div>
+                                                        <div class="trv2-meta">
+                                                            <template x-if="task.kind==='reminder'">
+                                                                <span class="trv2-kind reminder">
+                                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                                                                    Reminder
+                                                                </span>
+                                                            </template>
+                                                            <template x-if="task.kind!=='reminder'">
+                                                                <span class="trv2-kind task" x-text="projectFor(task) ? 'Task' : 'Task · Standalone'"></span>
+                                                            </template>
+                                                            <template x-if="projectFor(task)">
+                                                                <span class="trv2-project" :class="'color-' + projectFor(task).color_key">
+                                                                    <span class="trv2-project-dot"></span>
+                                                                    <span x-text="projectFor(task).name"></span>
+                                                                </span>
+                                                            </template>
+                                                            <template x-if="isPendingComplete(task)">
+                                                                <span class="trv2-confirm-hint">Tap ✓ again to confirm</span>
+                                                            </template>
+                                                        </div>
                                                     </div>
+                                                    <div class="trv2-time-col">
+                                                        <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || '')"></div>
+                                                        <template x-if="isOverdue(task)">
+                                                            <div class="trv2-time-tag">Overdue</div>
+                                                        </template>
+                                                    </div>
+                                                    <button class="trv2-delete" @click.stop="deleteTaskOnToday(task)" :aria-label="'Delete ' + task.name" title="Delete">
+                                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                    </button>
                                                 </div>
                                             </template>
 
                                             <template x-if="recentlyCompleted.length > 0">
                                                 <div>
-                                                    <!-- system-generated label (like "Next up") -- muted secondary style -->
                                                     <div class="task-list-divider">Recently completed</div>
                                                     <template x-for="task in recentlyCompleted" :key="task.id">
-                                                        <div class="task-row done">
-                                                            <div class="task-badge reminder">✓</div>
-                                                            <span class="task-name" x-text="task.name"></span>
-                                                            <span class="task-time" x-text="task.completed_at ? task.completed_at.slice(0,10) : ''"></span>
+                                                        <div class="trv2-row is-done" @click="openTaskEditModal(task)" role="button" tabindex="0">
+                                                            <button class="trv2-check is-done" @click.stop :aria-label="'Already done'" title="Already done">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                            </button>
+                                                            <div class="trv2-body">
+                                                                <div class="trv2-name" x-text="task.name"></div>
+                                                                <div class="trv2-meta">
+                                                                    <template x-if="task.kind!=='reminder'">
+                                                                        <span class="trv2-kind task" x-text="projectFor(task) ? 'Task' : 'Task · Standalone'"></span>
+                                                                    </template>
+                                                                    <template x-if="task.kind==='reminder'">
+                                                                        <span class="trv2-kind reminder">Reminder</span>
+                                                                    </template>
+                                                                    <template x-if="projectFor(task)">
+                                                                        <span class="trv2-project" :class="'color-' + projectFor(task).color_key">
+                                                                            <span class="trv2-project-dot"></span>
+                                                                            <span x-text="projectFor(task).name"></span>
+                                                                        </span>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                            <div class="trv2-time-col">
+                                                                <div class="trv2-time" x-text="task.completed_at ? ('Done · ' + window.formatTime12h(task.completed_at.slice(11,16))) : 'Done'"></div>
+                                                            </div>
+                                                            <button class="trv2-delete" @click.stop="deleteTaskOnToday(task)" :aria-label="'Delete ' + task.name" title="Delete">
+                                                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                            </button>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -837,171 +877,245 @@
                     </div>
                 </template>
 
-                <!-- Projects tab: workspace -->
+                <!-- Projects tab: workspace (redesigned 2026-07-26, mockup approved) -->
                 <template x-if="!overlay && tab==='projects' && projectViewId">
                     <div x-data="projectWorkspacePage({ onBack: () => closeProject() })" x-init="open(projectViewId)">
-                        <div class="card workspace-header">
-                            <button class="btn-text" @click="back()" style="margin-bottom: var(--pad-md);">← Back to Projects</button>
-                            <template x-if="project">
-                                <div class="project-header-split">
-                                    
-                                    <!-- 40% Left Side: Identity & Actions -->
-                                    <div class="project-header-identity" style="height: 100%;">
-                                        <div>
-                                            <p class="project-title" x-text="project.name"></p>
-                                            <div class="project-meta"><span class="status-text" x-text="project.status"></span></div>
-                                        </div>
-                                        <div class="modal-actions" style="justify-content: flex-start; margin-top: auto; padding-top: var(--pad-lg);">
-                                            <button class="btn-text" x-show="!project.archived_at" @click="archiveProject()">Archive</button>
-                                            <button class="btn btn-danger" @click="softDeleteProject()">Delete project</button>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- 60% Right Side: Goals -->
-                                    <div class="project-header-goals">
-                                        <template x-if="!editingHeader">
-                                            <div class="goals-display">
-                                                <div class="goal-block card-nested" style="padding: var(--pad-md); margin-bottom: 0;">
-                                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
-                                                        <div class="heading-label" style="margin: 0;">Short-term Goal</div>
-                                                        <span class="goal-date" x-show="project.short_term_goal_date" x-text="project.short_term_goal_date"></span>
-                                                    </div>
-                                                    <template x-if="project.short_term_goal">
-                                                        <p class="user-text" style="margin: 0; font-size: 15px;" x-text="project.short_term_goal"></p>
-                                                    </template>
-                                                    <template x-if="!project.short_term_goal">
-                                                        <button class="btn-text" @click="startEditHeader()" style="padding: 0;">+ Set short-term goal</button>
-                                                    </template>
-                                                </div>
-                                                <div class="goal-block card-nested" style="padding: var(--pad-md); margin-bottom: 0;">
-                                                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
-                                                        <div class="heading-label" style="margin: 0;">Long-term Goal</div>
-                                                        <span class="goal-date" x-show="project.long_term_goal_date" x-text="project.long_term_goal_date"></span>
-                                                    </div>
-                                                    <template x-if="project.long_term_goal">
-                                                        <p class="user-text" style="margin: 0; font-size: 15px;" x-text="project.long_term_goal"></p>
-                                                    </template>
-                                                    <template x-if="!project.long_term_goal">
-                                                        <button class="btn-text" @click="startEditHeader()" style="padding: 0;">+ Set long-term goal</button>
-                                                    </template>
-                                                </div>
-                                                <div class="modal-actions" style="justify-content: flex-start; margin-top: var(--pad-xs);">
-                                                    <button class="btn-text" @click="startEditHeader()">Edit goals</button>
-                                                </div>
-                                            </div>
-                                        </template>
-                                        <template x-if="editingHeader">
-                                            <div class="goals-edit">
-                                                <div class="field">
-                                                    <label>Short-term Goal</label>
-                                                    <textarea x-model="headerForm.short_term_goal" rows="2"></textarea>
-                                                </div>
-                                                <div class="field">
-                                                    <label>Target Date</label>
-                                                    <input type="date" x-model="headerForm.short_term_goal_date">
-                                                </div>
-                                                <div class="field" style="margin-top: var(--pad-md);">
-                                                    <label>Long-term Goal</label>
-                                                    <textarea x-model="headerForm.long_term_goal" rows="2"></textarea>
-                                                </div>
-                                                <div class="field">
-                                                    <label>Target Date</label>
-                                                    <input type="date" x-model="headerForm.long_term_goal_date">
-                                                </div>
-                                                <div class="modal-actions" style="margin-top: var(--pad-sm);">
-                                                    <button class="btn-text" @click="editingHeader=false">Cancel</button>
-                                                    <button class="btn btn-primary" @click="saveHeader()">Save</button>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </div>
 
+                        <button class="ws-back" @click="back()" aria-label="Back to Projects">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                            Projects
+                        </button>
+
+                        <!-- Hero header block: dominant title, description, summary metrics,
+                             progress bar. Destructive actions live behind a ⋯ overflow menu
+                             top-right, out of the primary reading flow. -->
+                        <template x-if="project">
+                            <div class="ws-hero">
+                                <div class="ws-hero-left">
+                                    <div class="ws-title-row">
+                                        <span class="ws-dot" :class="projectDotClass()"></span>
+                                        <h1 class="ws-title" x-text="project.name"></h1>
+                                        <span class="ws-status-pill" :class="'status-' + project.status" x-text="statusLabel(project.status)"></span>
+                                    </div>
+                                    <template x-if="project.description">
+                                        <p class="ws-desc" x-text="project.description"></p>
+                                    </template>
+                                    <template x-if="!project.description">
+                                        <p class="ws-desc empty">No description yet.</p>
+                                    </template>
+
+                                    <div class="ws-summary">
+                                        <div class="ws-metric">
+                                            <div class="ws-metric-lbl">Tasks</div>
+                                            <div class="ws-metric-val"><span x-text="doneCount"></span><span class="denom" x-text="'/' + totalCount"></span></div>
+                                            <div class="ws-metric-sub" x-text="inProgressCount + ' in progress · ' + notStartedCount + ' to start'"></div>
+                                        </div>
+                                        <template x-if="project.short_term_goal_date">
+                                            <div class="ws-metric">
+                                                <div class="ws-metric-lbl">Short-term due</div>
+                                                <div class="ws-metric-val small" x-text="formatDate(project.short_term_goal_date)"></div>
+                                                <div class="ws-metric-sub" x-text="daysUntil(project.short_term_goal_date)"></div>
+                                            </div>
+                                        </template>
+                                        <template x-if="project.long_term_goal_date">
+                                            <div class="ws-metric">
+                                                <div class="ws-metric-lbl">Long-term due</div>
+                                                <div class="ws-metric-val small" x-text="formatDate(project.long_term_goal_date)"></div>
+                                                <div class="ws-metric-sub" x-text="daysUntil(project.long_term_goal_date)"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <template x-if="totalCount > 0">
+                                        <div class="ws-progress" :aria-label="doneCount + ' of ' + totalCount + ' tasks done'">
+                                            <div class="ws-progress-fill" :style="`width: ${progressPct}%`"></div>
+                                        </div>
+                                    </template>
                                 </div>
-                            </template>
-                        </div>
+
+                                <div class="ws-overflow" x-data="{ menuOpen: false }" @click.outside="menuOpen = false">
+                                    <button class="ws-overflow-btn" @click.stop="menuOpen = !menuOpen" aria-haspopup="menu" :aria-expanded="menuOpen" aria-label="Project actions">⋯</button>
+                                    <template x-if="menuOpen">
+                                        <div class="ws-overflow-menu" role="menu">
+                                            <button role="menuitem" @click="startEditHeader(); menuOpen = false">Edit goals</button>
+                                            <button role="menuitem" x-show="!project.archived_at" @click="archiveProject(); menuOpen = false">Archive project</button>
+                                            <hr>
+                                            <button role="menuitem" class="danger" @click="menuOpen = false; softDeleteProject()">Delete project</button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
 
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
                         <template x-if="loading"><p>Loading…</p></template>
 
                         <template x-if="!loading && project">
-                            <div class="stack">
+                            <div>
 
-                                <div class="card workspace-section" x-show="runningTask">
-                                    <h2>Running now</h2>
+                                <!-- Goals section -->
+                                <div class="ws-section">
+                                    <div class="ws-section-head">
+                                        <h2>Goals</h2>
+                                        <button class="head-action" x-show="!editingHeader" @click="startEditHeader()">Edit goals</button>
+                                    </div>
+                                    <template x-if="!editingHeader">
+                                        <div class="goal-grid">
+                                            <div class="goal-tile">
+                                                <div class="goal-tile-head">
+                                                    <span class="goal-tile-lbl">Short-term</span>
+                                                    <span class="goal-tile-date" x-show="project.short_term_goal_date" x-text="formatDate(project.short_term_goal_date)"></span>
+                                                </div>
+                                                <template x-if="project.short_term_goal">
+                                                    <p class="goal-tile-body" x-text="project.short_term_goal"></p>
+                                                </template>
+                                                <template x-if="!project.short_term_goal">
+                                                    <button class="goal-tile-body empty" @click="startEditHeader()">+ Set short-term goal</button>
+                                                </template>
+                                            </div>
+                                            <div class="goal-tile">
+                                                <div class="goal-tile-head">
+                                                    <span class="goal-tile-lbl">Long-term</span>
+                                                    <span class="goal-tile-date" x-show="project.long_term_goal_date" x-text="formatDate(project.long_term_goal_date)"></span>
+                                                </div>
+                                                <template x-if="project.long_term_goal">
+                                                    <p class="goal-tile-body" x-text="project.long_term_goal"></p>
+                                                </template>
+                                                <template x-if="!project.long_term_goal">
+                                                    <button class="goal-tile-body empty" @click="startEditHeader()">+ Set long-term goal</button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="editingHeader">
+                                        <div class="goals-edit">
+                                            <div class="field">
+                                                <label>Short-term goal</label>
+                                                <textarea x-model="headerForm.short_term_goal" rows="2"></textarea>
+                                            </div>
+                                            <div class="field">
+                                                <label>Short-term target date</label>
+                                                <input type="date" x-model="headerForm.short_term_goal_date">
+                                            </div>
+                                            <div class="field" style="margin-top: var(--pad-md);">
+                                                <label>Long-term goal</label>
+                                                <textarea x-model="headerForm.long_term_goal" rows="2"></textarea>
+                                            </div>
+                                            <div class="field">
+                                                <label>Long-term target date</label>
+                                                <input type="date" x-model="headerForm.long_term_goal_date">
+                                            </div>
+                                            <div class="modal-actions" style="margin-top: var(--pad-sm);">
+                                                <button class="btn-text" @click="editingHeader=false">Cancel</button>
+                                                <button class="btn btn-primary" @click="saveHeader()">Save</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                <!-- Running now (only if there is one) -->
+                                <div class="ws-section" x-show="runningTask">
+                                    <div class="ws-section-head"><h2>Running now</h2></div>
                                     <p class="focus-text running-text" x-text="runningTask ? runningTask.name : ''"></p>
                                     <p class="user-text" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
                                 </div>
 
-                                <div class="card workspace-section">
-                                    <h2>Tasks</h2>
-                                    <template x-for="task in tasks" :key="task.id">
-                                        <div class="task-row-wrap card-nested">
-                                            <template x-if="editingTaskId !== task.id">
-                                                <div class="task-row">
-                                                    <span class="task-name task-name-clickable" :class="{done: task.status==='done'}" @click="startEditTask(task)" role="button" tabindex="0" @keydown.enter.prevent="startEditTask(task)" @keydown.space.prevent="startEditTask(task)" x-text="task.name"></span>
-                                                    <span class="task-meta" x-text="task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || '')"></span>
-                                                    <button class="icon-button" x-show="task.status==='not_started'" @click="startTask(task)" title="Start">▶</button>
-                                                    <button class="icon-button" x-show="task.status!=='done'" @click="completeTask(task)" title="Complete">✓</button>
-                                                    <button class="icon-button" @click="deleteTask(task)" title="Delete">✕</button>
-                                                </div>
-                                            </template>
-                                            <template x-if="editingTaskId === task.id">
-                                                <div>
-                                                    <div class="field"><label>Name</label><input type="text" x-model="editingTaskForm.name" @keydown.enter="saveEditTask(task)"></div>
-                                                    <div style="display:flex; gap: var(--pad-sm); align-items:flex-end; flex-wrap: wrap;">
-                                                        <div class="field" style="flex:1; min-width:140px;"><label>Date</label><input type="date" x-model="editingTaskForm.scheduled_date"></div>
-                                                        <div class="field" style="flex:1; min-width:180px;"><label>Time</label>
-                                                            <div class="custom-time" x-data="timePicker12h" x-modelable="value" x-model="editingTaskForm.scheduled_time">
-                                                                <select :value="hh" @change="update($event.target.value, mm, ampm)"><option value="">--</option><option value="12">12</option><template x-for="i in 11"><option :value="String(i).padStart(2,'0')" x-text="String(i).padStart(2,'0')"></option></template></select><span>:</span><select :value="mm" @change="update(hh, $event.target.value, ampm)"><template x-for="i in 12"><option :value="String((i-1)*5).padStart(2,'0')" x-text="String((i-1)*5).padStart(2,'0')"></option></template></select><select :value="ampm" @change="update(hh, mm, $event.target.value)"><option value="AM">AM</option><option value="PM">PM</option></select>
+                                <!-- Tasks section -- uses the same trv2-row anatomy as Today -->
+                                <div class="ws-section">
+                                    <div class="ws-section-head">
+                                        <h2>Tasks</h2>
+                                        <button class="head-action" @click="focusAddTask()">+ Add task</button>
+                                    </div>
+                                    <div class="task-list" style="max-height: none; overflow: visible;">
+                                        <template x-for="task in tasks" :key="task.id">
+                                            <div>
+                                                <template x-if="editingTaskId !== task.id">
+                                                    <div class="trv2-row" :class="{ 'is-done': task.status==='done' }" @click="startEditTask(task)" role="button" tabindex="0" @keydown.enter.prevent="startEditTask(task)" @keydown.space.prevent="startEditTask(task)" :aria-label="'Edit task: ' + task.name">
+                                                        <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task), 'is-done': task.status==='done' }" @click.stop="task.status==='done' ? null : handleCompleteClick(task)" :aria-label="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Confirm mark done' : 'Mark done')" :title="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done')">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                        </button>
+                                                        <div class="trv2-body">
+                                                            <div class="trv2-name" x-text="task.name"></div>
+                                                            <div class="trv2-meta">
+                                                                <span class="trv2-kind task" x-text="task.status==='in_progress' ? 'Task · In progress' : (task.status==='done' ? 'Task · Done' : 'Task')"></span>
+                                                                <template x-if="task.status==='not_started'">
+                                                                    <button class="trv2-start" @click.stop="startTask(task)" title="Start task">▶ Start</button>
+                                                                </template>
+                                                                <template x-if="isPendingComplete(task)">
+                                                                    <span class="trv2-confirm-hint">Tap ✓ again to confirm</span>
+                                                                </template>
                                                             </div>
                                                         </div>
-                                                        <label class="field-checkbox" style="align-self:center;"><input type="checkbox" x-model="editingTaskForm.notify_enabled"> Notify</label>
+                                                        <div class="trv2-time-col">
+                                                            <div class="trv2-time" x-text="task.status==='done' && task.completed_at ? ('Done · ' + window.formatTime12h(task.completed_at.slice(11,16))) : (task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || ''))"></div>
+                                                        </div>
+                                                        <button class="trv2-delete" @click.stop="deleteTask(task)" :aria-label="'Delete ' + task.name" title="Delete">
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                        </button>
                                                     </div>
-                                                    <div class="modal-actions">
-                                                        <button class="btn-text" @click="cancelEditTask()">Cancel</button>
-                                                        <button class="btn btn-primary" @click="saveEditTask(task)">Save</button>
+                                                </template>
+                                                <template x-if="editingTaskId === task.id">
+                                                    <div class="card-nested" style="padding: var(--pad-md); margin: 8px 0;">
+                                                        <div class="field"><label>Name</label><input type="text" x-model="editingTaskForm.name" @keydown.enter="saveEditTask(task)"></div>
+                                                        <div style="display:flex; gap: var(--pad-sm); align-items:flex-end; flex-wrap: wrap;">
+                                                            <div class="field" style="flex:1; min-width:140px;"><label>Date</label><input type="date" x-model="editingTaskForm.scheduled_date"></div>
+                                                            <div class="field" style="flex:1; min-width:180px;"><label>Time</label>
+                                                                <div class="custom-time" x-data="timePicker12h" x-modelable="value" x-model="editingTaskForm.scheduled_time">
+                                                                    <select :value="hh" @change="update($event.target.value, mm, ampm)"><option value="">--</option><option value="12">12</option><template x-for="i in 11"><option :value="String(i).padStart(2,'0')" x-text="String(i).padStart(2,'0')"></option></template></select><span>:</span><select :value="mm" @change="update(hh, $event.target.value, ampm)"><template x-for="i in 12"><option :value="String((i-1)*5).padStart(2,'0')" x-text="String((i-1)*5).padStart(2,'0')"></option></template></select><select :value="ampm" @change="update(hh, mm, $event.target.value)"><option value="AM">AM</option><option value="PM">PM</option></select>
+                                                                </div>
+                                                            </div>
+                                                            <label class="field-checkbox" style="align-self:center;"><input type="checkbox" x-model="editingTaskForm.notify_enabled"> Notify</label>
+                                                        </div>
+                                                        <div class="modal-actions">
+                                                            <button class="btn-text" @click="cancelEditTask()">Cancel</button>
+                                                            <button class="btn btn-primary" @click="saveEditTask(task)">Save</button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </template>
-                                            <p class="task-note" x-show="task.status==='done' && task.completion_note" x-text="task.completion_note"></p>
-                                        </div>
-                                    </template>
-                                    <div class="field" style="margin-top: var(--pad-md)">
-                                        <input type="text" x-model="newTaskName" placeholder="New task name" @keydown.enter="addTask()">
+                                                </template>
+                                                <p class="task-note" x-show="task.status==='done' && task.completion_note" x-text="task.completion_note" style="padding: 4px 12px 8px 54px; color: var(--text-muted); font-size: 13px; font-style: italic;"></p>
+                                            </div>
+                                        </template>
                                     </div>
-                                    <div style="display:flex; gap: var(--pad-sm); align-items:center; margin-bottom: var(--pad-md); flex-wrap: wrap;">
+
+                                    <div class="ws-task-add">
+                                        <input type="text" x-model="newTaskName" placeholder="New task name" @keydown.enter="addTask()">
                                         <input type="date" x-model="newTaskDate">
                                         <div class="custom-time" x-data="timePicker12h" x-modelable="value" x-model="newTaskTime">
                                             <select :value="hh" @change="update($event.target.value, mm, ampm)"><option value="">--</option><option value="12">12</option><template x-for="i in 11"><option :value="String(i).padStart(2,'0')" x-text="String(i).padStart(2,'0')"></option></template></select><span>:</span><select :value="mm" @change="update(hh, $event.target.value, ampm)"><template x-for="i in 12"><option :value="String((i-1)*5).padStart(2,'0')" x-text="String((i-1)*5).padStart(2,'0')"></option></template></select><select :value="ampm" @change="update(hh, mm, $event.target.value)"><option value="AM">AM</option><option value="PM">PM</option></select>
                                         </div>
                                         <label class="field-checkbox"><input type="checkbox" x-model="newTaskNotify"> Notify</label>
+                                        <button class="btn btn-primary" @click="addTask()">Add</button>
                                     </div>
-                                    <button class="btn btn-primary" @click="addTask()">Add task</button>
                                 </div>
 
-                                <div class="card workspace-section">
-                                    <h2>Work log</h2>
+                                <!-- Work log section -->
+                                <div class="ws-section">
+                                    <div class="ws-section-head">
+                                        <h2>Work log</h2>
+                                        <span class="head-meta" x-text="logs.length + (logs.length === 1 ? ' entry' : ' entries')"></span>
+                                    </div>
                                     <div class="field"><textarea x-model="newLogBody" rows="2" placeholder="Add a note about today's work"></textarea></div>
-                                    <button class="btn btn-primary" @click="addLog()">Add entry</button>
+                                    <div class="modal-actions" style="justify-content: flex-start; margin-bottom: var(--pad-md);">
+                                        <button class="btn btn-primary" @click="addLog()">Add entry</button>
+                                    </div>
                                     <template x-for="group in logGroups" :key="group.date">
-                                        <div class="date-card card-nested">
-                                            <button class="log-date-header" @click="toggleDate(group.date)">
+                                        <div class="worklog-day">
+                                            <button class="worklog-day-head" @click="toggleDate(group.date)">
                                                 <span x-text="group.date"></span>
-                                                <span x-text="isDateExpanded(group.date) ? '−' : '+'"></span>
+                                                <span x-text="group.entries.length + ' · ' + (isDateExpanded(group.date) ? '−' : '+')"></span>
                                             </button>
                                             <template x-if="isDateExpanded(group.date)">
-                                                <div class="date-card-entries">
+                                                <div>
                                                     <template x-for="log in group.entries" :key="log.id">
                                                         <div>
                                                             <template x-if="editingLogId !== log.id">
-                                                                <div class="log-line-row">
-                                                                    <span class="log-time" x-text="formatTime(log.created_at)"></span>
-                                                                    <span :class="log.entry_type==='task_completion' ? 'system-text' : 'user-text'" x-text="log.body"></span>
-                                                                    <button class="btn-text" @click="startEditLog(log)">Edit</button>
+                                                                <div class="worklog-line">
+                                                                    <span class="worklog-line-time" x-text="formatTime(log.created_at)"></span>
+                                                                    <span :class="log.entry_type==='task_completion' ? 'worklog-line-body system' : 'worklog-line-body'" x-text="log.body"></span>
+                                                                    <button class="worklog-line-edit" @click="startEditLog(log)">Edit</button>
                                                                 </div>
                                                             </template>
                                                             <template x-if="editingLogId === log.id">
-                                                                <div>
+                                                                <div style="padding: 10px 0; border-bottom: 1px solid var(--border);">
                                                                     <div class="field"><textarea x-model="editingLogBody" rows="2"></textarea></div>
                                                                     <div class="modal-actions">
                                                                         <button class="btn-text" @click="cancelEditLog()">Cancel</button>
@@ -1016,7 +1130,6 @@
                                         </div>
                                     </template>
                                 </div>
-
 
                             </div>
                         </template>

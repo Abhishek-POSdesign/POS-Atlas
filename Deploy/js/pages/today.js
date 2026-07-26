@@ -235,11 +235,41 @@ export function todayPage() {
             }
         },
 
+        // ---- Two-step done confirmation ----
+        // First click on the round checkbox arms the row (pendingCompleteId
+        // holds its id, checkbox goes to a half-committed sage-tinted state,
+        // an inline "Tap again to confirm" hint appears in the row's meta
+        // line). Second click within 2.5s commits. A click on any other row's
+        // checkbox, or the timer expiring silently, resets. Prevents an
+        // accidental tap from marking something done -- explicitly requested
+        // after live testing. Delete already has askConfirm() + undo toast.
+        pendingCompleteId: null,
+        _pendingCompleteTimer: null,
+        isPendingComplete(task) { return this.pendingCompleteId === task.id; },
+        handleCompleteClick(task) {
+            if (this.pendingCompleteId === task.id) {
+                this._clearPendingComplete();
+                this.completeTaskOnToday(task);
+            } else {
+                this._clearPendingComplete();
+                this.pendingCompleteId = task.id;
+                this._pendingCompleteTimer = setTimeout(() => this._clearPendingComplete(), 2500);
+            }
+        },
+        _clearPendingComplete() {
+            if (this._pendingCompleteTimer) {
+                clearTimeout(this._pendingCompleteTimer);
+                this._pendingCompleteTimer = null;
+            }
+            this.pendingCompleteId = null;
+        },
+
         // Inline done/delete for the Today Tasks & Reminders card. These are
         // deliberately quick actions (no completion-note prompt) -- the full
-        // Project workspace path still has the askNote flow for real journaling.
-        // Both work identically for kind='task' and kind='reminder' -- a "done"
-        // reminder is just a task-shape row with status='done'.
+        // Project workspace path still auto-logs a "Completed: {name}" entry
+        // in its own Work log. Both work identically for kind='task' and
+        // kind='reminder' -- a "done" reminder is just a task-shape row with
+        // status='done'.
         async completeTaskOnToday(task) {
             try {
                 const updated = await DB.Tasks.complete(task.id, null);

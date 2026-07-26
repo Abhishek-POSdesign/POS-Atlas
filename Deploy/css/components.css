@@ -691,7 +691,7 @@
    than a fourth colour. */
 .cl-mini-dot.done { background-color: var(--accent-sage); }
 .cl-mini-dot.skip,
-.cl-mini-dot.skipped { background-color: var(--text-muted); opacity: .5; }
+.cl-mini-dot.skipped { background-color: var(--accent-amber); }
 .cl-mini-dot.missed { background-color: var(--accent-coral); }
 .cl-mini-dot.pending { background-color: transparent; border: 1px solid var(--border-hover); }
 
@@ -938,7 +938,7 @@
 }
 
 .trend-seg.trend-missed { background-color: var(--accent-coral); }
-.trend-seg.trend-skipped { background-color: var(--text-muted); opacity: .5; }
+.trend-seg.trend-skipped { background-color: var(--accent-amber); }
 .trend-seg.trend-done { background-color: var(--accent-sage); }
 
 .trend-label {
@@ -969,7 +969,7 @@
 }
 
 .trend-dot.trend-done { background-color: var(--accent-sage); }
-.trend-dot.trend-skipped { background-color: var(--text-muted); opacity: .5; }
+.trend-dot.trend-skipped { background-color: var(--accent-amber); }
 .trend-dot.trend-missed { background-color: var(--accent-coral); }
 
 /* ---------- Saved-state readability (Current focus / Next step / Future plans) ---------- */
@@ -1236,78 +1236,207 @@
 .kpi-ring-num .n { font-family: var(--font-serif); font-size: 28px; line-height: 1; color: var(--accent-sage); font-variant-numeric: tabular-nums; }
 .kpi-ring-num .d { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
-/* 60/40 row, equal height so neither side leaves (or creates) dead space */
-.split-60-40 { display: grid; grid-template-columns: 3fr 2fr; gap: var(--pad-md); margin-bottom: var(--pad-md); }
+/* 60/40 row, equal height via grid stretch. The vitals column's natural
+   height dictates; the tasks card matches and internally scrolls when its
+   content overflows -- the tasks card itself NEVER grows with task count
+   (2026-07-26 polish, redesign round). Removed the old min/max range that
+   let the tasks card silently outgrow the vitals column with 6+ tall v2
+   rows; the max is still there as a belt-and-suspenders ceiling. */
+.split-60-40 { display: grid; grid-template-columns: 3fr 2fr; gap: var(--pad-md); margin-bottom: var(--pad-md); align-items: stretch; }
 @media (max-width: 900px) { .split-60-40 { grid-template-columns: 1fr; } }
 
-/* Task column + vitals column share a shape, not a fixed pixel height
-   (2026-07-26 polish). min-height keeps the split from collapsing when
-   the task list is empty; max-height stops it from stretching endlessly.
-   Once tasks exceed max, .task-list's own overflow-y:auto kicks in and
-   scrolls internally instead of pushing the card taller. */
-.col-height { min-height: 380px; max-height: 560px; display: flex; flex-direction: column; }
-
+.col-height { display: flex; flex-direction: column; min-height: 380px; max-height: 600px; }
 .task-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
-.task-list-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: var(--pad-sm) 0 4px; }
-.task-row.done { opacity: .6; }
-.task-row.done .task-badge.reminder { background: var(--accent-sage-tint); color: var(--accent-sage); }
-.task-badge.plain { background: var(--surface-2); border: 1.5px solid var(--border-hover); border-radius: 50%; width: 10px; height: 10px; margin: 0 8px; }
+.task-list-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: var(--pad-md) 0 4px; padding: 0 6px; }
 
-/* System-generated meta inside .task-row -- project chip label and the
-   time/date column. Both were inheriting body text color, which read as
-   equal-weight data next to the task name. They're metadata; treat them
-   as such. tabular-nums keeps the time column visually aligned. */
-.task-row .task-proj { color: var(--text-muted); font-size: 12px; }
-.task-row .task-time { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+/* =========================================================
+   TASK ROW V2 -- the "design review approved" two-tier row.
+   Used on both the Today Tasks & Reminders card and every
+   Project workspace Tasks section. Same anatomy, same class
+   names -- one shape, two consumers.
 
-/* Today task row is now the primary way to edit a task/reminder -- clicking
-   anywhere on the row opens the edit modal seeded from that task. The row
-   already lifts on hover (.task-row:hover above); done/delete controls live
-   inside .task-row-actions and carry the visible affordance (always shown,
-   not hover-gated -- CLAUDE.md's "no hover-only controls" rule). The old
-   .task-edit-cue label is gone because the two controls make the row's
-   interactivity obvious without needing a separate word for it. */
-.task-row-clickable { cursor: pointer; border-radius: 6px; }
-.task-row-clickable:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: -2px; }
+   Anatomy (left to right):
+     .trv2-check       Tier-1 primary action (round 28px)
+     .trv2-body        Tier-1 name + Tier-2 metadata stack
+     .trv2-time-col    Tier-2 time + optional tag (right)
+     .trv2-delete      Tier-3 chrome (right-most)
+   ========================================================= */
 
-/* Right-aligned quick-action controls (mark done / delete) on every Today
-   task row. Always visible so touch users see them too. @click.stop on the
-   wrapper in markup so clicking a button doesn't also open the edit modal. */
-.task-row .task-row-actions {
+.trv2-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    column-gap: 14px;
+    align-items: center;
+    padding: 12px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out);
+}
+.trv2-row + .trv2-row { border-top: 1px solid var(--border); }
+.trv2-row:hover { background: var(--surface-1-hover); }
+.trv2-row:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: -2px; }
+
+/* Round checkbox on the left -- primary action. Empty ring at rest;
+   sage-tinted with a sage border on pending confirm; fully sage with
+   a white checkmark once committed. Double-tap-to-commit visual is
+   the pending state itself + the inline hint in .trv2-meta. */
+.trv2-check {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1.5px solid var(--border-hover);
+    cursor: pointer;
     display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+    padding: 0;
+    flex-shrink: 0;
+}
+.trv2-check:hover { border-color: var(--accent-sage); }
+.trv2-check.is-pending {
+    border-color: var(--accent-sage);
+    background: var(--accent-sage-tint);
+    color: var(--accent-sage);
+}
+.trv2-check.is-done {
+    background: var(--accent-sage);
+    border-color: var(--accent-sage);
+    color: var(--surface-0);
+}
+.trv2-row.is-done .trv2-name { color: var(--text-muted); text-decoration: line-through; text-decoration-color: var(--text-muted); }
+.trv2-row.is-done .trv2-meta { opacity: .6; }
+
+.trv2-body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.trv2-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.trv2-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    flex-wrap: wrap;
+    line-height: 1.4;
+}
+.trv2-kind {
+    display: inline-flex;
+    align-items: center;
     gap: 4px;
-    margin-left: auto;
-    flex-shrink: 0;
-}
-.task-row .task-row-actions .icon-button {
-    padding: 4px;
-    min-width: 28px;
-    min-height: 28px;
-}
-.task-row .task-action-done:hover { color: var(--accent-sage); }
-.task-row .task-action-delete:hover { color: var(--accent-coral); }
-
-/* Overdue = past-time task/reminder that isn't done yet. Coral is the
-   caution/relapse/missed token (CLAUDE.md line 170) -- reused here on
-   purpose. The tag is a short semantic label, not a decorated pill. */
-.task-row .task-time.overdue { color: var(--accent-coral); font-weight: 500; }
-.task-row .overdue-tag {
-    color: var(--accent-coral);
-    font-size: 10px;
     font-weight: 600;
-    letter-spacing: .06em;
+    letter-spacing: .04em;
     text-transform: uppercase;
-    margin-left: 6px;
+    font-size: 10px;
+}
+.trv2-kind.reminder { color: var(--accent-amber); }
+.trv2-kind.task { color: var(--text-muted); }
+.trv2-kind svg { flex-shrink: 0; }
+
+.trv2-project {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 12px;
+}
+.trv2-project-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-blue);
     flex-shrink: 0;
 }
-.task-row.is-overdue .task-name { color: var(--text-primary); }
+.trv2-project.color-sage .trv2-project-dot { background: var(--accent-sage); }
+.trv2-project.color-blue .trv2-project-dot { background: var(--accent-blue); }
+.trv2-project.color-lilac .trv2-project-dot { background: var(--accent-lilac); }
+.trv2-project.color-coral .trv2-project-dot { background: var(--accent-coral); }
 
-/* Workspace task-row also opens an edit form on the task name. Same cursor
-   affordance; hover just brightens the text since the row already sits inside
-   a card-nested and doesn't need its own hover lift. */
-.task-name-clickable { cursor: pointer; }
-.task-name-clickable:hover { color: var(--text-primary); }
-.task-name-clickable:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; border-radius: 4px; }
+/* Pending-confirm hint -- shown inline in .trv2-meta only while the
+   row is in the 2.5s pending window. Sage to match the checkbox pop. */
+.trv2-confirm-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--accent-sage);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+/* Small inline "▶ Start" affordance for workspace not_started tasks --
+   keeps the start action reachable without adding another right-side
+   button that would compete with delete for chrome space. */
+.trv2-start {
+    background: none;
+    border: 0;
+    color: var(--accent-blue);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.trv2-start:hover { background: var(--accent-blue-tint); }
+
+/* Right-aligned time column. Overdue shifts the time itself to coral
+   and stacks a tiny "OVERDUE" tag underneath -- keeps time visually
+   consistent across rows regardless of tag presence. */
+.trv2-time-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    min-width: 68px;
+    flex-shrink: 0;
+}
+.trv2-time {
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    white-space: nowrap;
+}
+.trv2-time.overdue { color: var(--accent-coral); font-weight: 500; }
+.trv2-time-tag {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent-coral);
+    line-height: 1;
+}
+
+.trv2-delete {
+    background: none;
+    border: 0;
+    color: var(--text-muted);
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+    flex-shrink: 0;
+}
+.trv2-delete:hover { color: var(--accent-coral); background: var(--accent-coral-tint); }
 
 .vitals-stack { display: flex; flex-direction: column; gap: var(--pad-md); }
 .vital-card {
@@ -1431,6 +1560,329 @@
     display: flex;
     flex-direction: column;
 }
+
+/* =========================================================
+   WORKSPACE V2 (2026-07-26 approved redesign)
+   Hero header block replacing the old project-header-split /
+   project-header-identity / project-header-goals classes.
+   ========================================================= */
+
+.ws-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    background: none;
+    border: 0;
+    font-size: 13px;
+    cursor: pointer;
+    padding: 6px 0;
+    margin-bottom: 12px;
+    font-family: inherit;
+}
+.ws-back:hover { color: var(--text-primary); }
+
+.ws-hero {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card), var(--top-edge);
+    padding: 22px 24px;
+    margin-bottom: var(--pad-md);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--pad-lg);
+    align-items: start;
+}
+.ws-hero-left { min-width: 0; }
+
+.ws-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 0 0 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+.ws-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent-blue);
+    flex-shrink: 0;
+    align-self: center;
+}
+.ws-dot.color-sage { background: var(--accent-sage); }
+.ws-dot.color-blue { background: var(--accent-blue); }
+.ws-dot.color-lilac { background: var(--accent-lilac); }
+.ws-dot.color-coral { background: var(--accent-coral); }
+.ws-title {
+    font-family: var(--font-serif);
+    font-size: 34px;
+    line-height: 1.1;
+    letter-spacing: -.005em;
+    font-weight: 400;
+    margin: 0;
+    color: var(--text-primary);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+.ws-status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: var(--accent-sage-tint);
+    color: var(--accent-sage);
+}
+.ws-status-pill.status-planned { background: var(--accent-blue-tint); color: var(--accent-blue); }
+.ws-status-pill.status-completed { background: var(--accent-lilac-tint); color: var(--accent-lilac); }
+
+.ws-desc {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin: 0 0 16px;
+    max-width: 60ch;
+    line-height: 1.55;
+}
+.ws-desc.empty { color: var(--text-muted); font-style: italic; }
+
+.ws-summary {
+    display: flex;
+    gap: var(--pad-xl);
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.ws-metric { display: flex; flex-direction: column; gap: 4px; }
+.ws-metric-lbl {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.ws-metric-val {
+    font-family: var(--font-serif);
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-primary);
+}
+.ws-metric-val.small { font-size: 15px; font-family: var(--font-sans); font-weight: 500; }
+.ws-metric-val .denom { color: var(--text-muted); font-size: 15px; margin-left: 3px; }
+.ws-metric-sub { font-size: 12px; color: var(--text-muted); }
+
+.ws-progress {
+    margin-top: 16px;
+    height: 6px;
+    background: var(--surface-2);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.ws-progress-fill {
+    height: 100%;
+    background: var(--accent-sage);
+    transition: width var(--dur-base) var(--ease-out);
+}
+
+.ws-overflow { position: relative; display: flex; }
+.ws-overflow-btn {
+    background: none;
+    border: 0;
+    color: var(--text-secondary);
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 22px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+}
+.ws-overflow-btn:hover { color: var(--text-primary); background: var(--surface-2); }
+.ws-overflow-menu {
+    position: absolute;
+    top: 42px;
+    right: 0;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow-card-hover);
+    padding: 6px;
+    min-width: 180px;
+    z-index: 5;
+}
+.ws-overflow-menu button {
+    display: block;
+    width: 100%;
+    background: none;
+    border: 0;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.ws-overflow-menu button:hover { background: var(--surface-2); }
+.ws-overflow-menu button.danger { color: var(--accent-coral); }
+.ws-overflow-menu button.danger:hover { background: var(--accent-coral-tint); }
+.ws-overflow-menu hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+
+/* Consistent section card treatment across Goals / Tasks / Work log.
+   Every section is the same shell + head + body -- so the page reads
+   as one document, not stacked unrelated boxes. */
+.ws-section {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-card), var(--top-edge);
+    padding: 20px 24px;
+    margin-bottom: var(--pad-md);
+}
+.ws-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 14px;
+    gap: var(--pad-md);
+}
+.ws-section-head h2 {
+    font-family: var(--font-sans);
+    font-size: 17px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+    letter-spacing: 0;
+    text-transform: none;
+    padding: 0;
+    border: 0;
+}
+.ws-section-head .head-action {
+    background: none;
+    border: 0;
+    color: var(--accent-blue);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+}
+.ws-section-head .head-action:hover { text-decoration: underline; }
+
+/* Goal grid inside Goals section */
+.goal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 640px) {
+    .goal-grid { grid-template-columns: 1fr; }
+}
+.goal-tile {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.goal-tile-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+}
+.goal-tile-lbl {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+.goal-tile-date { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.goal-tile-body { font-size: 15px; color: var(--text-primary); line-height: 1.5; }
+.goal-tile-body.empty {
+    background: none;
+    border: 0;
+    color: var(--accent-blue);
+    padding: 0;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+}
+.goal-tile-body.empty:hover { text-decoration: underline; }
+
+/* Work log day block inside the Work log section */
+.worklog-day + .worklog-day { margin-top: var(--pad-md); }
+.worklog-day-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 8px 0;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    cursor: pointer;
+    background: none;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    width: 100%;
+    font-family: inherit;
+    text-align: left;
+}
+.worklog-day-head:hover { color: var(--text-primary); }
+.worklog-line {
+    display: grid;
+    grid-template-columns: 68px 1fr auto;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    line-height: 1.55;
+    align-items: baseline;
+}
+.worklog-line:last-child { border-bottom: 0; }
+.worklog-line-time { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }
+.worklog-line-body { color: var(--text-primary); }
+.worklog-line-body.system { color: var(--text-secondary); font-style: italic; }
+.worklog-line-edit {
+    background: none;
+    border: 0;
+    color: var(--accent-blue);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 2px 6px;
+}
+
+/* Compact add-task row inside the Tasks section on workspace */
+.ws-task-add {
+    margin-top: 14px;
+    display: flex;
+    gap: var(--pad-sm);
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+}
+.ws-task-add input[type="text"] { flex: 1 1 200px; min-width: 0; }
 
 /* 12-hour Custom Time Picker */
 .custom-time { display: inline-flex; align-items: center; gap: 4px; }
