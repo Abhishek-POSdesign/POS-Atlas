@@ -486,6 +486,17 @@ export function todayPage() {
         },
         closeWorkoutModal() { this.workoutModalOpen = false; },
         
+        activityColor(type) {
+            const m = {
+                strength: 'var(--accent-coral)',
+                cardio_walk: 'var(--accent-blue)',
+                yoga_stretch: 'var(--accent-lilac)',
+                active_play: 'var(--accent-sage)',
+                cleaning: 'var(--accent-amber)'
+            };
+            return m[type] || 'var(--mut)';
+        },
+
         activityIcon(type) {
             const icons = {
                 strength: '<path d="M6 4v16M18 4v16M4 8h4M4 16h4M16 8h4M16 16h4"/>',

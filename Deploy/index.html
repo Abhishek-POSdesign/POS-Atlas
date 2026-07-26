@@ -521,11 +521,12 @@
                                                     <template x-for="session in workoutSessions" :key="session.id">
                                                         <div class="card panel" style="padding: 12px; margin-bottom: 8px;">
                                                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                                                <div style="display: flex; gap: 12px; align-items: flex-start;">
-                                                                    <div x-html="activityIcon(session.activity_type)" style="color: var(--mut); margin-top: 2px;"></div>
-                                                                    <div>
+                                                                <div>
+                                                                    <div style="display: flex; align-items: center; gap: 8px;">
                                                                         <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
-                                                                        <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
+                                                                        <div x-html="activityIcon(session.activity_type)" :style="'color: ' + activityColor(session.activity_type) + '; opacity: 0.8; display: flex;'"></div>
+                                                                    </div>
+                                                                    <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
                                                                             <span x-text="session.duration_minutes + ' min'"></span>
                                                                             <template x-if="session.activity_type === 'strength' && session.intensity">
                                                                                 <span x-text="' · ' + session.intensity"></span>
@@ -882,11 +883,12 @@
                                             <template x-for="session in workoutSessions" :key="session.id">
                                                 <div class="card panel" style="padding: 16px; margin-bottom: 12px;">
                                                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                                        <div style="display: flex; gap: 14px; align-items: flex-start;">
-                                                            <div x-html="activityIcon(session.activity_type)" style="color: var(--mut); margin-top: 2px;"></div>
-                                                            <div>
+                                                        <div>
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
                                                                 <div style="font-weight: 600; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
-                                                                <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
+                                                                <div x-html="activityIcon(session.activity_type)" :style="'color: ' + activityColor(session.activity_type) + '; opacity: 0.8; display: flex;'"></div>
+                                                            </div>
+                                                            <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
                                                                     <span x-text="session.duration_minutes + ' min'"></span>
                                                                     <template x-if="session.activity_type === 'strength' && session.intensity">
                                                                         <span x-text="' · ' + session.intensity"></span>
