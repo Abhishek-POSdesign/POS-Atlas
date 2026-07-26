@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="auto">
 <head>
     <meta charset="UTF-8">
@@ -331,7 +331,7 @@
 
                                 <!-- Tasks & Reminders (60%) | Sleep + Workout (40%) -->
                                 <div class="split-60-40">
-                                    <div class="card panel col-height">
+                                    <div class="card panel">
                                         <div class="panel-head">
                                             <h2 style="margin:0;">Tasks &amp; Reminders</h2>
                                             <button class="add-btn" @click="openTaskModal()">+ Add task</button>
@@ -428,7 +428,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="vitals-stack col-height">
+                                    <div class="vitals-stack">
                                         <div class="card vital-card">
                                             <div class="panel-head" style="margin-bottom: 8px;">
                                                 <h2 style="margin:0; font-size: 13px;">Sleep</h2>
@@ -1113,6 +1113,9 @@
                             </div>
 
                         <!-- Weekly targets editor modal -->
+                        </template> <!-- workoutModalOpen -->
+
+                        <!-- Weekly targets editor modal -->
                         <template x-if="targetsEditorOpen">
                             <div class="modal-overlay" @click.self="closeTargetsEditor()">
                                 <div class="modal">
@@ -1130,7 +1133,6 @@
                                     </div>
                                 </div>
                             </div>
-                        </template>
                         </template>
                     </div>
                 </template>

@@ -1243,12 +1243,9 @@
    (2026-07-26 polish, redesign round). Removed the old min/max range that
    let the tasks card silently outgrow the vitals column with 6+ tall v2
    rows; the max is still there as a belt-and-suspenders ceiling. */
-.split-60-40 { display: grid; grid-template-columns: 3fr 2fr; gap: var(--pad-md); margin-bottom: var(--pad-md); align-items: stretch; }
+.split-60-40 { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--pad-md); margin-bottom: var(--pad-md); align-items: start; }
 @media (max-width: 900px) { .split-60-40 { grid-template-columns: 1fr; } }
-
-.col-height { display: flex; flex-direction: column; min-height: 380px; max-height: 720px; }
-.vitals-stack.col-height { max-height: 720px; overflow-y: auto; }
-.task-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+.task-list { margin: 0 -6px; padding: 0 6px; }
 .task-list-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: var(--pad-md) 0 4px; padding: 0 6px; }
 
 /* =========================================================
@@ -2225,9 +2222,11 @@
    PHASE 5 — WEEKLY WORKOUT TARGETS DOT GRID
    ========================================================= */
 .wo-targets-grid {
-    margin-bottom: 10px;
-    padding: 8px 0 6px;
-    border-bottom: 1px solid var(--border);
+    margin: 10px 0;
+    padding: 12px 14px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
 }
 .wo-targets-row {
     display: flex;
@@ -2236,9 +2235,10 @@
     margin-bottom: 5px;
 }
 .wo-targets-label {
-    font-size: 12px;
+    font-size: 11.5px;
     color: var(--text-muted);
-    text-transform: capitalize;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     min-width: 80px;
 }
 .wo-targets-dots {
