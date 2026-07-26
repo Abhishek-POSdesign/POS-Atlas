@@ -371,6 +371,81 @@ export const DB = {
         hardDelete(id) { return verifiedHardDelete('atlas_sleep_logs', id); }
     },
 
+    WorkoutSessions: {
+        async listForLog(workoutLogId) {
+            const { data, error } = await supabase
+                .from('atlas_workout_sessions')
+                .select('*')
+                .eq('workout_log_id', workoutLogId)
+                .order('created_at', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async listForDateRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_workout_sessions')
+                .select('*, atlas_workout_logs!inner(entry_date)')
+                .gte('atlas_workout_logs.entry_date', startDate)
+                .lte('atlas_workout_logs.entry_date', endDate)
+                .is('atlas_workout_logs.deleted_at', null);
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        create(workoutLogId, session) {
+            return verifiedInsert('atlas_workout_sessions', { workout_log_id: workoutLogId, ...session });
+        },
+        update(id, patch) { return verifiedUpdate('atlas_workout_sessions', id, patch); },
+        async remove(id) {
+            const { data, error } = await supabase
+                .from('atlas_workout_sessions')
+                .delete()
+                .eq('id', id)
+                .select();
+            if (error) throw new Error(error.message);
+            if (!data || data.length === 0) throw new Error('Delete workout session affected zero rows');
+            return data[0];
+        }
+    },
+
+    WorkoutTargets: {
+        async list() {
+            const { data, error } = await supabase
+                .from('atlas_workout_targets')
+                .select('*')
+                .order('activity_type', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async upsert(activityType, patch) {
+            const payload = { activity_type: activityType, ...patch };
+            const { data, error } = await supabase
+                .from('atlas_workout_targets')
+                .upsert(payload, { onConflict: 'activity_type' })
+                .select()
+                .single();
+            if (error || !data) throw new Error(error?.message || 'Workout target upsert was not confirmed');
+            return data;
+        }
+    },
+
+    HealthSettings: {
+        async get() {
+            const { data, error } = await supabase
+                .from('atlas_health_settings')
+                .select('*')
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async save(patch) {
+            const existing = await this.get();
+            if (existing) {
+                return verifiedUpdate('atlas_health_settings', existing.id, patch);
+            }
+            return verifiedInsert('atlas_health_settings', patch);
+        }
+    },
+
     Workout: {
         async getByDate(entryDate) {
             const { data, error } = await supabase

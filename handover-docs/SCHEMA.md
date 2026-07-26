@@ -2,7 +2,7 @@
 
 Supabase project `vcndlorrrtueofzuynvi` ("Sikka Personal Apps" — shared with the old Task Manager and Finance Manager, `atlas_` prefix keeps this app's tables separate). Every table: `id uuid pk default gen_random_uuid()`, `created_at`/`updated_at timestamptz` (server-defaulted, `updated_at` auto-bumped by trigger — see below), `deleted_at timestamptz` nullable. Tables that can be archived also get `archived_at timestamptz` nullable.
 
-Migrations are numbered and live in `Atlas/migrations/`. Never edit an old one — add a new one. **Current state: `001_init.sql` through `012_atlas_projects_restructure.sql`, all applied to the live database (last verified 2026-07-26).**
+Migrations are numbered and live in `Atlas/migrations/`. Never edit an old one — add a new one. **Current state: `001_init.sql` through `015_sleep_morning_note.sql`, all applied to the live database (last verified 2026-07-27).**
 
 ## Tables
 
@@ -38,10 +38,19 @@ Added migration 008. `target_id` (FK), `occurred_date` (date, default today), `d
 Created in `001_init.sql` for the Phase 3 `count_toward_goal` flow. Not written or read by any current UI. `target_id`, `entry_date`, `value_delta` (int), `note`.
 
 ### `atlas_sleep_logs`
-Added migration 007. `entry_date` (**unique**, one row per day, upserted on this constraint), `duration_minutes`, `sleep_score`, `start_time`, `deep_minutes`, `rem_minutes`, `light_minutes`, `awake_minutes`, `resting_hr`, `hrv` (numeric), `note`, `deleted_at`. **Keyed on the plain midnight calendar date** (Abhishek's 2026-07-26 rule: sleep is a real sleep cycle across night/morning, not habit-shifted like the checklist).
+Added migration 007, extended migration 015. `entry_date` (**unique**, one row per day, upserted on this constraint), `duration_minutes`, `sleep_score`, `start_time`, `deep_minutes`, `rem_minutes`, `light_minutes`, `awake_minutes`, `resting_hr`, `hrv` (numeric), `note`, `morning_note` (text, added migration 015 — subjective morning reflection, distinct from the general `note`), `deleted_at`. **Keyed on the plain midnight calendar date** (Abhishek's 2026-07-26 rule: sleep is a real sleep cycle across night/morning, not habit-shifted like the checklist).
 
 ### `atlas_workout_logs`
-Added migration 009, extended migration 011. `entry_date` (**unique**), `duration_minutes`, `workout_type` (text), `workout_score` (int, added migration 011), `calories`, `vo2_max` (numeric, added migration 011), `note`, `deleted_at`. **Keyed on the plain midnight calendar date.**
+Added migration 009, extended migrations 011 + 013. `entry_date` (**unique**), `duration_minutes`, `workout_type` (text), `workout_score` (int, added migration 011), `calories`, `vo2_max` (numeric, added migration 011), `day_type` (text, added migration 013 — `workout`/`active_recovery`/`full_rest`, nullable), `note`, `deleted_at`. **Keyed on the plain midnight calendar date.**
+
+### `atlas_workout_sessions`
+Added migration 014. Child table of `atlas_workout_logs` — multiple sessions per day (e.g. strength AM + walk PM). `workout_log_id` (FK, CASCADE delete), `activity_type` (required — `strength`/`cardio_walk`/`yoga_stretch`/`active_play`/`cleaning`), `duration_minutes`, `intensity` (nullable — `light`/`moderate`/`hard`, strength only), `program_tag` (nullable — `upper`/`lower`/`push`/`pull`/`legs`/`full_body`, strength only), `note`, `created_at`. **No `deleted_at`** — sessions live/die with their parent log. **No `updated_at`** — write-once (delete + re-add to edit).
+
+### `atlas_workout_targets`
+Added migration 014. Weekly activity targets — how many days/week each type should happen. `activity_type` (**unique** — `strength`/`cardio_walk`/`yoga_stretch`/`active_play`/`cleaning`), `target_days_per_week` (int, default 1), `note`, `updated_at`. Small fixed set, rarely changed.
+
+### `atlas_health_settings`
+Added migration 014. Single-row config table for health-related preferences. `sleep_goal_minutes` (int, default 420 = 7h), `updated_at`. Upserted (one row ever exists).
 
 ## Server-side functions
 
@@ -58,9 +67,9 @@ Client never invents `deleted_at`/`archived_at`/`completed_at`/`updated_at` — 
 
 Hard-delete (Restore view only) uses a plain guarded `.delete()` with `.not('deleted_at', 'is', null)` — no timestamp involved, so no function needed. `verifiedHardDelete()` in `db.js` refuses to touch a row unless `deleted_at IS NOT NULL`.
 
-## RLS (migration 002)
+## RLS (migration 002 + later)
 
-Every `atlas_` table (including the ones added in later migrations — `atlas_sleep_logs`, `atlas_workout_logs`, `atlas_streak_relapses`): `FOR ALL TO authenticated USING (true) WITH CHECK (true)`. No `profiles` table, no per-row scoping — single-tenant by construction (exactly one account exists, created directly in the Supabase dashboard, no public sign-up in the app). An unauthenticated request gets nothing. See "Authentication" in `CLAUDE.md` for the full reasoning.
+Every `atlas_` table (including the ones added in later migrations — `atlas_sleep_logs`, `atlas_workout_logs`, `atlas_streak_relapses`, `atlas_workout_sessions`, `atlas_workout_targets`, `atlas_health_settings`): `FOR ALL TO authenticated USING (true) WITH CHECK (true)`. No `profiles` table, no per-row scoping — single-tenant by construction (exactly one account exists, created directly in the Supabase dashboard, no public sign-up in the app). An unauthenticated request gets nothing. See "Authentication" in `CLAUDE.md` for the full reasoning.
 
 Supabase's advisor flags these `USING (true)` policies as `rls_policy_always_true` — this is **expected and intended**. Do not "fix" them without explicit approval.
 
