@@ -491,23 +491,35 @@
                                                 </div>
                                             </template>
 
-                                            <!-- Workout day: keep existing metric grid + no-data helper -->
-                                            <template x-if="workoutDayType === 'workout' && !hasWorkoutData">
-                                                <div class="nodata">
-                                                    <div class="empty-cue-workout">
-                                                        <svg width="24" height="8" viewBox="0 0 24 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                                                            <path d="M2 4h20" class="track-line" />
-                                                            <circle cx="12" cy="4" r="3" class="track-dot" fill="currentColor" stroke="none" />
-                                                        </svg>
-                                                    </div>
-                                                    <span class="h">Workout day · no details yet</span>
-                                                    <span class="p">Tap <strong>Log details</strong> above, or wait for the auto-parse from your workout-app screenshot (planned).</span>
-                                                </div>
-                                            </template>
-                                            <template x-if="workoutDayType === 'workout' && hasWorkoutData">
+                                            <!-- Workout day: handle loading, empty, and data states -->
+                                            <template x-if="workoutDayType === 'workout'">
                                                 <div class="stack">
+                                                    <!-- Loading state -->
+                                                    <template x-if="workoutSessionsLoading">
+                                                        <div class="nodata">
+                                                            <span class="h">Loading sessions...</span>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Empty state -->
+                                                    <template x-if="!workoutSessionsLoading && !hasWorkoutData">
+                                                        <div class="nodata">
+                                                            <div class="empty-cue-workout">
+                                                                <svg width="24" height="8" viewBox="0 0 24 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                                                    <path d="M2 4h20" class="track-line" />
+                                                                    <circle cx="12" cy="4" r="3" class="track-dot" fill="currentColor" stroke="none" />
+                                                                </svg>
+                                                            </div>
+                                                            <span class="h">Workout day · no details yet</span>
+                                                            <span class="p">Tap <strong>Log details</strong> above, or wait for the auto-parse from your workout-app screenshot (planned).</span>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Data state -->
+                                                    <template x-if="!workoutSessionsLoading && hasWorkoutData">
+                                                        <div class="stack">
                                                     <template x-for="session in workoutSessions" :key="session.id">
-                                                        <div class="card panel" :style="'border-left: 4px solid ' + activityColor(session.activity_type) + '; padding: 12px; margin-bottom: 8px;'">
+                                                        <div class="card panel" style="padding: 12px; margin-bottom: 8px;">
                                                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                                                 <div>
                                                                     <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
@@ -535,6 +547,8 @@
                                                             <div class="metric"><span class="v" x-text="workoutEntry.duration_minutes != null ? workoutEntry.duration_minutes+'m' : '—'"></span><span class="l">Minutes</span></div>
                                                             <div class="metric"><span class="v" x-text="workoutEntry.calories ?? '—'"></span><span class="l">Calories</span></div>
                                                             <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
+                                                        </div>
+                                                    </template>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -863,7 +877,7 @@
                                                 <div class="empty-state">No sessions logged yet.</div>
                                             </template>
                                             <template x-for="session in workoutSessions" :key="session.id">
-                                                <div class="card panel" :style="'border-left: 4px solid ' + activityColor(session.activity_type) + '; padding: 16px; margin-bottom: 12px;'">
+                                                <div class="card panel" style="padding: 16px; margin-bottom: 12px;">
                                                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                                         <div>
                                                             <div style="font-weight: 600; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>

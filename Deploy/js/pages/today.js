@@ -38,6 +38,7 @@ export function todayPage() {
         workoutModalOpen: false,
         workoutSessions: [],
         showSessionForm: false,
+        workoutSessionsLoading: false,
         workoutSessionForm: { type: 'strength', duration: '', intensity: '', programTag: '', note: '' },
         editingSessionId: null,
 
@@ -100,7 +101,9 @@ export function todayPage() {
                 this.sleepEntry = sleepEntry;
                 this.workoutEntry = workoutEntry;
                 if (workoutEntry) {
+                    this.workoutSessionsLoading = true;
                     this.workoutSessions = await DB.WorkoutSessions.listForLog(workoutEntry.id);
+                    this.workoutSessionsLoading = false;
                 } else {
                     this.workoutSessions = [];
                 }
@@ -483,17 +486,6 @@ export function todayPage() {
         },
         closeWorkoutModal() { this.workoutModalOpen = false; },
         
-        activityColor(type) {
-            const m = {
-                strength: 'var(--accent-coral)',
-                cardio_walk: 'var(--accent-blue)',
-                yoga_stretch: 'var(--accent-lilac)',
-                active_play: 'var(--accent-sage)',
-                cleaning: 'var(--accent-amber)'
-            };
-            return m[type] || 'var(--border)';
-        },
-        
         openWorkoutSessionForm(session = null) {
             if (session) {
                 this.editingSessionId = session.id;
@@ -539,14 +531,14 @@ export function todayPage() {
             }
         },
         async deleteWorkoutSession(id) {
-            askConfirm('Delete this workout session?').then(async () => {
-                try {
-                    await DB.WorkoutSessions.remove(id);
-                    this.workoutSessions = this.workoutSessions.filter(s => s.id !== id);
-                } catch (e) {
-                    this.errorMsg = e.message;
-                }
-            }).catch(() => {});
+            const confirmed = await askConfirm('Delete this workout session?');
+            if (!confirmed) return;
+            try {
+                await DB.WorkoutSessions.remove(id);
+                this.workoutSessions = this.workoutSessions.filter(s => s.id !== id);
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
         },
 
         // ---- trend: last 30 logical days, checklist done/skipped/missed ----
