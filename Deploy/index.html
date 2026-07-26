@@ -877,15 +877,33 @@
                                                      :class="{ expanded: expanded, 'project-card-completed': p.status === 'completed' }"
                                      @click="handleClick()">
                                     <div class="project-card-top">
-                                        <div class="monogram-chip" :class="'color-' + project.color_key" x-text="initial"></div>
-                                        <div class="color-dot" :class="'color-' + project.color_key"></div>
-                                    </div>
-                                    <p class="project-name" x-text="project.name"></p>
-                                    <p class="project-focus" x-show="project.description" x-text="project.description"></p>
-                                    <div class="project-meta">
-                                        <span class="status-text" :class="'color-' + project.color_key" x-text="statusLabel"></span>
-                                        <span class="open-cue" x-text="expanded ? 'Click to open →' : 'Details →'"></span>
-                                    </div>
+                                          <div class="monogram-chip" :class="p.status === 'completed' ? 'color-lilac' : 'color-' + project.color_key">
+                                              <template x-if="p.status !== 'completed'">
+                                                  <span x-text="initial"></span>
+                                              </template>
+                                              <template x-if="p.status === 'completed'">
+                                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                              </template>
+                                          </div>
+                                          <div class="color-dot" :class="'color-' + project.color_key" x-show="p.status !== 'completed'"></div>
+                                      </div>
+                                      <p class="project-name" x-text="project.name"></p>
+                                      
+                                      <template x-if="p.status !== 'completed'">
+                                          <p class="project-focus" x-show="project.description" x-text="project.description"></p>
+                                      </template>
+                                      <template x-if="p.status === 'completed'">
+                                          <div class="system-text">Completed</div>
+                                      </template>
+
+                                      <div class="project-meta" x-show="p.status !== 'completed'">
+                                          <span class="status-text" :class="'color-' + project.color_key" x-text="statusLabel"></span>
+                                          <span class="open-cue" x-text="expanded ? 'Click to open →' : 'Details →'"></span>
+                                      </div>
+                                      <div class="project-meta" x-show="p.status === 'completed'">
+                                          <span class="status-text"></span>
+                                          <span class="open-cue" x-text="expanded ? 'Click to open →' : 'Details →'"></span>
+                                      </div>
                                     <button class="icon-button project-card-kebab" @click.stop="toggleMenu()">⋮</button>
                                     <template x-if="menuOpen">
                                         <div class="card" style="position:absolute; top:44px; right:12px; padding:6px; z-index:5;" @click.stop>
@@ -1130,8 +1148,8 @@
                                 <!-- Running now (only if there is one) -->
                                 <div class="ws-section running-card" x-show="runningTask">
                                     <div class="heading-label">Running now</div>
-                                    <h2 x-text="runningTask ? runningTask.name : ''"></h2>
-                                    <p class="system-text" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
+                                    <div class="focus-text" x-text="runningTask ? runningTask.name : ''"></div>
+                                    <div class="system-text" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></div>
                                 </div>
 
                                 <!-- Tasks section -- same trv2-row anatomy as Today.
