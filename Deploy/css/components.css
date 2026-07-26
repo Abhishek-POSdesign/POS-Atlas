@@ -1262,27 +1262,45 @@
 
 /* Today task row is now the primary way to edit a task/reminder -- clicking
    anywhere on the row opens the edit modal seeded from that task. The row
-   already lifts on hover (.task-row:hover above); the .task-edit-cue makes
-   the action discoverable on touch (no hover), the cursor:pointer names it
-   on desktop, and the focus outline makes it keyboard-reachable. */
+   already lifts on hover (.task-row:hover above); done/delete controls live
+   inside .task-row-actions and carry the visible affordance (always shown,
+   not hover-gated -- CLAUDE.md's "no hover-only controls" rule). The old
+   .task-edit-cue label is gone because the two controls make the row's
+   interactivity obvious without needing a separate word for it. */
 .task-row-clickable { cursor: pointer; border-radius: 6px; }
 .task-row-clickable:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: -2px; }
-.task-row-clickable .task-edit-cue {
-    color: var(--text-muted);
-    font-size: 11px;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    padding-left: 6px;
+
+/* Right-aligned quick-action controls (mark done / delete) on every Today
+   task row. Always visible so touch users see them too. @click.stop on the
+   wrapper in markup so clicking a button doesn't also open the edit modal. */
+.task-row .task-row-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
     flex-shrink: 0;
-    opacity: 0;
-    transition: opacity var(--dur-fast) var(--ease-out);
 }
-.task-row-clickable:hover .task-edit-cue,
-.task-row-clickable:focus-visible .task-edit-cue { opacity: 1; }
-/* On touch (no hover), keep the cue visible so the action isn't hidden. */
-@media (hover: none) {
-    .task-row-clickable .task-edit-cue { opacity: 1; }
+.task-row .task-row-actions .icon-button {
+    padding: 4px;
+    min-width: 28px;
+    min-height: 28px;
 }
+.task-row .task-action-done:hover { color: var(--accent-sage); }
+.task-row .task-action-delete:hover { color: var(--accent-coral); }
+
+/* Overdue = past-time task/reminder that isn't done yet. Coral is the
+   caution/relapse/missed token (CLAUDE.md line 170) -- reused here on
+   purpose. The tag is a short semantic label, not a decorated pill. */
+.task-row .task-time.overdue { color: var(--accent-coral); font-weight: 500; }
+.task-row .overdue-tag {
+    color: var(--accent-coral);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    margin-left: 6px;
+    flex-shrink: 0;
+}
+.task-row.is-overdue .task-name { color: var(--text-primary); }
 
 /* Workspace task-row also opens an edit form on the task name. Same cursor
    affordance; hover just brightens the text since the row already sits inside

@@ -1,5 +1,7 @@
 import { DB } from '../db.js';
 import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
+import { showUndoToast } from '../components/undo-toast.js';
+import { askConfirm } from '../components/confirm-dialog.js';
 
 function minutesToHM(mins) {
     if (mins === null || mins === undefined) return '';
@@ -231,6 +233,58 @@ export function todayPage() {
             } catch (e) {
                 this.errorMsg = e.message;
             }
+        },
+
+        // Inline done/delete for the Today Tasks & Reminders card. These are
+        // deliberately quick actions (no completion-note prompt) -- the full
+        // Project workspace path still has the askNote flow for real journaling.
+        // Both work identically for kind='task' and kind='reminder' -- a "done"
+        // reminder is just a task-shape row with status='done'.
+        async completeTaskOnToday(task) {
+            try {
+                const updated = await DB.Tasks.complete(task.id, null);
+                this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+        async deleteTaskOnToday(task) {
+            const label = task.kind === 'reminder' ? 'reminder' : 'task';
+            const ok = await askConfirm(`Delete ${label} "${task.name}"? You can restore it from the Restore view afterward.`);
+            if (!ok) return;
+            const snapshot = this.tasks;
+            this.tasks = this.tasks.filter(t => t.id !== task.id);
+            try {
+                await DB.Tasks.softDelete(task.id);
+                showUndoToast(`Deleted ${label} "${task.name}"`, async () => {
+                    const restored = await DB.Tasks.restoreFromTrash(task.id);
+                    this.tasks = [...this.tasks.filter(t => t.id !== restored.id), restored];
+                });
+            } catch (e) {
+                this.tasks = snapshot;
+                this.errorMsg = 'Delete failed: ' + e.message;
+            }
+        },
+
+        // Overdue = due in the past AND not yet done. Deliberately narrow
+        // definition so no future session guesses at edges:
+        //   - status === 'done'                            -> never overdue
+        //   - scheduled_date < today                        -> overdue (any time)
+        //   - scheduled_date == today && time set && time < now -> overdue
+        //   - undated or future-dated                       -> not overdue
+        // Applies to both tasks and reminders.
+        isOverdue(task) {
+            if (!task || task.status === 'done') return false;
+            if (!task.scheduled_date) return false;
+            const today = todayIsoDate();
+            if (task.scheduled_date < today) return true;
+            if (task.scheduled_date === today && task.scheduled_time) {
+                const now = new Date();
+                const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+                const scheduled = task.scheduled_time.slice(0, 5);
+                return scheduled < hhmm;
+            }
+            return false;
         },
 
         // ---- daily note ----
