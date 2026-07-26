@@ -175,11 +175,22 @@ export function projectWorkspacePage(nav) {
             await this.deleteTask(task);
             if (this.tasks !== before) this.closeTaskModal();
         },
+        async pauseTask() {
+            if (!this.editingTaskId) return;
+            try {
+                const updated = await DB.Tasks.update(this.editingTaskId, { status: 'not_started', running_note: null });
+                this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
+                this.closeTaskModal();
+            } catch (e) {
+                this.errorMsg = 'Pause failed: ' + e.message;
+            }
+        },
 
         async startTask(task) {
             const note = await askNote(`What are you doing right now on "${task.name}"?`, {
                 submitLabel: 'Start', skipLabel: 'Just start'
             });
+            if (note === false) return;
             try {
                 const updated = await DB.Tasks.start(task.id, note);
                 this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
@@ -289,6 +300,15 @@ export function projectWorkspacePage(nav) {
                 this.project = await DB.Projects.archive(this.projectId);
             } catch (e) {
                 this.errorMsg = 'Archive failed: ' + e.message;
+            }
+        },
+        async completeProject() {
+            const ok = await askConfirm(`Mark project "${this.project.name}" as completed?`);
+            if (!ok) return;
+            try {
+                this.project = await DB.Projects.update(this.projectId, { status: 'completed' });
+            } catch (e) {
+                this.errorMsg = 'Complete failed: ' + e.message;
             }
         },
         async softDeleteProject() {

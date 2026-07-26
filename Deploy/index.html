@@ -755,7 +755,10 @@
 
                                     <div class="task-edit-actions">
                                         <template x-if="editingTaskId">
-                                            <button class="task-edit-delete" @click="deleteFromEditModal()" x-text="taskForm.kind==='reminder' ? 'Delete reminder' : 'Delete task'"></button>
+                                            <div style="display: flex; gap: 16px;">
+                                                <button class="task-edit-delete" @click="deleteFromEditModal()" x-text="taskForm.kind==='reminder' ? 'Delete reminder' : 'Delete task'"></button>
+                                                <button class="btn-text" style="color: var(--text-secondary);" x-show="taskForm.kind==='task' && (tasks.find(t => t.id === editingTaskId) || {}).status === 'in_progress'" @click="pauseTask()">Pause task</button>
+                                            </div>
                                         </template>
                                         <template x-if="!editingTaskId"><span></span></template>
                                         <div class="task-edit-actions-right">
@@ -1072,6 +1075,7 @@
                                         <template x-if="menuOpen">
                                             <div class="ws-overflow-menu" role="menu">
                                                 <button role="menuitem" @click="startEditHeader(); menuOpen = false">Edit goals</button>
+                                                <button role="menuitem" x-show="project.status !== 'completed'" @click="completeProject(); menuOpen = false">Mark as completed</button>
                                                 <button role="menuitem" x-show="!project.archived_at" @click="archiveProject(); menuOpen = false">Archive project</button>
                                                 <hr>
                                                 <button role="menuitem" class="danger" @click="menuOpen = false; softDeleteProject()">Delete project</button>
@@ -1236,7 +1240,10 @@
 
                                     <div class="task-edit-actions">
                                         <template x-if="editingTaskId">
-                                            <button class="task-edit-delete" @click="deleteFromEditModal()">Delete task</button>
+                                            <div style="display: flex; gap: 16px;">
+                                                <button class="task-edit-delete" @click="deleteFromEditModal()">Delete task</button>
+                                                <button class="btn-text" style="color: var(--text-secondary);" x-show="(tasks.find(t => t.id === editingTaskId) || {}).status === 'in_progress'" @click="pauseTask()">Pause task</button>
+                                            </div>
                                         </template>
                                         <template x-if="!editingTaskId"><span></span></template>
                                         <div class="task-edit-actions-right">
@@ -1316,13 +1323,14 @@
             <!-- Note prompt host: replaces browser prompt() everywhere -->
             <div x-data="notePromptHost()">
                 <template x-if="dialog">
-                    <div class="modal-overlay" @click.self="skip()">
+                    <div class="modal-overlay" @click.self="cancel()">
                         <div class="modal">
                             <h2 x-text="dialog.message"></h2>
                             <div class="field">
                                 <textarea x-model="dialog.value" rows="3" :placeholder="dialog.placeholder" @keydown.ctrl.enter="submit()"></textarea>
                             </div>
                             <div class="modal-actions">
+                                <button class="btn-text" @click="cancel()">Cancel</button>
                                 <button class="btn-text" @click="skip()" x-text="dialog.skipLabel"></button>
                                 <button class="btn btn-primary" @click="submit()" x-text="dialog.submitLabel"></button>
                             </div>

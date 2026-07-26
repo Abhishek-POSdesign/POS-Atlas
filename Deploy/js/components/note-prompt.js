@@ -38,6 +38,11 @@ export function notePromptHost() {
             if (!this.dialog) return;
             this.dialog.resolve(null);
             this.dialog = null;
+        },
+        cancel() {
+            if (!this.dialog) return;
+            this.dialog.resolve(false);
+            this.dialog = null;
         }
     };
 }

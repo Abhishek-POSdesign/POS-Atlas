@@ -312,6 +312,16 @@ export function todayPage() {
             // trimmed, not restored to `before`).
             if (this.tasks !== before) this.closeTaskModal();
         },
+        async pauseTask() {
+            if (!this.editingTaskId) return;
+            try {
+                const updated = await DB.Tasks.update(this.editingTaskId, { status: 'not_started', running_note: null });
+                this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
+                this.closeTaskModal();
+            } catch (e) {
+                this.errorMsg = 'Pause failed: ' + e.message;
+            }
+        },
 
         // Overdue = due in the past AND not yet done. Deliberately narrow
         // definition so no future session guesses at edges:
