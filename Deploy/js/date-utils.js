@@ -15,3 +15,15 @@ export function getLogicalDate(d = new Date()) {
 export function todayKey() {
     return getLogicalDate().toLocaleDateString('en-CA');
 }
+
+// Midnight calendar date -- the ISO YYYY-MM-DD of the current wall clock,
+// with no 6am shift. This is what everything except checklist/streak history
+// should key on (tasks, projects, work log, notebook entries, daily journal,
+// sleep, workout). Locked in CLAUDE.md 2026-07-26; a regression that pointed
+// notebook + daily-journal at todayKey() (6am shift) silently misfiled any
+// entry made between midnight and 6am, so both callers now use this helper
+// instead of duplicating their own local copies.
+export function todayIsoDate() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

@@ -1,12 +1,7 @@
 import { DB } from '../db.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
-
-function todayKey() {
-    const d = new Date();
-    d.setHours(d.getHours() - 6);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+import { todayIsoDate } from '../date-utils.js';
 
 export function notebookPage(nav) {
     return {
@@ -16,7 +11,9 @@ export function notebookPage(nav) {
         draft: '',
         savedState: 'draft', // 'draft', 'saving', 'saved'
         todayEntry: null,
-        todayDate: todayKey(),
+        // Midnight calendar date -- notebook entries are not a checklist habit,
+        // they don't roll over on the 6am boundary (locked 2026-07-26).
+        todayDate: todayIsoDate(),
         async init() {
             await this.load();
         },

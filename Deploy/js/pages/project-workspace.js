@@ -18,6 +18,10 @@ export function projectWorkspacePage(nav) {
         newTaskDate: '',
         newTaskTime: '',
         newTaskNotify: false,
+        // Inline task edit -- follows the same shape as editingLogId below.
+        // Clicking a task name opens an in-place form seeded from the row.
+        editingTaskId: null,
+        editingTaskForm: { name: '', scheduled_date: '', scheduled_time: '', notify_enabled: false },
         newLogBody: '',
         editingLogId: null,
         editingLogBody: '',
@@ -123,6 +127,34 @@ export function projectWorkspacePage(nav) {
                 this.logs = [logRow, ...this.logs];
             } catch (e) {
                 this.errorMsg = 'Complete failed: ' + e.message;
+            }
+        },
+        startEditTask(task) {
+            this.editingTaskId = task.id;
+            this.editingTaskForm = {
+                name: task.name || '',
+                scheduled_date: task.scheduled_date || '',
+                scheduled_time: task.scheduled_time ? task.scheduled_time.slice(0, 5) : '',
+                notify_enabled: !!task.notify_enabled
+            };
+        },
+        cancelEditTask() {
+            this.editingTaskId = null;
+        },
+        async saveEditTask(task) {
+            const name = this.editingTaskForm.name.trim();
+            if (!name) return;
+            try {
+                const updated = await DB.Tasks.update(task.id, {
+                    name,
+                    scheduled_date: this.editingTaskForm.scheduled_date || null,
+                    scheduled_time: this.editingTaskForm.scheduled_time || null,
+                    notify_enabled: this.editingTaskForm.notify_enabled
+                });
+                this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
+                this.editingTaskId = null;
+            } catch (e) {
+                this.errorMsg = 'Save failed: ' + e.message;
             }
         },
         async deleteTask(task) {

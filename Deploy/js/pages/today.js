@@ -1,10 +1,5 @@
 import { DB } from '../db.js';
-import { getLogicalDate, todayKey } from '../date-utils.js';
-
-function todayIsoDate() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
 
 function minutesToHM(mins) {
     if (mins === null || mins === undefined) return '';
@@ -23,7 +18,9 @@ export function todayPage() {
         // ---- daily note (same atlas_notebook_entries table Notebook uses) ----
         // Hidden by default -- a small toggle near the header opens/closes it, rather than
         // a permanent card taking up space at the bottom of the page (2026-07-25 feedback).
-        noteDate: todayKey(),
+        // Midnight calendar date, same as the Notebook overlay -- see date-rule split in
+        // CLAUDE.md (locked 2026-07-26). Was regressed onto todayKey() briefly and reverted.
+        noteDate: todayIsoDate(),
         noteEntry: null,
         noteDraft: '',
         noteSaving: false,
@@ -45,8 +42,11 @@ export function todayPage() {
         relapseForm: { reason: '', useGrace: false },
         relapseError: '',
 
-        // ---- add task modal ----
+        // ---- add / edit task modal ----
+        // editingTaskId null = create; a uuid = edit that row in place. Both
+        // paths share the same modal markup and the same submitTask() below.
         taskModalOpen: false,
+        editingTaskId: null,
         taskForm: { name: '', kind: 'task', date: '', time: '', projectId: '', notify: false },
 
         // ---- checklist KPI (today's done/total, for the ring) ----
@@ -188,28 +188,46 @@ export function todayPage() {
             }
         },
 
-        // ---- add task ----
+        // ---- add / edit task ----
         openTaskModal() {
+            this.editingTaskId = null;
             this.taskForm = { name: '', kind: 'task', date: todayIsoDate(), time: '', projectId: '', notify: false };
             this.taskModalOpen = true;
         },
-        closeTaskModal() { this.taskModalOpen = false; },
+        openTaskEditModal(task) {
+            this.editingTaskId = task.id;
+            this.taskForm = {
+                name: task.name || '',
+                kind: task.kind || 'task',
+                date: task.scheduled_date || '',
+                time: task.scheduled_time ? task.scheduled_time.slice(0, 5) : '',
+                projectId: task.project_id || '',
+                notify: !!task.notify_enabled
+            };
+            this.taskModalOpen = true;
+        },
+        closeTaskModal() { this.taskModalOpen = false; this.editingTaskId = null; },
         async submitTask() {
             const name = this.taskForm.name.trim();
             if (!name) return;
+            const patch = {
+                name,
+                kind: this.taskForm.kind,
+                project_id: this.taskForm.projectId || null,
+                scheduled_date: this.taskForm.date || null,
+                scheduled_time: this.taskForm.time || null,
+                notify_enabled: this.taskForm.notify
+            };
             try {
-                const row = await DB.Tasks.create({
-                    name,
-                    kind: this.taskForm.kind,
-                    status: 'not_started',
-                    priority: 'normal',
-                    project_id: this.taskForm.projectId || null,
-                    scheduled_date: this.taskForm.date || null,
-                    scheduled_time: this.taskForm.time || null,
-                    notify_enabled: this.taskForm.notify
-                });
-                this.tasks = [...this.tasks, row];
+                if (this.editingTaskId) {
+                    const row = await DB.Tasks.update(this.editingTaskId, patch);
+                    this.tasks = this.tasks.map(t => t.id === row.id ? row : t);
+                } else {
+                    const row = await DB.Tasks.create({ ...patch, status: 'not_started', priority: 'normal' });
+                    this.tasks = [...this.tasks, row];
+                }
                 this.taskModalOpen = false;
+                this.editingTaskId = null;
             } catch (e) {
                 this.errorMsg = e.message;
             }

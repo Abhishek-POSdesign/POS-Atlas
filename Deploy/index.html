@@ -346,7 +346,7 @@
                                                 </div>
                                             </template>
                                             <template x-for="task in upcomingTasks" :key="task.id">
-                                                <div class="task-row">
+                                                <div class="task-row task-row-clickable" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name">
                                                     <template x-if="task.kind==='reminder'">
                                                         <div class="task-badge reminder"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
                                                     </template>
@@ -359,6 +359,7 @@
                                                     <span class="task-name" x-text="task.name"></span>
                                                     <template x-if="projectFor(task)"><span class="task-proj" x-text="projectFor(task).name"></span></template>
                                                     <span class="task-time" x-text="task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || '')"></span>
+                                                    <span class="task-edit-cue" aria-hidden="true">Edit</span>
                                                 </div>
                                             </template>
 
@@ -389,8 +390,8 @@
                                                     <div class="empty-cue-sleep">
                                                         <span class="z1">z</span><span class="z2">z</span><span class="z3">z</span>
                                                     </div>
-                                                    <span class="h">Still sleeping?</span>
-                                                    <span class="p">Log your sleep data to keep your metrics current.</span>
+                                                    <span class="h">No sleep logged today</span>
+                                                    <span class="p">Log manually below, or wait for the auto-parse from your ring screenshot (planned).</span>
                                                 </div>
                                             </template>
                                             <template x-if="hasSleepData">
@@ -403,7 +404,6 @@
                                                     <div class="metric"><span class="v" x-text="sleepEntry.hrv ?? '—'"></span><span class="l">HRV</span></div>
                                                 </div>
                                             </template>
-                                            <div class="ai-note" style="display: none;">Auto-filled from your ring screenshot, once the AI reader is built</div>
                                         </div>
                                         <div class="card vital-card">
                                             <div class="panel-head" style="margin-bottom: 8px;">
@@ -418,8 +418,8 @@
                                                             <circle cx="12" cy="4" r="3" class="track-dot" fill="currentColor" stroke="none" />
                                                         </svg>
                                                     </div>
-                                                    <span class="h">Ready to move?</span>
-                                                    <span class="p">Log a workout to track your activity today.</span>
+                                                    <span class="h">No workout logged today</span>
+                                                    <span class="p">Log manually below, or wait for the auto-parse from your workout-app screenshot (planned).</span>
                                                 </div>
                                             </template>
                                             <template x-if="hasWorkoutData">
@@ -431,7 +431,6 @@
                                                     <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
                                                 </div>
                                             </template>
-                                            <div class="ai-note" style="display: none;">Same AI-screenshot pipeline as Sleep</div>
                                         </div>
                                     </div>
                                 </div>
@@ -597,11 +596,11 @@
                             </div>
                         </template>
 
-                        <!-- Add task modal -->
+                        <!-- Add / edit task modal (same markup for both, editingTaskId decides) -->
                         <template x-if="taskModalOpen">
                             <div class="modal-overlay" @click.self="closeTaskModal()">
                                 <div class="modal">
-                                    <h2>Add task or reminder</h2>
+                                    <h2 x-text="editingTaskId ? (taskForm.kind==='reminder' ? 'Edit reminder' : 'Edit task') : 'Add task or reminder'"></h2>
                                     <div class="field"><label>Name</label><input type="text" x-model="taskForm.name" placeholder="What do you need to do?"></div>
                                     <div class="field-checkbox"><label><input type="checkbox" :checked="taskForm.kind==='reminder'" @change="taskForm.kind = $event.target.checked ? 'reminder' : 'task'"> This is a reminder</label></div>
                                     <div style="display:flex; gap: var(--pad-sm);">
@@ -622,7 +621,7 @@
                                     <div class="field-checkbox"><label><input type="checkbox" x-model="taskForm.notify"> Notify me at this time</label></div>
                                     <div class="modal-actions">
                                         <button class="btn-text" @click="closeTaskModal()">Cancel</button>
-                                        <button class="btn btn-primary" @click="submitTask()">Add</button>
+                                        <button class="btn btn-primary" @click="submitTask()" x-text="editingTaskId ? 'Save' : 'Add'"></button>
                                     </div>
                                 </div>
                             </div>
@@ -857,14 +856,24 @@
                                                         <div class="heading-label" style="margin: 0;">Short-term Goal</div>
                                                         <span class="goal-date" x-show="project.short_term_goal_date" x-text="project.short_term_goal_date"></span>
                                                     </div>
-                                                    <p class="user-text" style="margin: 0; font-size: 15px;" x-text="project.short_term_goal || 'Not set.'"></p>
+                                                    <template x-if="project.short_term_goal">
+                                                        <p class="user-text" style="margin: 0; font-size: 15px;" x-text="project.short_term_goal"></p>
+                                                    </template>
+                                                    <template x-if="!project.short_term_goal">
+                                                        <button class="btn-text" @click="startEditHeader()" style="padding: 0;">+ Set short-term goal</button>
+                                                    </template>
                                                 </div>
                                                 <div class="goal-block card-nested" style="padding: var(--pad-md); margin-bottom: 0;">
                                                     <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
                                                         <div class="heading-label" style="margin: 0;">Long-term Goal</div>
                                                         <span class="goal-date" x-show="project.long_term_goal_date" x-text="project.long_term_goal_date"></span>
                                                     </div>
-                                                    <p class="user-text" style="margin: 0; font-size: 15px;" x-text="project.long_term_goal || 'Not set.'"></p>
+                                                    <template x-if="project.long_term_goal">
+                                                        <p class="user-text" style="margin: 0; font-size: 15px;" x-text="project.long_term_goal"></p>
+                                                    </template>
+                                                    <template x-if="!project.long_term_goal">
+                                                        <button class="btn-text" @click="startEditHeader()" style="padding: 0;">+ Set long-term goal</button>
+                                                    </template>
                                                 </div>
                                                 <div class="modal-actions" style="justify-content: flex-start; margin-top: var(--pad-xs);">
                                                     <button class="btn-text" @click="startEditHeader()">Edit goals</button>
@@ -917,13 +926,33 @@
                                     <h2>Tasks</h2>
                                     <template x-for="task in tasks" :key="task.id">
                                         <div class="task-row-wrap card-nested">
-                                            <div class="task-row">
-                                                <span class="task-name" :class="{done: task.status==='done'}" x-text="task.name"></span>
-                                                <span class="task-meta" x-text="task.scheduled_date || ''"></span>
-                                                <button class="icon-button" x-show="task.status==='not_started'" @click="startTask(task)" title="Start">▶</button>
-                                                <button class="icon-button" x-show="task.status!=='done'" @click="completeTask(task)" title="Complete">✓</button>
-                                                <button class="icon-button" @click="deleteTask(task)" title="Delete">✕</button>
-                                            </div>
+                                            <template x-if="editingTaskId !== task.id">
+                                                <div class="task-row">
+                                                    <span class="task-name task-name-clickable" :class="{done: task.status==='done'}" @click="startEditTask(task)" role="button" tabindex="0" @keydown.enter.prevent="startEditTask(task)" @keydown.space.prevent="startEditTask(task)" x-text="task.name"></span>
+                                                    <span class="task-meta" x-text="task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || '')"></span>
+                                                    <button class="icon-button" x-show="task.status==='not_started'" @click="startTask(task)" title="Start">▶</button>
+                                                    <button class="icon-button" x-show="task.status!=='done'" @click="completeTask(task)" title="Complete">✓</button>
+                                                    <button class="icon-button" @click="deleteTask(task)" title="Delete">✕</button>
+                                                </div>
+                                            </template>
+                                            <template x-if="editingTaskId === task.id">
+                                                <div>
+                                                    <div class="field"><label>Name</label><input type="text" x-model="editingTaskForm.name" @keydown.enter="saveEditTask(task)"></div>
+                                                    <div style="display:flex; gap: var(--pad-sm); align-items:flex-end; flex-wrap: wrap;">
+                                                        <div class="field" style="flex:1; min-width:140px;"><label>Date</label><input type="date" x-model="editingTaskForm.scheduled_date"></div>
+                                                        <div class="field" style="flex:1; min-width:180px;"><label>Time</label>
+                                                            <div class="custom-time" x-data="timePicker12h" x-modelable="value" x-model="editingTaskForm.scheduled_time">
+                                                                <select :value="hh" @change="update($event.target.value, mm, ampm)"><option value="">--</option><option value="12">12</option><template x-for="i in 11"><option :value="String(i).padStart(2,'0')" x-text="String(i).padStart(2,'0')"></option></template></select><span>:</span><select :value="mm" @change="update(hh, $event.target.value, ampm)"><template x-for="i in 12"><option :value="String((i-1)*5).padStart(2,'0')" x-text="String((i-1)*5).padStart(2,'0')"></option></template></select><select :value="ampm" @change="update(hh, mm, $event.target.value)"><option value="AM">AM</option><option value="PM">PM</option></select>
+                                                            </div>
+                                                        </div>
+                                                        <label class="field-checkbox" style="align-self:center;"><input type="checkbox" x-model="editingTaskForm.notify_enabled"> Notify</label>
+                                                    </div>
+                                                    <div class="modal-actions">
+                                                        <button class="btn-text" @click="cancelEditTask()">Cancel</button>
+                                                        <button class="btn btn-primary" @click="saveEditTask(task)">Save</button>
+                                                    </div>
+                                                </div>
+                                            </template>
                                             <p class="task-note" x-show="task.status==='done' && task.completion_note" x-text="task.completion_note"></p>
                                         </div>
                                     </template>

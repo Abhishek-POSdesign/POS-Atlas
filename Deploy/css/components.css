@@ -1260,6 +1260,37 @@
 .task-row .task-proj { color: var(--text-muted); font-size: 12px; }
 .task-row .task-time { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 
+/* Today task row is now the primary way to edit a task/reminder -- clicking
+   anywhere on the row opens the edit modal seeded from that task. The row
+   already lifts on hover (.task-row:hover above); the .task-edit-cue makes
+   the action discoverable on touch (no hover), the cursor:pointer names it
+   on desktop, and the focus outline makes it keyboard-reachable. */
+.task-row-clickable { cursor: pointer; border-radius: 6px; }
+.task-row-clickable:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: -2px; }
+.task-row-clickable .task-edit-cue {
+    color: var(--text-muted);
+    font-size: 11px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    padding-left: 6px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+}
+.task-row-clickable:hover .task-edit-cue,
+.task-row-clickable:focus-visible .task-edit-cue { opacity: 1; }
+/* On touch (no hover), keep the cue visible so the action isn't hidden. */
+@media (hover: none) {
+    .task-row-clickable .task-edit-cue { opacity: 1; }
+}
+
+/* Workspace task-row also opens an edit form on the task name. Same cursor
+   affordance; hover just brightens the text since the row already sits inside
+   a card-nested and doesn't need its own hover lift. */
+.task-name-clickable { cursor: pointer; }
+.task-name-clickable:hover { color: var(--text-primary); }
+.task-name-clickable:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; border-radius: 4px; }
+
 .vitals-stack { display: flex; flex-direction: column; gap: var(--pad-md); }
 .vital-card {
     padding: var(--pad-lg); flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px;
