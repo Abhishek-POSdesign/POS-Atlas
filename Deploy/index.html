@@ -153,6 +153,8 @@
                                     </template>
                                 </div>
                             </template>
+
+
                         </div>
                     </div>
                 </template>
@@ -455,7 +457,12 @@
                                         <div class="card vital-card">
                                             <div class="panel-head" style="margin-bottom: 8px;">
                                                 <h2 style="margin:0; font-size: 13px;">Workout</h2>
-                                                <button class="btn-text" x-show="workoutDayType === 'workout'" @click="openWorkoutModal()" x-text="hasWorkoutData ? 'Edit' : 'Log details'"></button>
+                                                <div style="display:flex; gap:8px; align-items:center;">
+                                                    <button class="btn-icon-sm" @click="openTargetsEditor()" title="Edit weekly targets" x-show="workoutTargets.length > 0">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                                    </button>
+                                                    <button class="btn-text" x-show="workoutDayType === 'workout'" @click="openWorkoutModal()" x-text="hasWorkoutData ? 'Edit' : 'Log details'"></button>
+                                                </div>
                                             </div>
                                             <!-- Day-type toggle (Round 2 build, item 5). Three chips:
                                                  Workout / Active recovery / Full rest. Only the Workout
@@ -494,6 +501,23 @@
                                             <!-- Workout day: handle loading, empty, and data states -->
                                             <template x-if="workoutDayType === 'workout'">
                                                 <div class="stack">
+                                                    <!-- Weekly targets dot grid (shows whenever targets are loaded) -->
+                                                    <template x-if="workoutTargets.length > 0">
+                                                        <div class="wo-targets-grid">
+                                                            <template x-for="row in weeklyProgress" :key="row.type">
+                                                                <div class="wo-targets-row">
+                                                                    <span class="wo-targets-label" x-text="row.type.replace('_', ' ')"></span>
+                                                                    <span class="wo-targets-dots">
+                                                                        <template x-for="(dot, i) in row.dots" :key="i">
+                                                                            <span class="wo-dot" :class="'wo-dot--' + dot"></span>
+                                                                        </template>
+                                                                    </span>
+                                                                    <span class="wo-targets-frac" x-text="row.actual + '/' + row.target"></span>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+
                                                     <!-- Loading state -->
                                                     <template x-if="workoutSessionsLoading">
                                                         <div class="nodata">
@@ -836,28 +860,62 @@
                         <template x-if="sleepModalOpen">
                             <div class="modal-overlay" @click.self="closeSleepModal()">
                                 <div class="modal">
-                                    <h2>Log sleep</h2>
-                                    <div class="field">
-                                        <label>Duration</label>
-                                        <div style="display:flex; gap: var(--pad-sm);">
-                                            <input type="number" x-model="sleepForm.hours" placeholder="Hours" min="0" max="24" style="flex:1;">
-                                            <input type="number" x-model="sleepForm.minutes" placeholder="Minutes" min="0" max="59" style="flex:1;">
+
+                                    <!-- Step 1: Metrics -->
+                                    <template x-if="sleepStep === 1">
+                                        <div>
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                                                <h2 style="margin:0;">Log sleep · Metrics</h2>
+                                                <span class="sleep-step-indicator">1 / 2</span>
+                                            </div>
+                                            <div class="field">
+                                                <label>Duration</label>
+                                                <div style="display:flex; gap: var(--pad-sm);">
+                                                    <input type="number" x-model="sleepForm.hours" placeholder="Hours" min="0" max="24" style="flex:1;">
+                                                    <input type="number" x-model="sleepForm.minutes" placeholder="Minutes" min="0" max="59" style="flex:1;">
+                                                </div>
+                                            </div>
+                                            <div class="field-row">
+                                                <div class="field"><label>Sleep score</label><input type="number" x-model="sleepForm.score" min="0" max="100"></div>
+                                                <div class="field"><label>Resting HR</label><input type="number" x-model="sleepForm.restingHr" min="0"></div>
+                                            </div>
+                                            <div class="field-row">
+                                                <div class="field"><label>Deep sleep (min)</label><input type="number" x-model="sleepForm.deep" min="0"></div>
+                                                <div class="field"><label>REM sleep (min)</label><input type="number" x-model="sleepForm.rem" min="0"></div>
+                                            </div>
+                                            <div class="field"><label>HRV</label><input type="number" x-model="sleepForm.hrv" min="0" step="0.1"></div>
+                                            <details class="sleep-context-details">
+                                                <summary>Context note (optional)</summary>
+                                                <div class="field" style="margin-top:8px;"><input type="text" x-model="sleepForm.note" placeholder="e.g. took melatonin"></div>
+                                            </details>
+                                            <div class="modal-actions">
+                                                <button class="btn-text" @click="closeSleepModal()">Cancel</button>
+                                                <div style="display:flex; gap:8px;">
+                                                    <button class="btn btn-secondary" @click="saveSleepStep1()">Save</button>
+                                                    <button class="btn btn-primary" @click="advanceSleepToStep2()">Next →</button>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="field-row">
-                                        <div class="field"><label>Sleep score</label><input type="number" x-model="sleepForm.score" min="0" max="100"></div>
-                                        <div class="field"><label>Resting HR</label><input type="number" x-model="sleepForm.restingHr" min="0"></div>
-                                    </div>
-                                    <div class="field-row">
-                                        <div class="field"><label>Deep sleep (min)</label><input type="number" x-model="sleepForm.deep" min="0"></div>
-                                        <div class="field"><label>REM sleep (min)</label><input type="number" x-model="sleepForm.rem" min="0"></div>
-                                    </div>
-                                    <div class="field"><label>HRV</label><input type="number" x-model="sleepForm.hrv" min="0" step="0.1"></div>
-                                    <div class="field"><label>Note (optional)</label><input type="text" x-model="sleepForm.note"></div>
-                                    <div class="modal-actions">
-                                        <button class="btn-text" @click="closeSleepModal()">Cancel</button>
-                                        <button class="btn btn-primary" @click="saveSleep()">Save</button>
-                                    </div>
+                                    </template>
+
+                                    <!-- Step 2: Morning reflection -->
+                                    <template x-if="sleepStep === 2">
+                                        <div>
+                                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                                                <h2 style="margin:0;">Log sleep · Reflection</h2>
+                                                <span class="sleep-step-indicator">2 / 2</span>
+                                            </div>
+                                            <div class="field">
+                                                <label>Morning reflection</label>
+                                                <textarea x-model="sleepForm.morningNote" placeholder="How do you feel this morning?" rows="4" style="width:100%; resize:vertical;"></textarea>
+                                            </div>
+                                            <div class="modal-actions">
+                                                <button class="btn-text" @click="sleepStep = 1">← Back</button>
+                                                <button class="btn btn-primary" @click="saveSleep()">Save</button>
+                                            </div>
+                                        </div>
+                                    </template>
+
                                 </div>
                             </div>
                         </template>
@@ -960,6 +1018,26 @@
                     </div>
                 </template>
 
+                
+                        <!-- Weekly targets editor modal -->
+                        <template x-if="targetsEditorOpen">
+                            <div class="modal-overlay" @click.self="closeTargetsEditor()">
+                                <div class="modal">
+                                    <h2>Weekly targets</h2>
+                                    <p style="font-size:13px; color:var(--mut); margin-top:-8px; margin-bottom:16px;">Days per week for each activity type.</p>
+                                    <template x-for="t in workoutTargets" :key="t.activity_type">
+                                        <div class="field-row" style="margin-bottom:10px; align-items:center;">
+                                            <label style="flex:1; text-transform:capitalize;" x-text="t.activity_type.replace('_',' ')"></label>
+                                            <input type="number" :value="targetsDraft[t.activity_type]" @input="targetsDraft[t.activity_type] = $event.target.value" min="0" max="7" style="width:60px; text-align:center;">
+                                        </div>
+                                    </template>
+                                    <div class="modal-actions" style="margin-top:16px;">
+                                        <button class="btn-text" @click="closeTargetsEditor()">Cancel</button>
+                                        <button class="btn btn-primary" @click="saveTargetsDraft()">Save</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                 <!-- Projects tab -->
                 <template x-if="tab==='projects' && !projectViewId">
                     <div x-data="projectsListPage({ onOpen: (id) => openProject(id) })">

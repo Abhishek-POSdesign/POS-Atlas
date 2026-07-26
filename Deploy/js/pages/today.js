@@ -28,10 +28,12 @@ export function todayPage() {
         noteSaving: false,
         journalOpen: false,
 
+
         // ---- sleep ----
         sleepEntry: null,
         sleepModalOpen: false,
-        sleepForm: { hours: '', minutes: '', score: '', deep: '', rem: '', restingHr: '', hrv: '', note: '' },
+        sleepStep: 1,
+        sleepForm: { hours: '', minutes: '', score: '', deep: '', rem: '', restingHr: '', hrv: '', note: '', morningNote: '' },
 
         // ---- workout ----
         workoutEntry: null,
@@ -41,6 +43,11 @@ export function todayPage() {
         workoutSessionsLoading: false,
         workoutSessionForm: { type: 'strength', duration: '', intensity: '', programTag: '', note: '' },
         editingSessionId: null,
+
+        // ---- weekly targets ----
+        workoutTargets: [],
+        targetsEditorOpen: false,
+        targetsDraft: {},
 
         // ---- streaks ----
         streaks: [],
@@ -117,6 +124,7 @@ export function todayPage() {
                 
                 // We will move loadTrend out of blocking flow so the main dashboard renders faster
                 this.loadTrend().catch(console.error);
+                this.loadWorkoutTargets().catch(console.error);
             } catch (e) {
                 this.errorMsg = 'Could not load Today: ' + e.message;
             }
@@ -387,7 +395,7 @@ export function todayPage() {
         get hasSleepData() {
             if (!this.sleepEntry) return false;
             const e = this.sleepEntry;
-            return e.duration_minutes != null || e.sleep_score != null || e.deep_minutes != null || e.rem_minutes != null || e.resting_hr != null || e.hrv != null || e.note;
+            return e.duration_minutes != null || e.sleep_score != null || e.deep_minutes != null || e.rem_minutes != null || e.resting_hr != null || e.hrv != null || e.note || e.morning_note;
         },
         openSleepModal() {
             const e = this.sleepEntry;
@@ -401,29 +409,122 @@ export function todayPage() {
                 rem: e && e.rem_minutes != null ? String(e.rem_minutes) : '',
                 restingHr: e && e.resting_hr != null ? String(e.resting_hr) : '',
                 hrv: e && e.hrv != null ? String(e.hrv) : '',
-                note: (e && e.note) || ''
+                note: (e && e.note) || '',
+                morningNote: (e && e.morning_note) || ''
             };
+            this.sleepStep = 1;
             this.sleepModalOpen = true;
         },
         closeSleepModal() { this.sleepModalOpen = false; },
-        async saveSleep() {
+        _buildSleepPatch() {
             const h = parseInt(this.sleepForm.hours, 10);
             const m = parseInt(this.sleepForm.minutes, 10);
             const toInt = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
             const toNum = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
-            const patch = {
+            return {
                 duration_minutes: (!isNaN(h) || !isNaN(m)) ? ((isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m)) : null,
                 sleep_score: toInt(this.sleepForm.score),
                 deep_minutes: toInt(this.sleepForm.deep),
                 rem_minutes: toInt(this.sleepForm.rem),
                 resting_hr: toInt(this.sleepForm.restingHr),
                 hrv: toNum(this.sleepForm.hrv),
-                note: this.sleepForm.note.trim() || null
+                note: this.sleepForm.note.trim() || null,
+                morning_note: this.sleepForm.morningNote.trim() || null
             };
+        },
+        async saveSleep() {
             try {
-                // Midnight calendar date, per date-rule split (see load()).
-                this.sleepEntry = await DB.Sleep.save(todayIsoDate(), patch);
+                this.sleepEntry = await DB.Sleep.save(todayIsoDate(), this._buildSleepPatch());
                 this.sleepModalOpen = false;
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+        async saveSleepStep1() {
+            // Save metrics from step 1 only (morning_note stays null/unchanged)
+            try {
+                this.sleepEntry = await DB.Sleep.save(todayIsoDate(), this._buildSleepPatch());
+                this.sleepModalOpen = false;
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+        async advanceSleepToStep2() {
+            // Save step 1 silently, then advance to step 2 for the morning reflection
+            try {
+                this.sleepEntry = await DB.Sleep.save(todayIsoDate(), this._buildSleepPatch());
+                this.sleepStep = 2;
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+
+        // ---- weekly targets ----
+        getWeekRange() {
+            // Returns { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' } for Mon–Sun of current week
+            const today = new Date();
+            const dow = today.getDay(); // 0=Sun, 1=Mon...
+            const diffToMon = (dow === 0) ? -6 : 1 - dow;
+            const mon = new Date(today);
+            mon.setDate(today.getDate() + diffToMon);
+            const sun = new Date(mon);
+            sun.setDate(mon.getDate() + 6);
+            const fmt = d => d.toLocaleDateString('en-CA');
+            return { start: fmt(mon), end: fmt(sun) };
+        },
+        async loadWorkoutTargets() {
+            let targets = await DB.WorkoutTargets.list();
+            // Seed defaults if table is empty
+            if (!targets || targets.length === 0) {
+                const defaults = [
+                    { activity_type: 'strength', target_days_per_week: 4 },
+                    { activity_type: 'active_play', target_days_per_week: 7 },
+                    { activity_type: 'yoga_stretch', target_days_per_week: 2 },
+                    { activity_type: 'cleaning', target_days_per_week: 1 }
+                ];
+                targets = await Promise.all(
+                    defaults.map(d => DB.WorkoutTargets.upsert(d.activity_type, { target_days_per_week: d.target_days_per_week }))
+                );
+            }
+            this.workoutTargets = targets;
+            // Also load this week's sessions for the dot grid
+            const { start, end } = this.getWeekRange();
+            try {
+                this._weekSessions = await DB.WorkoutSessions.listForDateRange(start, end);
+            } catch (e) {
+                this._weekSessions = [];
+            }
+        },
+        get weeklyProgress() {
+            const sessions = this._weekSessions || [];
+            return this.workoutTargets.map(t => {
+                const actual = sessions.filter(s => s.activity_type === t.activity_type).length;
+                const target = t.target_days_per_week;
+                const dots = [];
+                for (let i = 0; i < target; i++) {
+                    dots.push(i < actual ? 'met' : 'pending');
+                }
+                return { type: t.activity_type, actual, target, dots };
+            });
+        },
+        openTargetsEditor() {
+            const draft = {};
+            this.workoutTargets.forEach(t => { draft[t.activity_type] = String(t.target_days_per_week); });
+            this.targetsDraft = draft;
+            this.targetsEditorOpen = true;
+        },
+        closeTargetsEditor() { this.targetsEditorOpen = false; },
+        async saveTargetsDraft() {
+            try {
+                const results = await Promise.all(
+                    Object.entries(this.targetsDraft).map(([type, val]) => {
+                        const days = parseInt(val, 10);
+                        if (isNaN(days) || days < 0 || days > 7) return null;
+                        return DB.WorkoutTargets.upsert(type, { target_days_per_week: days });
+                    }).filter(Boolean)
+                );
+                this.workoutTargets = await DB.WorkoutTargets.list();
+                this.targetsEditorOpen = false;
             } catch (e) {
                 this.errorMsg = e.message;
             }
