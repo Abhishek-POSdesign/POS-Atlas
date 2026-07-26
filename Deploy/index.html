@@ -505,12 +505,29 @@
                                                 </div>
                                             </template>
                                             <template x-if="workoutDayType === 'workout' && hasWorkoutData">
-                                                <div class="metric-grid">
-                                                    <div class="metric"><span class="v" x-text="workoutEntry.workout_score ?? '—'"></span><span class="l">Score</span></div>
-                                                    <div class="metric"><span class="v" x-text="workoutEntry.workout_type || '—'"></span><span class="l">Type</span></div>
-                                                    <div class="metric"><span class="v" x-text="workoutEntry.duration_minutes != null ? workoutEntry.duration_minutes+'m' : '—'"></span><span class="l">Minutes</span></div>
-                                                    <div class="metric"><span class="v" x-text="workoutEntry.calories ?? '—'"></span><span class="l">Calories</span></div>
-                                                    <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
+                                                <div class="stack">
+                                                    <template x-for="session in workoutSessions" :key="session.id">
+                                                        <div class="card panel" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 8px;">
+                                                            <div>
+                                                                <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
+                                                                <div class="meta" style="color: var(--mut); font-size: 12px; margin-top: 4px;">
+                                                                    <span x-text="session.duration_minutes + ' min'"></span>
+                                                                    <template x-if="session.activity_type === 'strength' && session.intensity">
+                                                                        <span x-text="' · ' + session.intensity"></span>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="workoutSessions.length === 0 && workoutEntry && workoutEntry.duration_minutes != null">
+                                                        <div class="metric-grid">
+                                                            <div class="metric"><span class="v" x-text="workoutEntry.workout_score ?? '—'"></span><span class="l">Score</span></div>
+                                                            <div class="metric"><span class="v" x-text="workoutEntry.workout_type || '—'"></span><span class="l">Type</span></div>
+                                                            <div class="metric"><span class="v" x-text="workoutEntry.duration_minutes != null ? workoutEntry.duration_minutes+'m' : '—'"></span><span class="l">Minutes</span></div>
+                                                            <div class="metric"><span class="v" x-text="workoutEntry.calories ?? '—'"></span><span class="l">Calories</span></div>
+                                                            <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
+                                                        </div>
+                                                    </template>
                                                 </div>
                                             </template>
 
@@ -826,21 +843,83 @@
                         <template x-if="workoutModalOpen">
                             <div class="modal-overlay" @click.self="closeWorkoutModal()">
                                 <div class="modal">
-                                    <h2>Log workout</h2>
-                                    <div class="field-row">
-                                        <div class="field"><label>Workout score</label><input type="number" x-model="workoutForm.score" min="0" max="100"></div>
-                                        <div class="field"><label>Type</label><input type="text" x-model="workoutForm.type" placeholder="Strength, Cardio, Walk…"></div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                                        <h2 style="margin: 0;">Workout Sessions</h2>
+                                        <button class="btn btn-primary" x-show="!showSessionForm" @click="openWorkoutSessionForm()">+ Add</button>
                                     </div>
-                                    <div class="field-row">
-                                        <div class="field"><label>Minutes</label><input type="number" x-model="workoutForm.minutes" min="0"></div>
-                                        <div class="field"><label>Calories burned</label><input type="number" x-model="workoutForm.calories" min="0"></div>
-                                    </div>
-                                    <div class="field"><label>VO2 max (optional)</label><input type="number" x-model="workoutForm.vo2Max" min="0" step="0.1"></div>
-                                    <div class="field"><label>Note (optional)</label><input type="text" x-model="workoutForm.note"></div>
-                                    <div class="modal-actions">
-                                        <button class="btn-text" @click="closeWorkoutModal()">Cancel</button>
-                                        <button class="btn btn-primary" @click="saveWorkout()">Save</button>
-                                    </div>
+                                    
+                                    <template x-if="!showSessionForm">
+                                        <div class="stack">
+                                            <template x-if="workoutSessions.length === 0">
+                                                <div class="empty-state">No sessions logged yet.</div>
+                                            </template>
+                                            <template x-for="session in workoutSessions" :key="session.id">
+                                                <div class="card panel" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; cursor: pointer;" @click="openWorkoutSessionForm(session)">
+                                                    <div>
+                                                        <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
+                                                        <div class="meta" style="color: var(--mut); font-size: 12px; margin-top: 4px;">
+                                                            <span x-text="session.duration_minutes + ' min'"></span>
+                                                            <template x-if="session.activity_type === 'strength' && session.intensity">
+                                                                <span x-text="' · ' + session.intensity"></span>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                    <button class="btn-text" @click.stop="deleteWorkoutSession(session.id)" style="color: var(--danger-fg);">Delete</button>
+                                                </div>
+                                            </template>
+                                            <div class="modal-actions" style="margin-top: 16px;">
+                                                <button class="btn-text" @click="closeWorkoutModal()">Close</button>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <template x-if="showSessionForm">
+                                        <div>
+                                            <div class="field">
+                                                <label>Activity Type</label>
+                                                <select x-model="workoutSessionForm.type">
+                                                    <option value="strength">Strength</option>
+                                                    <option value="cardio_walk">Cardio / Walk</option>
+                                                    <option value="yoga_stretch">Yoga / Stretch</option>
+                                                    <option value="active_play">Active Play</option>
+                                                    <option value="cleaning">Cleaning</option>
+                                                </select>
+                                            </div>
+                                            <div class="field-row">
+                                                <div class="field"><label>Duration (minutes)</label><input type="number" x-model="workoutSessionForm.duration" min="1"></div>
+                                                <template x-if="workoutSessionForm.type === 'strength'">
+                                                    <div class="field">
+                                                        <label>Intensity</label>
+                                                        <select x-model="workoutSessionForm.intensity">
+                                                            <option value="">(None)</option>
+                                                            <option value="light">Light</option>
+                                                            <option value="moderate">Moderate</option>
+                                                            <option value="hard">Hard</option>
+                                                        </select>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            <template x-if="workoutSessionForm.type === 'strength'">
+                                                <div class="field">
+                                                    <label>Program Tag</label>
+                                                    <select x-model="workoutSessionForm.programTag">
+                                                        <option value="">(None)</option>
+                                                        <option value="upper">Upper</option>
+                                                        <option value="lower">Lower</option>
+                                                        <option value="push">Push</option>
+                                                        <option value="pull">Pull</option>
+                                                        <option value="legs">Legs</option>
+                                                        <option value="full_body">Full Body</option>
+                                                    </select>
+                                                </div>
+                                            </template>
+                                            <div class="field"><label>Note (optional)</label><input type="text" x-model="workoutSessionForm.note"></div>
+                                            <div class="modal-actions" style="margin-top: 16px;">
+                                                <button class="btn-text" @click="closeWorkoutSessionForm()">Cancel</button>
+                                                <button class="btn btn-primary" @click="saveWorkoutSession()">Save Session</button>
+                                            </div>
+                                        </div>
+                                    </template>
                                 </div>
                             </div>
                         </template>

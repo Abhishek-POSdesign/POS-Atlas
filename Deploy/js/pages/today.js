@@ -36,7 +36,10 @@ export function todayPage() {
         // ---- workout ----
         workoutEntry: null,
         workoutModalOpen: false,
-        workoutForm: { minutes: '', type: '', score: '', calories: '', vo2Max: '', note: '' },
+        workoutSessions: [],
+        showSessionForm: false,
+        workoutSessionForm: { type: 'strength', duration: '', intensity: '', programTag: '', note: '' },
+        editingSessionId: null,
 
         // ---- streaks ----
         streaks: [],
@@ -439,6 +442,11 @@ export function todayPage() {
 
         // ---- workout ----
         get workoutSummary() {
+            if (this.workoutSessions && this.workoutSessions.length > 0) {
+                const totalMins = this.workoutSessions.reduce((acc, s) => acc + (s.duration_minutes || 0), 0);
+                const types = [...new Set(this.workoutSessions.map(s => s.activity_type))];
+                return `${totalMins} min · ${types.join(', ')}`;
+            }
             if (!this.hasWorkoutData) return 'No workout logged today';
             const parts = [];
             if (this.workoutEntry.duration_minutes != null) parts.push(this.workoutEntry.duration_minutes + ' min');
@@ -448,37 +456,76 @@ export function todayPage() {
         },
         get hasWorkoutData() {
             if (!this.workoutEntry) return false;
+            if (this.workoutSessions && this.workoutSessions.length > 0) return true;
             const e = this.workoutEntry;
             return e.duration_minutes != null || e.workout_type || e.workout_score != null || e.calories != null || e.vo2_max != null || e.note;
         },
-        openWorkoutModal() {
-            const e = this.workoutEntry;
-            this.workoutForm = {
-                minutes: e && e.duration_minutes != null ? String(e.duration_minutes) : '',
-                type: (e && e.workout_type) || '',
-                score: e && e.workout_score != null ? String(e.workout_score) : '',
-                calories: e && e.calories != null ? String(e.calories) : '',
-                vo2Max: e && e.vo2_max != null ? String(e.vo2_max) : '',
-                note: (e && e.note) || ''
-            };
+        async openWorkoutModal() {
+            this.showSessionForm = false;
+            this.editingSessionId = null;
+            this.workoutSessionForm = { type: 'strength', duration: '', intensity: '', programTag: '', note: '' };
+            if (this.workoutEntry) {
+                try {
+                    this.workoutSessions = await DB.WorkoutSessions.listForLog(this.workoutEntry.id);
+                } catch (e) {
+                    this.errorMsg = e.message;
+                }
+            }
+            if (this.workoutSessions.length === 0) {
+                this.showSessionForm = true;
+            }
             this.workoutModalOpen = true;
         },
         closeWorkoutModal() { this.workoutModalOpen = false; },
-        async saveWorkout() {
+        
+        openWorkoutSessionForm(session = null) {
+            if (session) {
+                this.editingSessionId = session.id;
+                this.workoutSessionForm = {
+                    type: session.activity_type || 'strength',
+                    duration: session.duration_minutes ? String(session.duration_minutes) : '',
+                    intensity: session.intensity || '',
+                    programTag: session.program_tag || '',
+                    note: session.note || ''
+                };
+            } else {
+                this.editingSessionId = null;
+                this.workoutSessionForm = { type: 'strength', duration: '', intensity: '', programTag: '', note: '' };
+            }
+            this.showSessionForm = true;
+        },
+        closeWorkoutSessionForm() {
+            this.showSessionForm = false;
+            this.editingSessionId = null;
+        },
+        async saveWorkoutSession() {
+            if (!this.workoutEntry) return;
             const toInt = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
-            const toNum = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
             const patch = {
-                duration_minutes: toInt(this.workoutForm.minutes),
-                workout_type: this.workoutForm.type.trim() || null,
-                workout_score: toInt(this.workoutForm.score),
-                calories: toInt(this.workoutForm.calories),
-                vo2_max: toNum(this.workoutForm.vo2Max),
-                note: this.workoutForm.note.trim() || null
+                activity_type: this.workoutSessionForm.type,
+                duration_minutes: toInt(this.workoutSessionForm.duration),
+                intensity: this.workoutSessionForm.type === 'strength' ? (this.workoutSessionForm.intensity || null) : null,
+                program_tag: this.workoutSessionForm.type === 'strength' ? (this.workoutSessionForm.programTag || null) : null,
+                note: this.workoutSessionForm.note.trim() || null
             };
             try {
-                // Midnight calendar date, per date-rule split (see load()).
-                this.workoutEntry = await DB.Workout.save(todayIsoDate(), patch);
-                this.workoutModalOpen = false;
+                if (this.editingSessionId) {
+                    const updated = await DB.WorkoutSessions.update(this.editingSessionId, patch);
+                    this.workoutSessions = this.workoutSessions.map(s => s.id === updated.id ? updated : s);
+                } else {
+                    const created = await DB.WorkoutSessions.create(this.workoutEntry.id, patch);
+                    this.workoutSessions = [...this.workoutSessions, created];
+                }
+                this.showSessionForm = false;
+                this.editingSessionId = null;
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+        async deleteWorkoutSession(id) {
+            try {
+                await DB.WorkoutSessions.remove(id);
+                this.workoutSessions = this.workoutSessions.filter(s => s.id !== id);
             } catch (e) {
                 this.errorMsg = e.message;
             }
