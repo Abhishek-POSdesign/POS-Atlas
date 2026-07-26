@@ -522,23 +522,19 @@
                                                         <div class="card panel" style="padding: 12px; margin-bottom: 8px;">
                                                             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                                                 <div>
-                                                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                                                        <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
-                                                                        <div x-html="activityIcon(session.activity_type)" :style="'color: ' + activityColor(session.activity_type) + '; opacity: 0.8; display: flex;'"></div>
-                                                                    </div>
+                                                                    <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
                                                                     <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
-                                                                            <span x-text="session.duration_minutes + ' min'"></span>
-                                                                            <template x-if="session.activity_type === 'strength' && session.intensity">
-                                                                                <span x-text="' · ' + session.intensity"></span>
-                                                                            </template>
-                                                                            <template x-if="session.program_tag">
-                                                                                <span x-text="' · ' + session.program_tag"></span>
-                                                                            </template>
-                                                                        </div>
-                                                                        <template x-if="session.note">
-                                                                            <div style="color: var(--text-secondary); font-size: 13px; margin-top: 6px; font-style: italic;" x-text="session.note"></div>
+                                                                        <span x-text="session.duration_minutes + ' min'"></span>
+                                                                        <template x-if="session.activity_type === 'strength' && session.intensity">
+                                                                            <span x-text="' · ' + session.intensity"></span>
+                                                                        </template>
+                                                                        <template x-if="session.program_tag">
+                                                                            <span x-text="' · ' + session.program_tag"></span>
                                                                         </template>
                                                                     </div>
+                                                                    <template x-if="session.note">
+                                                                        <div style="color: var(--text-secondary); font-size: 13px; margin-top: 6px; font-style: italic;" x-text="session.note"></div>
+                                                                    </template>
                                                                 </div>
                                                                 <button class="btn-text" @click="openWorkoutModal()">Edit</button>
                                                             </div>
@@ -884,23 +880,19 @@
                                                 <div class="card panel" style="padding: 16px; margin-bottom: 12px;">
                                                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                                         <div>
-                                                            <div style="display: flex; align-items: center; gap: 8px;">
-                                                                <div style="font-weight: 600; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
-                                                                <div x-html="activityIcon(session.activity_type)" :style="'color: ' + activityColor(session.activity_type) + '; opacity: 0.8; display: flex;'"></div>
-                                                            </div>
+                                                            <div style="font-weight: 600; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
                                                             <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
-                                                                    <span x-text="session.duration_minutes + ' min'"></span>
-                                                                    <template x-if="session.activity_type === 'strength' && session.intensity">
-                                                                        <span x-text="' · ' + session.intensity"></span>
-                                                                    </template>
-                                                                    <template x-if="session.program_tag">
-                                                                        <span x-text="' · ' + session.program_tag"></span>
-                                                                    </template>
-                                                                </div>
-                                                                <template x-if="session.note">
-                                                                    <div style="color: var(--text-secondary); font-size: 13px; margin-top: 8px; font-style: italic;" x-text="session.note"></div>
+                                                                <span x-text="session.duration_minutes + ' min'"></span>
+                                                                <template x-if="session.activity_type === 'strength' && session.intensity">
+                                                                    <span x-text="' · ' + session.intensity"></span>
+                                                                </template>
+                                                                <template x-if="session.program_tag">
+                                                                    <span x-text="' · ' + session.program_tag"></span>
                                                                 </template>
                                                             </div>
+                                                            <template x-if="session.note">
+                                                                <div style="color: var(--text-secondary); font-size: 13px; margin-top: 8px; font-style: italic;" x-text="session.note"></div>
+                                                            </template>
                                                         </div>
                                                         <div style="display: flex; gap: 8px;">
                                                             <button class="btn-text" @click.stop="openWorkoutSessionForm(session)">Edit</button>
