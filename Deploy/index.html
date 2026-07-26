@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="auto">
 <head>
     <meta charset="UTF-8">
@@ -1014,11 +1014,7 @@
                                     </template>
                                 </div>
                             </div>
-                        </template>
-                    </div>
-                </template>
 
-                
                         <!-- Weekly targets editor modal -->
                         <template x-if="targetsEditorOpen">
                             <div class="modal-overlay" @click.self="closeTargetsEditor()">
@@ -1038,6 +1034,9 @@
                                 </div>
                             </div>
                         </template>
+                        </template>
+                    </div>
+                </template>
                 <!-- Projects tab -->
                 <template x-if="tab==='projects' && !projectViewId">
                     <div x-data="projectsListPage({ onOpen: (id) => openProject(id) })">
