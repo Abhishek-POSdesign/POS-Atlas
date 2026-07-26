@@ -1341,13 +1341,24 @@
 .trv2-kind.task { color: var(--text-muted); }
 .trv2-kind svg { flex-shrink: 0; }
 
+/* Project chip -- contrast fix (Round 2 build, item 2). Old style was
+   flat secondary-color text which read as 2.7:1 on Paper Studio (illegible)
+   and only marginally better on Charcoal Muse. New style: tinted chip on
+   --surface-2 with hairline border, primary-text weight-600. Colored
+   identity dot on the left carries the project's accent. Reads clearly
+   on both themes at a glance without inspecting the row. */
 .trv2-project {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: var(--text-secondary);
-    font-weight: 500;
-    font-size: 12px;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 11.5px;
+    padding: 3px 8px 3px 5px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    white-space: nowrap;
 }
 .trv2-project-dot {
     width: 8px;
@@ -1360,6 +1371,14 @@
 .trv2-project.color-blue .trv2-project-dot { background: var(--accent-blue); }
 .trv2-project.color-lilac .trv2-project-dot { background: var(--accent-lilac); }
 .trv2-project.color-coral .trv2-project-dot { background: var(--accent-coral); }
+
+/* Inert row modifier (Round 2 build, item 3). Recently completed rows on
+   Today are static history -- no click, no hover, no delete. Prevents
+   accidental edits or deletes on the completion log. Undoing a completion
+   still works via the Restore view like every other soft-deletable thing. */
+.trv2-row.is-inert { cursor: default; pointer-events: none; }
+.trv2-row.is-inert:hover { background: none; transform: none; }
+.trv2-row.is-inert .trv2-check { cursor: default; }
 
 /* Pending-confirm hint -- shown inline in .trv2-meta only while the
    row is in the 2.5s pending window. Sage to match the checkbox pop. */
@@ -1590,9 +1609,15 @@
     padding: 22px 24px;
     margin-bottom: var(--pad-md);
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* Right column widened for the integrated goal blocks (Round 2 build,
+       item 8). On mobile the two columns stack single-column via the
+       media query below. */
+    grid-template-columns: minmax(0, 1fr) 320px;
     column-gap: var(--pad-lg);
     align-items: start;
+}
+@media (max-width: 900px) {
+    .ws-hero { grid-template-columns: 1fr; row-gap: var(--pad-md); }
 }
 .ws-hero-left { min-width: 0; }
 
@@ -1780,50 +1805,64 @@
 }
 .ws-section-head .head-action:hover { text-decoration: underline; }
 
-/* Goal grid inside Goals section */
-.goal-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
-@media (max-width: 640px) {
-    .goal-grid { grid-template-columns: 1fr; }
-}
-.goal-tile {
-    background: var(--surface-2);
-    border-radius: 8px;
-    padding: 16px;
+/* Workspace hero right column (Round 2 build, item 8).
+   Holds the ⋯ overflow menu on top and two goal blocks below.
+   The separate "Goals" section that used to live below the hero
+   card has been removed entirely -- everything about goals now
+   lives inside this right column. */
+.ws-right {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    min-width: 0;
 }
-.goal-tile-head {
+.ws-right .ws-overflow { align-self: flex-end; }
+
+/* Goal block inside the hero. Colored 3 px left-edge accent carries
+   the "this is a goal" signal at a glance -- sage for short-term
+   (near, actionable), blue for long-term (further, strategic).
+   Weight-500 primary text on the body so it reads as important
+   without shouting. Date deliberately absent -- the countdown in
+   the metrics row already carries it (Abhishek's explicit fix
+   2026-07-26). Click opens the goal-edit modal. */
+.ws-goal {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-sage);
+    padding: 12px 16px;
+    border-radius: 6px;
+    cursor: pointer;
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
+    transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
-.goal-tile-lbl {
-    font-size: 11px;
+.ws-goal:hover { background: var(--surface-1-hover); border-right-color: var(--border-hover); border-top-color: var(--border-hover); border-bottom-color: var(--border-hover); }
+.ws-goal:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.ws-goal.long { border-left-color: var(--accent-blue); }
+
+.ws-goal-label {
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: .06em;
     text-transform: uppercase;
-    color: var(--text-secondary);
+    color: var(--accent-sage);
 }
-.goal-tile-date { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.goal-tile-body { font-size: 15px; color: var(--text-primary); line-height: 1.5; }
-.goal-tile-body.empty {
-    background: none;
-    border: 0;
-    color: var(--accent-blue);
-    padding: 0;
-    font-family: inherit;
-    font-size: 14px;
+.ws-goal.long .ws-goal-label { color: var(--accent-blue); }
+
+.ws-goal-body {
+    font-size: 15px;
     font-weight: 500;
-    cursor: pointer;
-    text-align: left;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin: 0;
 }
-.goal-tile-body.empty:hover { text-decoration: underline; }
+.ws-goal-body.empty {
+    color: var(--text-muted);
+    font-weight: 500;
+    font-style: italic;
+    font-size: 14px;
+}
 
 /* Work log day block inside the Work log section */
 .worklog-day + .worklog-day { margin-top: var(--pad-md); }
@@ -1884,15 +1923,263 @@
 }
 .ws-task-add input[type="text"] { flex: 1 1 200px; min-width: 0; }
 
-/* 12-hour Custom Time Picker */
-.custom-time { display: inline-flex; align-items: center; gap: 4px; }
-.custom-time select { 
-    padding: 6px 8px; 
-    border: 1px solid var(--border); 
-    border-radius: 4px; 
-    background: var(--bg-primary); 
-    color: var(--text-primary); 
-    font-family: inherit; 
-    font-size: 14px; 
+/* =========================================================
+   WORKOUT DAY-TYPE TOGGLE (Round 2 build, item 5)
+   Three chips at the top of the Workout card: Workout ·
+   Active recovery · Full rest. Only Workout surfaces the
+   metric form; the other two are one-tap-and-done with
+   their own calm animation. Persists via day_type on
+   atlas_workout_logs (migration 013).
+   ========================================================= */
+.wo-daytype-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-bottom: 12px;
+    background: var(--surface-2);
+    padding: 4px;
+    border-radius: 8px;
 }
-.custom-time select:focus { border-color: var(--accent-blue); outline: none; }
+.wo-daytype-chip {
+    background: none;
+    border: 0;
+    color: var(--text-secondary);
+    padding: 8px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11.5px;
+    font-weight: 500;
+    font-family: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+    min-height: 52px;
+}
+.wo-daytype-chip:hover { color: var(--text-primary); }
+.wo-daytype-chip[aria-pressed="true"] {
+    background: var(--surface-1);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-card);
+}
+.wo-daytype-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+}
+.wo-daytype-chip[aria-pressed="true"][data-type="workout"] .wo-daytype-icon { color: var(--accent-sage); }
+.wo-daytype-chip[aria-pressed="true"][data-type="recovery"] .wo-daytype-icon { color: var(--accent-lilac); }
+.wo-daytype-chip[aria-pressed="true"][data-type="rest"] .wo-daytype-icon { color: var(--accent-blue); }
+
+.wo-state {
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 0;
+}
+.wo-state-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.wo-state-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+.wo-recovery-animation {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+.wo-recovery-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent-lilac);
+    opacity: .35;
+    animation: wo-walk 1.8s var(--ease-out) infinite;
+}
+.wo-recovery-dot:nth-child(2) { animation-delay: .3s; }
+.wo-recovery-dot:nth-child(3) { animation-delay: .6s; }
+@keyframes wo-walk {
+    0%, 40%, 100% { opacity: .35; transform: translateY(0); }
+    20% { opacity: 1; transform: translateY(-3px); }
+}
+.wo-rest-icon {
+    width: 44px;
+    height: 44px;
+    color: var(--accent-blue);
+    background: var(--accent-blue-tint);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: wo-rest 3s var(--ease-out) infinite;
+}
+@keyframes wo-rest {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+}
+
+/* =========================================================
+   TASK EDIT MODAL (Round 2 build, item 13)
+   Redesigned for real tier hierarchy: eyebrow (identity) →
+   name-as-title-input → labelled Schedule + Assignment
+   subsections → actions row with Delete bottom-left,
+   Cancel/Save right. Delete lives inside Edit, not on the
+   row itself (design review approved 2026-07-26).
+   Used from both Today's task modal and (soon) the workspace
+   task modal via the same shared markup.
+   ========================================================= */
+.task-edit-modal { max-width: 500px; }
+.task-edit-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 22px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+.task-edit-hero-left { min-width: 0; flex: 1; }
+.task-edit-eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.task-edit-eyebrow.reminder { color: var(--accent-amber); }
+.task-edit-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+.task-edit-status.in-progress { background: var(--accent-sage-tint); color: var(--accent-sage); }
+.task-edit-status.done { background: var(--accent-sage); color: var(--surface-0); }
+
+.task-edit-name-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 20px;
+    font-weight: 500;
+    padding: 6px 0;
+    outline: none;
+}
+.task-edit-name-input:focus { border-bottom-color: var(--accent-blue); }
+.task-edit-name-input::placeholder { color: var(--text-muted); }
+
+.modal .modal-section-lbl {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+.modal .modal-section {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 16px;
+}
+.modal .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 480px) {
+    .modal .field-row { grid-template-columns: 1fr; }
+}
+
+.task-edit-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    gap: 10px;
+}
+.task-edit-actions-right { display: flex; gap: 10px; align-items: center; }
+.task-edit-delete {
+    background: none;
+    border: 1px solid var(--accent-coral);
+    color: var(--accent-coral);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out);
+}
+.task-edit-delete:hover { background: var(--accent-coral-tint); }
+
+/* Universal 12-hour time picker -- v2, numeric variant (Round 2 build,
+   2026-07-26). Replaces the three-dropdown pattern that rendered as
+   invisible/blank text on dark theme. Two 2-digit numeric inputs
+   (inputmode="numeric" opens the OS number pad on mobile) + an AM/PM
+   segmented control. Shared Alpine data unchanged in shape (.value is
+   still an HH:MM string); only the markup at each callsite is different.
+   Every consumer inherits automatically. */
+.tp-numeric {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-0);
+    border: 1px solid var(--border-hover);
+    border-radius: 8px;
+    padding: 6px;
+    max-width: 100%;
+}
+.tp-numeric input[type="tel"] {
+    width: 44px; height: 34px;
+    background: var(--surface-1); border: 1px solid var(--border-hover);
+    color: var(--text-primary); font-family: var(--font-sans);
+    font-size: 16px; font-weight: 500;
+    text-align: center; padding: 0;
+    border-radius: 6px;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+    -moz-appearance: textfield;
+}
+.tp-numeric input[type="tel"]::-webkit-outer-spin-button,
+.tp-numeric input[type="tel"]::-webkit-inner-spin-button {
+    -webkit-appearance: none; margin: 0;
+}
+.tp-numeric input[type="tel"]:focus { border-color: var(--accent-blue); background: var(--surface-1-hover); }
+.tp-numeric input[type="tel"]::placeholder { color: var(--text-muted); }
+.tp-numeric .colon { color: var(--text-muted); font-size: 16px; font-weight: 500; user-select: none; }
+
+.tp-ampm {
+    display: inline-flex; background: var(--surface-2);
+    border-radius: 6px; padding: 3px; margin-left: 2px;
+}
+.tp-ampm button {
+    background: none; border: 0; color: var(--text-secondary);
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    padding: 6px 10px; border-radius: 4px; cursor: pointer;
+    min-width: 32px; min-height: 28px;
+    transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.tp-ampm button:hover { color: var(--text-primary); }
+.tp-ampm button[aria-pressed="true"] {
+    background: var(--surface-1); color: var(--text-primary);
+    box-shadow: var(--shadow-card);
+}

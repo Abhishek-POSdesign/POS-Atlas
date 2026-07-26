@@ -14,7 +14,11 @@ export function projectsListPage(nav) {
         showModal: false,
         editingProject: null,
         colorKeys: COLOR_KEYS,
-        form: { name: '', color_key: 'sage', monogram_letter: '', description: '' },
+        form: { name: '', color_key: 'sage', monogram_letter: '', description: '', short_term_goal: '', short_term_goal_date: '', long_term_goal: '', long_term_goal_date: '' },
+        // New Project modal now supports adding notes-mode (item 6, Round 2
+        // build) via a modal instead of the persistent Notes card. Note
+        // modal is a separate simple form.
+        showNoteModal: false,
         // Projects-page-level notes (moved out of the per-project workspace,
         // 2026-07-25 testing feedback). Composer stays collapsed until
         // explicitly opened so the page doesn't accumulate open textareas.
@@ -52,7 +56,11 @@ export function projectsListPage(nav) {
         },
         openCreate() {
             this.editingProject = null;
-            this.form = { name: '', color_key: 'sage', monogram_letter: '', description: '' };
+            this.form = {
+                name: '', color_key: 'sage', monogram_letter: '', description: '',
+                short_term_goal: '', short_term_goal_date: '',
+                long_term_goal: '', long_term_goal_date: ''
+            };
             this.showModal = true;
         },
         openEdit(project) {
@@ -61,7 +69,11 @@ export function projectsListPage(nav) {
                 name: project.name,
                 color_key: project.color_key,
                 monogram_letter: project.monogram_letter,
-                description: project.description || ''
+                description: project.description || '',
+                short_term_goal: project.short_term_goal || '',
+                short_term_goal_date: project.short_term_goal_date || '',
+                long_term_goal: project.long_term_goal || '',
+                long_term_goal_date: project.long_term_goal_date || ''
             };
             this.showModal = true;
         },
@@ -72,17 +84,25 @@ export function projectsListPage(nav) {
             const name = this.form.name.trim();
             if (!name) { this.errorMsg = 'Project name is required.'; return; }
             const monogram = (this.form.monogram_letter || name[0]).toUpperCase().slice(0, 1);
+            const goalFields = {
+                short_term_goal: this.form.short_term_goal.trim() || null,
+                short_term_goal_date: this.form.short_term_goal_date || null,
+                long_term_goal: this.form.long_term_goal.trim() || null,
+                long_term_goal_date: this.form.long_term_goal_date || null
+            };
             try {
                 if (this.editingProject) {
                     const updated = await DB.Projects.update(this.editingProject.id, {
                         name, color_key: this.form.color_key, monogram_letter: monogram,
-                        description: this.form.description || null
+                        description: this.form.description || null,
+                        ...goalFields
                     });
                     this.projects = this.projects.map(p => p.id === updated.id ? updated : p);
                 } else {
                     const created = await DB.Projects.create({
                         name, color_key: this.form.color_key, monogram_letter: monogram,
-                        description: this.form.description || null, status: 'planned'
+                        description: this.form.description || null, status: 'planned',
+                        ...goalFields
                     });
                     this.projects = [...this.projects, created];
                 }
@@ -119,11 +139,14 @@ export function projectsListPage(nav) {
         toggleNoteDate(date) {
             this.expandedNoteDates[date] = !this.isNoteDateExpanded(date);
         },
-        openAddNote() {
-            this.addingNote = true;
+        // Modal-based note composer (Round 2 build, item 6). The persistent
+        // Notes card is gone; adding a note opens this modal instead.
+        openNoteModal() {
+            this.newNoteBody = '';
+            this.showNoteModal = true;
         },
-        cancelAddNote() {
-            this.addingNote = false;
+        closeNoteModal() {
+            this.showNoteModal = false;
             this.newNoteBody = '';
         },
         async addNote() {
@@ -133,7 +156,7 @@ export function projectsListPage(nav) {
                 const row = await DB.ProjectNotes.create({ body });
                 this.notes = [row, ...this.notes];
                 this.newNoteBody = '';
-                this.addingNote = false;
+                this.showNoteModal = false;
             } catch (e) {
                 this.errorMsg = 'Note failed: ' + e.message;
             }

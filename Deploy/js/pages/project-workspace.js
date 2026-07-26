@@ -14,14 +14,13 @@ export function projectWorkspacePage(nav) {
         errorMsg: '',
         editingHeader: false,
         headerForm: { short_term_goal: '', short_term_goal_date: '', long_term_goal: '', long_term_goal_date: '' },
-        newTaskName: '',
-        newTaskDate: '',
-        newTaskTime: '',
-        newTaskNotify: false,
-        // Inline task edit -- follows the same shape as editingLogId below.
-        // Clicking a task name opens an in-place form seeded from the row.
+        // Task modal (Round 2 build, items 10 + 13). Same shape as Today's
+        // task modal. Add + edit both use this one modal; editingTaskId
+        // decides which mode. Persistent add-task row + inline edit both
+        // removed in favour of this modal.
+        taskModalOpen: false,
         editingTaskId: null,
-        editingTaskForm: { name: '', scheduled_date: '', scheduled_time: '', notify_enabled: false },
+        taskForm: { name: '', scheduled_date: '', scheduled_time: '', notify_enabled: false },
         newLogBody: '',
         editingLogId: null,
         editingLogBody: '',
@@ -90,13 +89,6 @@ export function projectWorkspacePage(nav) {
         projectDotClass() {
             return 'color-' + (this.project?.color_key || 'blue');
         },
-        // Focus the inline "New task" input after clicking the section's
-        // "+ Add task" head-action. Uses querySelector because the input is
-        // rendered inside a template and can't take a static x-ref reliably.
-        focusAddTask() {
-            const el = document.querySelector('.ws-task-add input[type="text"]');
-            if (el) el.focus();
-        },
         isDateExpanded(date) {
             return this.expandedDates[date] !== false; // expanded by default
         },
@@ -123,26 +115,67 @@ export function projectWorkspacePage(nav) {
                 this.errorMsg = 'Save failed: ' + e.message;
             }
         },
-        async addTask() {
-            const name = this.newTaskName.trim();
+        // ---- Task modal (add + edit both use this one modal) ----
+        openAddTaskModal() {
+            this.editingTaskId = null;
+            this.taskForm = { name: '', scheduled_date: '', scheduled_time: '', notify_enabled: false };
+            this.taskModalOpen = true;
+        },
+        openEditTaskModal(task) {
+            this.editingTaskId = task.id;
+            this.taskForm = {
+                name: task.name || '',
+                scheduled_date: task.scheduled_date || '',
+                scheduled_time: task.scheduled_time ? task.scheduled_time.slice(0, 5) : '',
+                notify_enabled: !!task.notify_enabled
+            };
+            this.taskModalOpen = true;
+        },
+        closeTaskModal() {
+            this.taskModalOpen = false;
+            this.editingTaskId = null;
+        },
+        async submitTaskModal() {
+            const name = this.taskForm.name.trim();
             if (!name) return;
+            const patch = {
+                name,
+                scheduled_date: this.taskForm.scheduled_date || null,
+                scheduled_time: this.taskForm.scheduled_time || null,
+                notify_enabled: this.taskForm.notify_enabled
+            };
             try {
-                const created = await DB.Tasks.create({
-                    project_id: this.projectId,
-                    name,
-                    scheduled_date: this.newTaskDate || null,
-                    scheduled_time: this.newTaskTime || null,
-                    notify_enabled: this.newTaskNotify
-                });
-                this.tasks = [...this.tasks, created];
-                this.newTaskName = '';
-                this.newTaskDate = '';
-                this.newTaskTime = '';
-                this.newTaskNotify = false;
+                if (this.editingTaskId) {
+                    const row = await DB.Tasks.update(this.editingTaskId, patch);
+                    this.tasks = this.tasks.map(t => t.id === row.id ? row : t);
+                } else {
+                    const row = await DB.Tasks.create({
+                        ...patch,
+                        project_id: this.projectId,
+                        kind: 'task',
+                        status: 'not_started',
+                        priority: 'normal'
+                    });
+                    this.tasks = [...this.tasks, row];
+                }
+                this.taskModalOpen = false;
+                this.editingTaskId = null;
             } catch (e) {
-                this.errorMsg = 'Add task failed: ' + e.message;
+                this.errorMsg = 'Save failed: ' + e.message;
             }
         },
+        // Called from the Delete button inside the task edit modal (Round 2
+        // build, items 9 + 13). Reuses deleteTask for the actual delete +
+        // undo-toast flow -- just also closes the modal on success.
+        async deleteFromEditModal() {
+            if (!this.editingTaskId) return;
+            const task = this.tasks.find(t => t.id === this.editingTaskId);
+            if (!task) { this.closeTaskModal(); return; }
+            const before = this.tasks;
+            await this.deleteTask(task);
+            if (this.tasks !== before) this.closeTaskModal();
+        },
+
         async startTask(task) {
             const note = await askNote(`What are you doing right now on "${task.name}"?`, {
                 submitLabel: 'Start', skipLabel: 'Just start'
@@ -198,34 +231,6 @@ export function projectWorkspacePage(nav) {
                 this.logs = [logRow, ...this.logs];
             } catch (e) {
                 this.errorMsg = 'Complete failed: ' + e.message;
-            }
-        },
-        startEditTask(task) {
-            this.editingTaskId = task.id;
-            this.editingTaskForm = {
-                name: task.name || '',
-                scheduled_date: task.scheduled_date || '',
-                scheduled_time: task.scheduled_time ? task.scheduled_time.slice(0, 5) : '',
-                notify_enabled: !!task.notify_enabled
-            };
-        },
-        cancelEditTask() {
-            this.editingTaskId = null;
-        },
-        async saveEditTask(task) {
-            const name = this.editingTaskForm.name.trim();
-            if (!name) return;
-            try {
-                const updated = await DB.Tasks.update(task.id, {
-                    name,
-                    scheduled_date: this.editingTaskForm.scheduled_date || null,
-                    scheduled_time: this.editingTaskForm.scheduled_time || null,
-                    notify_enabled: this.editingTaskForm.notify_enabled
-                });
-                this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
-                this.editingTaskId = null;
-            } catch (e) {
-                this.errorMsg = 'Save failed: ' + e.message;
             }
         },
         async deleteTask(task) {

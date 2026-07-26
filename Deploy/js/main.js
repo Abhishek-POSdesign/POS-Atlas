@@ -35,6 +35,14 @@ if ('serviceWorker' in navigator) {
 }
 
 document.addEventListener('alpine:init', () => {
+    // Universal time picker (Round 2 build, 2026-07-26).
+    // Replaces the three-select dropdown (which rendered as invisible/blank
+    // text on dark theme -- direct feedback from live testing) with two
+    // numeric inputs + an AM/PM segmented control. `.value` is still the
+    // canonical "HH:MM" 24-hour string so no consumer's read/write code
+    // changes; only the markup at each callsite is different. Drop-in
+    // replacement, universal across every consumer (Today's add/edit modal,
+    // workspace add/edit modal, checklist Log popup). Under 60 lines.
     Alpine.data('timePicker12h', () => ({
         value: '',
         get hh() {
@@ -51,13 +59,39 @@ document.addEventListener('alpine:init', () => {
             return m ? m.slice(0, 2) : '00';
         },
         get ampm() {
-            if (!this.value) return '';
+            if (!this.value) return 'AM';
             let h = parseInt(this.value.split(':')[0], 10);
             if (isNaN(h)) return 'AM';
             return h >= 12 ? 'PM' : 'AM';
         },
-        update(h, m, p) {
-            if (!h) { this.value = ''; return; }
+        // Called from the HH input on every keystroke. Accepts 1-2 digit
+        // strings and clamps to 1-12; empty string clears the whole value.
+        updateHH(raw) {
+            const s = (raw || '').replace(/[^0-9]/g, '').slice(0, 2);
+            if (!s) { this.value = ''; return; }
+            let hn = parseInt(s, 10);
+            if (isNaN(hn) || hn < 1) hn = 12;
+            if (hn > 12) hn = 12;
+            this._commit(String(hn).padStart(2, '0'), this.mm || '00', this.ampm);
+        },
+        // Called from the MM input. Clamps to 0-59; empty string keeps
+        // whatever hour was already set with :00 as the minute.
+        updateMM(raw) {
+            const s = (raw || '').replace(/[^0-9]/g, '').slice(0, 2);
+            let mn = s === '' ? 0 : parseInt(s, 10);
+            if (isNaN(mn) || mn < 0) mn = 0;
+            if (mn > 59) mn = 59;
+            const currentHH = this.hh || '12';
+            this._commit(currentHH, String(mn).padStart(2, '0'), this.ampm);
+        },
+        // Called from the AM/PM segmented control. Flips the tail of a
+        // set-time; if nothing was set, seeds 12:00.
+        updateAMPM(p) {
+            const currentHH = this.hh || '12';
+            const currentMM = this.mm || '00';
+            this._commit(currentHH, currentMM, p);
+        },
+        _commit(h, m, p) {
             let hour = parseInt(h, 10);
             let min = m || '00';
             let ampm = p || 'AM';

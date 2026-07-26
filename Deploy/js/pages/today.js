@@ -295,6 +295,23 @@ export function todayPage() {
                 this.errorMsg = 'Delete failed: ' + e.message;
             }
         },
+        // Called from the Delete button inside the task edit modal (Round 2
+        // build, item 13). Reuses deleteTaskOnToday for the actual delete +
+        // undo-toast flow -- just also closes the modal on success. The
+        // askConfirm() inside deleteTaskOnToday IS the second deliberate
+        // action; combined with the undo toast, this is still two-step +
+        // safety net, same guarantee as the old row-level delete.
+        async deleteFromEditModal() {
+            if (!this.editingTaskId) return;
+            const task = this.tasks.find(t => t.id === this.editingTaskId);
+            if (!task) { this.closeTaskModal(); return; }
+            const before = this.tasks;
+            await this.deleteTaskOnToday(task);
+            // Close modal only if the delete actually removed the row (i.e.
+            // user confirmed and it succeeded -- state was optimistically
+            // trimmed, not restored to `before`).
+            if (this.tasks !== before) this.closeTaskModal();
+        },
 
         // Overdue = due in the past AND not yet done. Deliberately narrow
         // definition so no future session guesses at edges:
@@ -384,6 +401,25 @@ export function todayPage() {
                 this.sleepModalOpen = false;
             } catch (e) {
                 this.errorMsg = e.message;
+            }
+        },
+
+        // ---- workout day-type toggle (Round 2 build, item 5) ----
+        // Read from the loaded entry; unset if there's no entry OR the entry
+        // has no day_type (older rows from before migration 013).
+        get workoutDayType() {
+            return (this.workoutEntry && this.workoutEntry.day_type) || null;
+        },
+        async setWorkoutDayType(type) {
+            if (!['workout', 'active_recovery', 'full_rest'].includes(type)) return;
+            try {
+                // Upsert one row per day with the new day_type. Reuses
+                // DB.Workout.save's onConflict:entry_date pattern, so this
+                // never creates a duplicate row even if the user taps a
+                // different chip mid-day.
+                this.workoutEntry = await DB.Workout.save(todayIsoDate(), { day_type: type });
+            } catch (e) {
+                this.errorMsg = 'Save failed: ' + e.message;
             }
         },
 
