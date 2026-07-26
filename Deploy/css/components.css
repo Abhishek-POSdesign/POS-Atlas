@@ -1246,7 +1246,8 @@
 .split-60-40 { display: grid; grid-template-columns: 3fr 2fr; gap: var(--pad-md); margin-bottom: var(--pad-md); align-items: stretch; }
 @media (max-width: 900px) { .split-60-40 { grid-template-columns: 1fr; } }
 
-.col-height { display: flex; flex-direction: column; min-height: 380px; max-height: 600px; }
+.col-height { display: flex; flex-direction: column; min-height: 380px; max-height: 720px; }
+.vitals-stack.col-height { max-height: 720px; overflow-y: auto; }
 .task-list { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 .task-list-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: var(--pad-md) 0 4px; padding: 0 6px; }
 
@@ -2236,7 +2237,7 @@
 }
 .wo-targets-label {
     font-size: 12px;
-    color: var(--mut);
+    color: var(--text-muted);
     text-transform: capitalize;
     min-width: 80px;
 }
@@ -2252,11 +2253,11 @@
     flex-shrink: 0;
 }
 .wo-dot--met   { background: var(--accent-sage); }
-.wo-dot--pending { background: var(--border); border: 1px solid var(--mut); opacity: 0.5; }
-.wo-dot--missed { background: var(--accent-coral); opacity: 0.6; }
+.wo-dot--pending { background: var(--surface-2); border: 1.5px solid var(--border-hover); }
+.wo-dot--missed { background: var(--accent-coral); opacity: 0.7; }
 .wo-targets-frac {
     font-size: 11px;
-    color: var(--mut);
+    color: var(--text-muted);
     min-width: 28px;
     text-align: right;
 }
@@ -2271,14 +2272,14 @@
     background: none;
     border: none;
     padding: 2px;
-    color: var(--mut);
+    color: var(--text-muted);
     cursor: pointer;
     border-radius: 4px;
     transition: color 0.15s, background 0.15s;
 }
 .btn-icon-sm:hover {
-    color: var(--text);
-    background: var(--border);
+    color: var(--text-primary);
+    background: var(--surface-2);
 }
 
 /* =========================================================
@@ -2286,7 +2287,7 @@
    ========================================================= */
 .sleep-step-indicator {
     font-size: 12px;
-    color: var(--mut);
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
 .sleep-context-details {
@@ -2294,23 +2295,202 @@
 }
 .sleep-context-details summary {
     font-size: 13px;
-    color: var(--mut);
+    color: var(--text-muted);
     cursor: pointer;
     user-select: none;
 }
 .sleep-context-details summary:hover {
-    color: var(--text);
+    color: var(--text-primary);
 }
 .btn-secondary {
-    background: var(--panel);
-    color: var(--text);
+    background: var(--surface-2);
+    color: var(--text-primary);
     border: 1px solid var(--border);
     padding: 8px 16px;
-    border-radius: var(--radius);
+    border-radius: 8px;
     font-size: 14px;
     cursor: pointer;
-    transition: background 0.15s;
+    font-family: var(--font-sans);
+    transition: background var(--dur-fast) var(--ease-out);
 }
 .btn-secondary:hover {
-    background: var(--border);
+    background: var(--surface-1-hover);
 }
+
+/* =========================================================
+   PHASE 5 — SLEEP CARD NOTE DISPLAY
+   Shows morning reflection and context note on the Sleep
+   card after save, so the user sees them without re-opening.
+   ========================================================= */
+.sleep-card-note {
+    margin-top: 10px;
+    padding: 8px 10px;
+    background: var(--surface-2);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent-lilac);
+}
+.sleep-card-note.context { border-left-color: var(--border-hover); margin-top: 6px; }
+.sleep-card-note-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+}
+.sleep-card-note-text {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.45;
+}
+
+/* =========================================================
+   PHASE 5 — WORKOUT SESSION ROW (inline on card + modal)
+   ========================================================= */
+.wo-session-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border-radius: 6px;
+    margin-bottom: 6px;
+}
+.wo-session-row:last-child { margin-bottom: 0; }
+.wo-session-info { min-width: 0; flex: 1; }
+.wo-session-type {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    text-transform: capitalize;
+}
+.wo-session-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+.wo-session-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: 4px;
+}
+.wo-session-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* =========================================================
+   PHASE 5 — HEALTH TRENDS (Sleep + Workout tabs)
+   Reuses .trend-legend, .trend-dot, .trend-label from
+   the Checklist Completion chart above.
+   ========================================================= */
+.ht-tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface-2);
+    border-radius: 6px;
+    padding: 3px;
+}
+.ht-tab {
+    background: none;
+    border: 0;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.ht-tab:hover { color: var(--text-primary); }
+.ht-tab.active {
+    background: var(--surface-1);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-card);
+}
+
+/* Sleep trend: 30-day bar chart */
+.ht-sleep-summary {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+.ht-sleep-summary strong { color: var(--text-primary); font-weight: 500; }
+
+.ht-sleep-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 100px;
+    position: relative;
+    padding-bottom: 18px;
+}
+.ht-sleep-goal-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    border-top: 1.5px dashed var(--text-muted);
+    opacity: 0.5;
+    pointer-events: none;
+}
+.ht-sleep-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+    min-width: 0;
+}
+.ht-sleep-bar {
+    width: 100%;
+    max-width: 14px;
+    border-radius: 2px 2px 0 0;
+    min-height: 2px;
+    transition: height var(--dur-base) var(--ease-out);
+}
+
+/* Workout trend: 4-week consistency grid */
+.ht-wo-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ht-wo-header-row, .ht-wo-row {
+    display: grid;
+    grid-template-columns: 90px repeat(4, 1fr);
+    align-items: center;
+    gap: 8px;
+}
+.ht-wo-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: capitalize;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ht-wo-week-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    text-align: center;
+}
+.ht-wo-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    justify-self: center;
+}
+.ht-wo-dot--met { background: var(--accent-sage); }
+.ht-wo-dot--partial { background: var(--accent-amber); }
+.ht-wo-dot--missed { background: var(--accent-coral); opacity: 0.6; }

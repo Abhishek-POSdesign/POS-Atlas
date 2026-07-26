@@ -122,9 +122,9 @@ export function todayPage() {
                 this.checklistDoneToday = todaysItems.filter(i => doneIds.has(i.id)).length;
                 this.checklistSkippedToday = todaysItems.filter(i => skippedIds.has(i.id)).length;
                 
-                // We will move loadTrend out of blocking flow so the main dashboard renders faster
                 this.loadTrend().catch(console.error);
                 this.loadWorkoutTargets().catch(console.error);
+                this.loadHealthTrend().catch(console.error);
             } catch (e) {
                 this.errorMsg = 'Could not load Today: ' + e.message;
             }
@@ -640,6 +640,120 @@ export function todayPage() {
             } catch (e) {
                 this.errorMsg = e.message;
             }
+        },
+
+        // ---- health trends ----
+        healthTrendTab: 'sleep',
+        sleepTrendDays: [],
+        sleepGoalMinutes: 420,
+        workoutTrendWeeks: [],
+        _workoutTrendTargets: [],
+        healthTrendLoading: false,
+
+        async loadHealthTrend() {
+            this.healthTrendLoading = true;
+            try {
+                const [sleepLogs, settings, workoutLogs, targets] = await Promise.all([
+                    DB.Sleep.listRecent(30),
+                    DB.HealthSettings.get(),
+                    DB.Workout.listRecent(28),
+                    DB.WorkoutTargets.list()
+                ]);
+                if (settings && settings.sleep_goal_minutes) this.sleepGoalMinutes = settings.sleep_goal_minutes;
+
+                // Sleep: build 30-day array (newest first from DB, reverse for chart)
+                const sleepByDate = {};
+                (sleepLogs || []).forEach(s => { sleepByDate[s.entry_date] = s; });
+                const today = new Date();
+                const sleepDays = [];
+                for (let i = 29; i >= 0; i--) {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - i);
+                    const key = d.toLocaleDateString('en-CA');
+                    const entry = sleepByDate[key];
+                    sleepDays.push({
+                        date: key,
+                        label: d.getDate(),
+                        duration: entry ? entry.duration_minutes : null,
+                        score: entry ? entry.sleep_score : null
+                    });
+                }
+                this.sleepTrendDays = sleepDays;
+
+                // Workout: 4-week consistency grid (per activity type)
+                const workoutByDate = {};
+                (workoutLogs || []).forEach(w => { workoutByDate[w.entry_date] = w; });
+                // Get sessions for last 28 days
+                const fourWeeksAgo = new Date(today);
+                fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 27);
+                const startStr = fourWeeksAgo.toLocaleDateString('en-CA');
+                const endStr = today.toLocaleDateString('en-CA');
+                let sessions = [];
+                try { sessions = await DB.WorkoutSessions.listForDateRange(startStr, endStr); } catch(e) {}
+
+                // Group sessions by week (Mon-Sun) and activity_type
+                const weeks = [];
+                for (let w = 0; w < 4; w++) {
+                    const weekStart = new Date(fourWeeksAgo);
+                    weekStart.setDate(weekStart.getDate() + (w * 7));
+                    const weekEnd = new Date(weekStart);
+                    weekEnd.setDate(weekEnd.getDate() + 6);
+                    const wStart = weekStart.toLocaleDateString('en-CA');
+                    const wEnd = weekEnd.toLocaleDateString('en-CA');
+                    const weekLabel = 'W' + (w + 1);
+                    const weekSessions = sessions.filter(s => {
+                        const d = s.atlas_workout_logs?.entry_date;
+                        return d && d >= wStart && d <= wEnd;
+                    });
+                    weeks.push({ label: weekLabel, sessions: weekSessions, start: wStart, end: wEnd });
+                }
+                this.workoutTrendWeeks = weeks;
+                this._workoutTrendTargets = targets || [];
+            } catch (e) {
+                console.error('[HealthTrend]', e);
+            }
+            this.healthTrendLoading = false;
+        },
+
+        get sleepAvg7() {
+            const recent = this.sleepTrendDays.slice(-7).filter(d => d.duration != null);
+            if (!recent.length) return null;
+            return Math.round(recent.reduce((a, d) => a + d.duration, 0) / recent.length);
+        },
+
+        get sleepMaxDuration() {
+            const durations = this.sleepTrendDays.filter(d => d.duration != null).map(d => d.duration);
+            return durations.length ? Math.max(...durations, this.sleepGoalMinutes) : this.sleepGoalMinutes;
+        },
+
+        sleepBarHeight(day) {
+            if (day.duration == null) return '0%';
+            return Math.round((day.duration / this.sleepMaxDuration) * 100) + '%';
+        },
+
+        sleepBarColor(day) {
+            if (day.duration == null) return 'var(--surface-2)';
+            if (day.duration >= this.sleepGoalMinutes) return 'var(--accent-sage)';
+            if (day.duration >= this.sleepGoalMinutes * 0.85) return 'var(--accent-amber)';
+            return 'var(--accent-coral)';
+        },
+
+        get sleepGoalPct() {
+            return Math.round((this.sleepGoalMinutes / this.sleepMaxDuration) * 100) + '%';
+        },
+
+        get workoutConsistency() {
+            const targets = this._workoutTrendTargets || [];
+            return targets.map(t => {
+                const weekDots = this.workoutTrendWeeks.map(week => {
+                    const count = week.sessions.filter(s => s.activity_type === t.activity_type).length;
+                    const target = t.target_days_per_week;
+                    if (count >= target) return 'met';
+                    if (count > 0) return 'partial';
+                    return 'missed';
+                });
+                return { type: t.activity_type, target: t.target_days_per_week, weekDots };
+            });
         },
 
         // ---- trend: last 30 logical days, checklist done/skipped/missed ----

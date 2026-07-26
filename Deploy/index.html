@@ -444,13 +444,27 @@
                                                 </div>
                                             </template>
                                             <template x-if="hasSleepData">
-                                                <div class="metric-grid">
-                                                    <div class="metric"><span class="v" x-text="sleepEntry.sleep_score ?? '—'"></span><span class="l">Score</span></div>
-                                                    <div class="metric"><span class="v" x-text="sleepEntry.duration_minutes != null ? Math.floor(sleepEntry.duration_minutes/60)+'h '+(sleepEntry.duration_minutes%60)+'m' : '—'"></span><span class="l">Duration</span></div>
-                                                    <div class="metric"><span class="v" x-text="sleepEntry.deep_minutes != null ? sleepEntry.deep_minutes+'m' : '—'"></span><span class="l">Deep</span></div>
-                                                    <div class="metric"><span class="v" x-text="sleepEntry.rem_minutes != null ? sleepEntry.rem_minutes+'m' : '—'"></span><span class="l">REM</span></div>
-                                                    <div class="metric"><span class="v" x-text="sleepEntry.resting_hr ?? '—'"></span><span class="l">Resting HR</span></div>
-                                                    <div class="metric"><span class="v" x-text="sleepEntry.hrv ?? '—'"></span><span class="l">HRV</span></div>
+                                                <div>
+                                                    <div class="metric-grid">
+                                                        <div class="metric"><span class="v" x-text="sleepEntry.sleep_score ?? '—'"></span><span class="l">Score</span></div>
+                                                        <div class="metric"><span class="v" x-text="sleepEntry.duration_minutes != null ? Math.floor(sleepEntry.duration_minutes/60)+'h '+(sleepEntry.duration_minutes%60)+'m' : '—'"></span><span class="l">Duration</span></div>
+                                                        <div class="metric"><span class="v" x-text="sleepEntry.deep_minutes != null ? sleepEntry.deep_minutes+'m' : '—'"></span><span class="l">Deep</span></div>
+                                                        <div class="metric"><span class="v" x-text="sleepEntry.rem_minutes != null ? sleepEntry.rem_minutes+'m' : '—'"></span><span class="l">REM</span></div>
+                                                        <div class="metric"><span class="v" x-text="sleepEntry.resting_hr ?? '—'"></span><span class="l">Resting HR</span></div>
+                                                        <div class="metric"><span class="v" x-text="sleepEntry.hrv ?? '—'"></span><span class="l">HRV</span></div>
+                                                    </div>
+                                                    <template x-if="sleepEntry.morning_note">
+                                                        <div class="sleep-card-note morning">
+                                                            <span class="sleep-card-note-label">Morning reflection</span>
+                                                            <span class="sleep-card-note-text" x-text="sleepEntry.morning_note"></span>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="sleepEntry.note">
+                                                        <div class="sleep-card-note context">
+                                                            <span class="sleep-card-note-label">Context</span>
+                                                            <span class="sleep-card-note-text" x-text="sleepEntry.note"></span>
+                                                        </div>
+                                                    </template>
                                                 </div>
                                             </template>
                                         </div>
@@ -489,8 +503,24 @@
                                                 </button>
                                             </div>
 
-                                            <!-- Unset (no day-type picked yet): keep the existing empty
-                                                 helper text so the card doesn't look broken. -->
+                                            <!-- Weekly targets dot grid — always visible when targets loaded, independent of day-type -->
+                                            <template x-if="workoutTargets.length > 0">
+                                                <div class="wo-targets-grid">
+                                                    <template x-for="row in weeklyProgress" :key="row.type">
+                                                        <div class="wo-targets-row">
+                                                            <span class="wo-targets-label" x-text="row.type.replace('_', ' ')"></span>
+                                                            <span class="wo-targets-dots">
+                                                                <template x-for="(dot, i) in row.dots" :key="i">
+                                                                    <span class="wo-dot" :class="'wo-dot--' + dot"></span>
+                                                                </template>
+                                                            </span>
+                                                            <span class="wo-targets-frac" x-text="row.actual + '/' + row.target"></span>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+
+                                            <!-- Unset (no day-type picked yet) -->
                                             <template x-if="!workoutDayType">
                                                 <div class="nodata">
                                                     <span class="h">No workout day-type picked</span>
@@ -501,23 +531,6 @@
                                             <!-- Workout day: handle loading, empty, and data states -->
                                             <template x-if="workoutDayType === 'workout'">
                                                 <div class="stack">
-                                                    <!-- Weekly targets dot grid (shows whenever targets are loaded) -->
-                                                    <template x-if="workoutTargets.length > 0">
-                                                        <div class="wo-targets-grid">
-                                                            <template x-for="row in weeklyProgress" :key="row.type">
-                                                                <div class="wo-targets-row">
-                                                                    <span class="wo-targets-label" x-text="row.type.replace('_', ' ')"></span>
-                                                                    <span class="wo-targets-dots">
-                                                                        <template x-for="(dot, i) in row.dots" :key="i">
-                                                                            <span class="wo-dot" :class="'wo-dot--' + dot"></span>
-                                                                        </template>
-                                                                    </span>
-                                                                    <span class="wo-targets-frac" x-text="row.actual + '/' + row.target"></span>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </template>
-
                                                     <!-- Loading state -->
                                                     <template x-if="workoutSessionsLoading">
                                                         <div class="nodata">
@@ -542,37 +555,38 @@
                                                     <!-- Data state -->
                                                     <template x-if="!workoutSessionsLoading && hasWorkoutData">
                                                         <div class="stack">
-                                                    <template x-for="session in workoutSessions" :key="session.id">
-                                                        <div class="card panel" style="padding: 12px; margin-bottom: 8px;">
-                                                            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                                                                <div>
-                                                                    <div style="font-weight: 500; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
-                                                                    <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
-                                                                        <span x-text="session.duration_minutes + ' min'"></span>
-                                                                        <template x-if="session.activity_type === 'strength' && session.intensity">
-                                                                            <span x-text="' · ' + session.intensity"></span>
-                                                                        </template>
-                                                                        <template x-if="session.program_tag">
-                                                                            <span x-text="' · ' + session.program_tag"></span>
+                                                            <template x-for="session in workoutSessions" :key="session.id">
+                                                                <div class="wo-session-row">
+                                                                    <div class="wo-session-info">
+                                                                        <div class="wo-session-type" x-text="session.activity_type.replace('_', ' ')"></div>
+                                                                        <div class="wo-session-meta">
+                                                                            <span x-text="session.duration_minutes + ' min'"></span>
+                                                                            <template x-if="session.activity_type === 'strength' && session.intensity">
+                                                                                <span x-text="' · ' + session.intensity"></span>
+                                                                            </template>
+                                                                            <template x-if="session.program_tag">
+                                                                                <span x-text="' · ' + session.program_tag"></span>
+                                                                            </template>
+                                                                        </div>
+                                                                        <template x-if="session.note">
+                                                                            <div class="wo-session-note" x-text="session.note"></div>
                                                                         </template>
                                                                     </div>
-                                                                    <template x-if="session.note">
-                                                                        <div style="color: var(--text-secondary); font-size: 13px; margin-top: 6px; font-style: italic;" x-text="session.note"></div>
-                                                                    </template>
+                                                                    <div class="wo-session-actions">
+                                                                        <button class="btn-text" style="min-height:auto; padding:4px;" @click="openWorkoutSessionForm(session)">Edit</button>
+                                                                        <button class="btn-text" style="min-height:auto; padding:4px; color:var(--accent-coral);" @click="deleteWorkoutSession(session.id)">Delete</button>
+                                                                    </div>
                                                                 </div>
-                                                                <button class="btn-text" @click="openWorkoutModal()">Edit</button>
-                                                            </div>
-                                                        </div>
-                                                    </template>
-                                                    <template x-if="workoutSessions.length === 0 && workoutEntry && workoutEntry.duration_minutes != null">
-                                                        <div class="metric-grid">
-                                                            <div class="metric"><span class="v" x-text="workoutEntry.workout_score ?? '—'"></span><span class="l">Score</span></div>
-                                                            <div class="metric"><span class="v" x-text="workoutEntry.workout_type || '—'"></span><span class="l">Type</span></div>
-                                                            <div class="metric"><span class="v" x-text="workoutEntry.duration_minutes != null ? workoutEntry.duration_minutes+'m' : '—'"></span><span class="l">Minutes</span></div>
-                                                            <div class="metric"><span class="v" x-text="workoutEntry.calories ?? '—'"></span><span class="l">Calories</span></div>
-                                                            <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
-                                                        </div>
-                                                    </template>
+                                                            </template>
+                                                            <template x-if="workoutSessions.length === 0 && workoutEntry && workoutEntry.duration_minutes != null">
+                                                                <div class="metric-grid">
+                                                                    <div class="metric"><span class="v" x-text="workoutEntry.workout_score ?? '—'"></span><span class="l">Score</span></div>
+                                                                    <div class="metric"><span class="v" x-text="workoutEntry.workout_type || '—'"></span><span class="l">Type</span></div>
+                                                                    <div class="metric"><span class="v" x-text="workoutEntry.duration_minutes != null ? workoutEntry.duration_minutes+'m' : '—'"></span><span class="l">Minutes</span></div>
+                                                                    <div class="metric"><span class="v" x-text="workoutEntry.calories ?? '—'"></span><span class="l">Calories</span></div>
+                                                                    <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
+                                                                </div>
+                                                            </template>
                                                         </div>
                                                     </template>
                                                 </div>
@@ -763,6 +777,89 @@
                                     </div>
                                 </div>
 
+                                <!-- Health Trends -->
+                                <div class="card workspace-section">
+                                    <div class="panel-head" style="margin-bottom: 12px;">
+                                        <h2 style="margin:0;">Health Trends</h2>
+                                        <div class="ht-tabs">
+                                            <button class="ht-tab" :class="{ active: healthTrendTab === 'sleep' }" @click="healthTrendTab = 'sleep'">Sleep</button>
+                                            <button class="ht-tab" :class="{ active: healthTrendTab === 'workout' }" @click="healthTrendTab = 'workout'">Workout</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Sleep trend: 30-day bar chart -->
+                                    <template x-if="healthTrendTab === 'sleep'">
+                                        <div>
+                                            <template x-if="healthTrendLoading">
+                                                <div class="nodata"><span class="h">Loading...</span></div>
+                                            </template>
+                                            <template x-if="!healthTrendLoading && sleepTrendDays.length > 0">
+                                                <div>
+                                                    <div class="ht-sleep-summary">
+                                                        <span x-show="sleepAvg7 != null">7-day avg: <strong x-text="Math.floor(sleepAvg7/60) + 'h ' + (sleepAvg7%60) + 'm'"></strong></span>
+                                                        <span>Goal: <strong x-text="Math.floor(sleepGoalMinutes/60) + 'h ' + (sleepGoalMinutes%60) + 'm'"></strong></span>
+                                                    </div>
+                                                    <div class="ht-sleep-chart">
+                                                        <div class="ht-sleep-goal-line" :style="'bottom: ' + sleepGoalPct"></div>
+                                                        <template x-for="d in sleepTrendDays" :key="d.date">
+                                                            <div class="ht-sleep-col" :title="d.date + (d.duration != null ? (' — ' + Math.floor(d.duration/60) + 'h ' + (d.duration%60) + 'm') : ' — no data')">
+                                                                <div class="ht-sleep-bar" :style="'height:' + sleepBarHeight(d) + '; background:' + sleepBarColor(d)"></div>
+                                                                <span class="trend-label" x-text="d.label"></span>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                    <div class="trend-legend" style="margin-top: 8px;">
+                                                        <span><span class="trend-dot" style="background:var(--accent-sage)"></span>≥ Goal</span>
+                                                        <span><span class="trend-dot" style="background:var(--accent-amber)"></span>85%+</span>
+                                                        <span><span class="trend-dot" style="background:var(--accent-coral)"></span>&lt; 85%</span>
+                                                        <span><span class="trend-dot" style="background:var(--border-hover); border:1px solid var(--text-muted);"></span>No data</span>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            <template x-if="!healthTrendLoading && sleepTrendDays.length === 0">
+                                                <div class="nodata"><span class="h">No sleep data yet</span><span class="p">Log sleep to see your 30-day trend here.</span></div>
+                                            </template>
+                                        </div>
+                                    </template>
+
+                                    <!-- Workout trend: 4-week consistency grid -->
+                                    <template x-if="healthTrendTab === 'workout'">
+                                        <div>
+                                            <template x-if="healthTrendLoading">
+                                                <div class="nodata"><span class="h">Loading...</span></div>
+                                            </template>
+                                            <template x-if="!healthTrendLoading && workoutConsistency.length > 0">
+                                                <div>
+                                                    <div class="ht-wo-grid">
+                                                        <div class="ht-wo-header-row">
+                                                            <span class="ht-wo-label"></span>
+                                                            <template x-for="week in workoutTrendWeeks" :key="week.label">
+                                                                <span class="ht-wo-week-label" x-text="week.label"></span>
+                                                            </template>
+                                                        </div>
+                                                        <template x-for="row in workoutConsistency" :key="row.type">
+                                                            <div class="ht-wo-row">
+                                                                <span class="ht-wo-label" x-text="row.type.replace('_', ' ')"></span>
+                                                                <template x-for="(dot, i) in row.weekDots" :key="i">
+                                                                    <span class="ht-wo-dot" :class="'ht-wo-dot--' + dot"></span>
+                                                                </template>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                    <div class="trend-legend" style="margin-top: 8px;">
+                                                        <span><span class="trend-dot" style="background:var(--accent-sage)"></span>Met target</span>
+                                                        <span><span class="trend-dot" style="background:var(--accent-amber)"></span>Partial</span>
+                                                        <span><span class="trend-dot" style="background:var(--accent-coral)"></span>Missed</span>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            <template x-if="!healthTrendLoading && workoutConsistency.length === 0">
+                                                <div class="nodata"><span class="h">No workout targets set</span><span class="p">Set weekly targets via the gear icon to track consistency.</span></div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+
                             </div>
                         </template>
 
@@ -939,7 +1036,7 @@
                                                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                                                         <div>
                                                             <div style="font-weight: 600; text-transform: capitalize;" x-text="session.activity_type.replace('_', ' ')"></div>
-                                                            <div class="meta" style="color: var(--mut); font-size: 13px; margin-top: 4px;">
+                                                            <div class="meta" style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">
                                                                 <span x-text="session.duration_minutes + ' min'"></span>
                                                                 <template x-if="session.activity_type === 'strength' && session.intensity">
                                                                     <span x-text="' · ' + session.intensity"></span>
@@ -1020,7 +1117,7 @@
                             <div class="modal-overlay" @click.self="closeTargetsEditor()">
                                 <div class="modal">
                                     <h2>Weekly targets</h2>
-                                    <p style="font-size:13px; color:var(--mut); margin-top:-8px; margin-bottom:16px;">Days per week for each activity type.</p>
+                                    <p style="font-size:13px; color:var(--text-muted); margin-top:-8px; margin-bottom:16px;">Days per week for each activity type.</p>
                                     <template x-for="t in workoutTargets" :key="t.activity_type">
                                         <div class="field-row" style="margin-bottom:10px; align-items:center;">
                                             <label style="flex:1; text-transform:capitalize;" x-text="t.activity_type.replace('_',' ')"></label>
