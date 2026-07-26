@@ -1108,7 +1108,7 @@
                                             <p class="ws-goal-body empty">Not set — click to add.</p>
                                         </template>
                                     </div>
-                                    <div class="ws-goal long" role="button" tabindex="0" @click="startEditHeader()" @keydown.enter.prevent="startEditHeader()" @keydown.space.prevent="startEditHeader()" aria-label="Edit long-term goal">
+                                    <div class="ws-goal long" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit long-term goal">
                                         <div class="ws-goal-label">Long-term goal</div>
                                         <template x-if="project.long_term_goal">
                                             <p class="ws-goal-body" x-text="project.long_term_goal"></p>
@@ -1130,8 +1130,8 @@
                                 <!-- Running now (only if there is one) -->
                                 <div class="ws-section running-card" x-show="runningTask">
                                     <div class="heading-label">Running now</div>
-                                    <h2 class="focus-text" x-text="runningTask ? runningTask.name : ''"></h2>
-                                    <p class="user-text running-note" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
+                                    <h2 x-text="runningTask ? runningTask.name : ''"></h2>
+                                    <p class="system-text" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
                                 </div>
 
                                 <!-- Tasks section -- same trv2-row anatomy as Today.
@@ -1207,7 +1207,7 @@
                                                                 <div class="worklog-line">
                                                                     <span class="worklog-line-time" x-text="formatTime(log.created_at)"></span>
                                                                     <span :class="log.entry_type==='task_completion' ? 'worklog-line-body system' : 'worklog-line-body'" x-text="log.body"></span>
-                                                                    <button class="worklog-line-edit" @click="startEditLog(log)">Edit</button>
+                                                                    <button class="worklog-line-edit" x-show="project.status !== 'completed'" @click="startEditLog(log)">Edit</button>
                                                                 </div>
                                                             </template>
                                                             <template x-if="editingLogId === log.id">
@@ -1335,8 +1335,8 @@
                             <h2>Are you sure?</h2>
                             <p class="project-focus" x-text="dialog.message"></p>
                             <div class="modal-actions">
-                                <button class="btn-text" @click="respond(false)" x-text="dialog.cancelLabel"></button>
-                                <button class="btn btn-danger" @click="respond(true)" x-text="dialog.confirmLabel"></button>
+                                <button class="btn-text" x-show="dialog.cancelLabel" @click="respond(false)" x-text="dialog.cancelLabel"></button>
+                                <button class="btn" :class="dialog.isDanger ? 'btn-danger' : 'btn-primary'" @click="respond(true)" x-text="dialog.confirmLabel"></button>
                             </div>
                         </div>
                     </div>

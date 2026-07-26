@@ -11,7 +11,8 @@ export function askConfirm(message, options = {}) {
             id: crypto.randomUUID(),
             message,
             confirmLabel: options.confirmLabel || 'Delete',
-            cancelLabel: options.cancelLabel || 'Cancel',
+            cancelLabel: options.cancelLabel !== undefined ? options.cancelLabel : 'Cancel',
+            isDanger: options.isDanger !== undefined ? options.isDanger : true,
             resolve
         };
         for (const fn of listeners) fn({ type: 'show', dialog });

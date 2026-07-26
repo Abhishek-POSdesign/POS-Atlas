@@ -309,10 +309,10 @@ export function projectWorkspacePage(nav) {
         },
         async completeProject() {
             if (this.tasks.some(t => t.status !== 'done')) {
-                alert('Please complete or remove all unfinished tasks before marking the project as completed.');
+                await askConfirm('Please complete or remove all unfinished tasks before marking the project as completed.', { confirmLabel: 'Got it', cancelLabel: null, isDanger: false });
                 return;
             }
-            const ok = await askConfirm(`Mark project "${this.project.name}" as completed?`);
+            const ok = await askConfirm(`Mark project "${this.project.name}" as completed?`, { confirmLabel: 'Mark complete', isDanger: false });
             if (!ok) return;
             try {
                 this.project = await DB.Projects.update(this.projectId, { status: 'completed' });
@@ -321,8 +321,20 @@ export function projectWorkspacePage(nav) {
             }
         },
         async reopenProject() {
+            const ok = await askConfirm('Reopen this completed project?', { confirmLabel: 'Reopen project', isDanger: false });
+            if (!ok) return;
+            const reason = await askNote('Why are you reopening this project?', { submitLabel: 'Reopen', placeholder: 'Reason for reopening...' });
+            if (reason === false) return; // User canceled
             try {
                 this.project = await DB.Projects.update(this.projectId, { status: 'in_progress' });
+                if (reason) {
+                    await DB.TaskLogs.create({
+                        project_id: this.projectId,
+                        entry_type: 'narrative',
+                        body: 'Reopened project: ' + reason
+                    });
+                    await this.loadLogs();
+                }
             } catch (e) {
                 this.errorMsg = 'Reopen failed: ' + e.message;
             }

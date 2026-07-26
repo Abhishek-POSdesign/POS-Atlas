@@ -1671,6 +1671,14 @@
 .ws-status-pill.status-planned { background: var(--accent-blue-tint); color: var(--accent-blue); }
 .ws-status-pill.status-completed { background: var(--accent-lilac-tint); color: var(--accent-lilac); }
 
+.project-card-completed {
+    background: var(--accent-lilac-tint);
+    border-color: transparent;
+}
+.project-card-completed .project-name {
+    color: var(--accent-lilac);
+}
+
 .ws-desc {
     color: var(--text-secondary);
     font-size: 14px;

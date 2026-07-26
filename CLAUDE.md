@@ -129,3 +129,18 @@ Full detail in `handover-docs/CLAUDE.md` under "Reliability" and "Module boundar
 - This file (`CLAUDE.md`) wins over `handover-docs/CLAUDE.md` when they disagree — this is the tight current-truth version; that is the full-history reference.
 - `PLAN.md` describes state (what IS); `CLAUDE.md` describes rules (what MUST). When acting on a `PLAN.md` item, the `CLAUDE.md` rules still apply.
 - If a rule genuinely doesn't fit the situation, **ask Abhishek before doing something different**. Standing decisions were hard-won; changing one silently is worse than pausing to check.
+
+# Strict Development Discipline
+
+1. **Plan before code**: Never implement immediately. First inspect the current repo state and return a short implementation plan for approval. Only code after explicit approval.
+2. **No patchwork**: Avoid patched, fragile behavior. Do not use inline styles, ad-hoc workarounds, page-level DB writes, or "temporary" hacks when a small root-level fix is the correct answer.
+3. **Respect architecture boundaries**: 
+   - Styling belongs in CSS/classes/tokens.
+   - UI behavior belongs in the correct page/controller files.
+   - Data writes must go through the proper verified shared DB methods.
+   - If a required method does not exist, say so and propose the clean source-of-truth addition first.
+4. **Verify before assuming**: Do not assume token names, dialog APIs, DB methods, schema rules, or deployment state. Check the actual code first and say what exists vs what needs extension.
+5. **No false completion claims**: Do not say something is implemented, committed, pushed, or live unless it has actually been done and verified (e.g. explicitly running "git push").
+6. **Keep output concise and practical**: Use plain English, short plans, exact files, and concrete behavior changes. Avoid inflated AI-manager wording.
+7. **Product meaning must match UI behavior**: If a state like Completed, Paused, Running, or Reopened exists, its visual treatment, available actions, and lifecycle meaning must all align.
+8. **If something is unclear, flag it instead of guessing**.
