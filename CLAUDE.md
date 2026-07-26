@@ -130,6 +130,13 @@ Full detail in `handover-docs/CLAUDE.md` under "Reliability" and "Module boundar
 - `PLAN.md` describes state (what IS); `CLAUDE.md` describes rules (what MUST). When acting on a `PLAN.md` item, the `CLAUDE.md` rules still apply.
 - If a rule genuinely doesn't fit the situation, **ask Abhishek before doing something different**. Standing decisions were hard-won; changing one silently is worse than pausing to check.
 
+# Cross-Model Continuity (Phase 4 State)
+Because Abhishek switches between Gemini (Antigravity) and Claude, all agents must treat `PLAN.md` and `SESSION_LOG.md` as the absolute source of truth for current state. 
+**Current Phase 4 State (As of 2026-07-26):**
+- **Project Lifecycle Complete:** Projects are formally separated into Running and Completed. Completed projects are strictly read-only in the workspace. Reopening captures a required reason. Task pause/resume mechanics are fully functional. Completion blocking dialogs use in-app `askConfirm`, never Windows alerts.
+- **Visuals Shipped:** Dark-mode tokens have been fully refreshed to a warm-charcoal aesthetic (`#1a1a1a`, `#202020`), dropping any previous bluish tints. The Running Now hierarchy uses semantic text classes.
+- **PENDING DESIGN POLISH (Do Not Re-litigate Now):** The `.project-card-completed` visual design is functional and uses correct Atlas tokens, but it is visually unsatisfying and washed out. **This is accepted as-is for now.** Treat it as a future polish item, not an active bug.
+
 # Strict Development Discipline
 
 1. **Plan before code**: Never implement immediately. First inspect the current repo state and return a short implementation plan for approval. Only code after explicit approval.

@@ -69,15 +69,18 @@ Everything below is deployed and confirmed on the live app. Anything Antigravity
 
 ### Projects list page
 - Grid of project cards (monogram + name + description + status + task count on click-to-expand).
+- **Separation of states:** Divided into "Running Projects" and "Completed Projects" sections.
+- **Completed cards visual state:** Uses `.project-card-completed` (lilac tint surface), replacing the initials with the native checkmark SVG, and featuring a clean `.system-text` "Completed" caption without any faked timestamps.
 - **"+ Add note" button** (Round 2 build): opens a modal composer. Notes only render below after the first save. Persistent empty Notes card removed.
 - **New Project modal (Round 2 build):** name + color + monogram + description + optional **Short-term goal + target date + Long-term goal + target date** as a labelled subsection. Create fully-formed in one step.
 
 ### Project workspace page
 - **Back to Projects** button top-left.
-- **Hero card (redesigned Round 2):** coloured project dot + 34 px serif title + status pill on the left · description below · three summary metrics (Tasks done/total + in-progress count · Short-term due + days-until · Long-term due + days-until) · progress bar. On the right: ⋯ overflow menu (Edit goals · Archive project · Delete project) + **both goals stacked** (short-term sage 3 px left-edge · long-term blue 3 px left-edge · weight-500 primary text · no date line inside the goal block, per the countdown-on-the-left convention).
-- **Goal-edit modal:** opened by clicking either goal or the ⋯ menu's "Edit goals." Both goals editable together.
-- **Running now** section (only when a task is `in_progress`).
-- **Tasks section (Round 2 build):** same `.trv2-row` anatomy as Today. No delete X on rows. No persistent add-task input row. `+ Add task` head-action opens the workspace task modal.
+- **Hero card:** coloured project dot + 34 px serif title + status pill on the left • description below • three summary metrics • progress bar. On the right: ⋮ overflow menu (Edit goals • Mark as completed / Reopen project • Archive project • Delete project) + goals stacked.
+- **Goal-edit modal:** opened by clicking either goal or the ⋮ menu's "Edit goals." Both goals editable together.
+- **Running now** section: only when a task is `in_progress`. Styled strictly with semantic `.heading-label`, `.focus-text`, and `.system-text`.
+- **Tasks section:** same `.trv2-row` anatomy as Today. Task pause/resume mechanics exist (clicking "Pause task" in the edit modal resets it to `not_started`).
+- **Read-only state:** If a project is completed, the workspace blocks new task additions, new log additions, and goal editing. Reopening requires a non-destructive `askConfirm` and captures a reopen reason into the task log.
 - **Workspace task modal:** mirrors Today's shape — same eyebrow + name + Schedule/Assignment tiers + inline Delete. Project field auto-locked to this workspace's project.
 - **▶ Start** as a subtle inline button in the meta line for `not_started` tasks — opens the existing `askNote()` "what are you doing right now?" prompt, then transitions to `in_progress`.
 - **Two-tap done confirm** on the row's checkbox (same as Today). Completing a task auto-creates a "Completed: {name}" Work log entry.
@@ -156,9 +159,10 @@ The old app has a full AI-layer plan (`handover-docs/AI-LAYER-IMPLEMENTATION-PLA
 
 ## Open questions / decisions pending
 
-**None active as of 2026-07-26.** Round 2 shipped clean; Abhishek confirmed the direction and the post-mockup date-duplication fix; no clarifying questions were left open at close.
+**None active as of 2026-07-26.** Round 4 shipped cleanly; Abhishek confirmed the project lifecycle direction and token refreshes.
 
 Standing "would want an answer before starting" items — these are not blocking anything now, but they'd need addressing before their respective phase begins:
+- **Completed project card design:** The Phase 4 card design works technically and adheres to Atlas styling, but is visually unsatisfying / washed out. This is a known, accepted pending state. It should be treated as a future project-section polish item, not as an active bug to be fixed immediately.
 - **Sleep trend UI placement** — inline under Sleep card, dedicated Sleep tab, or a shared History overlay (recommended: shared overlay so workout inherits it too).
 - **Weekly-pattern setter for workout day-types** — is this worth building, or does the per-day toggle cover the real use case well enough?
 - **Phase 3 Targets** — does Abhishek still want `count_toward_goal` targets, or is the streak side (which already ships) enough for now?

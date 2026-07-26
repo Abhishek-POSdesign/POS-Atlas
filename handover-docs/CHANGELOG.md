@@ -2,6 +2,19 @@
 
 All notable changes to the Atlas project will be documented in this file.
 
+## Phase 4: Project Lifecycle & Visual Polish (2026-07-26)
+**Project Lifecycle Completion:**
+- Replaced native Windows alerts with in-app `askConfirm` non-destructive dialogs for project completion and reopening.
+- Separated "Running Projects" and "Completed Projects" visually on the main Projects dashboard.
+- Completed projects are now read-only in their workspaces. Users cannot add new tasks or logs, but can view history.
+- Reopen flow correctly prompts for a reason and captures it as a narrative log entry.
+- Task Pause/Resume lifecycle is formalized and behaves correctly.
+
+**Visual Refinements:**
+- **Dark Mode Refresh:** Refreshed `data-theme="dark"` tokens to match the old POS app's warm-charcoal system (no bluish casts), mapping surfaces to `#1a1a1a`, `#202020`, `#252525`, etc.
+- **Running Now Hierarchy:** Cleaned up the active task block in project workspaces, using `.focus-text` and `.system-text` instead of raw headers, keeping the design robust and semantic.
+- **Completed Project Cards:** Added a strict visual `.project-card-completed` state utilizing the native Atlas checkmark SVG inside a lilac `.monogram-chip` and a clean `.system-text` caption. (Note: Card design works but is pending future polish).
+
 ## Phase 2 & 3: Project Restructure and Final Visual Polish (2026-07-26) — ✅ shipped, live at atlas.abhisheksikka.com
 
 **Project Model Restructure:** Shifted the formal project model around two clearer planning layers (Short-term goal + date, Long-term goal + date). Fully deprecated the old "Current focus", "Next step", and "Future plans" from the UI, retaining them only in DB (Migration 012) for safety.
