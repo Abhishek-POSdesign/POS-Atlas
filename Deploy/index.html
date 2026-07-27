@@ -353,13 +353,18 @@
                                                 </div>
                                             </template>
                                             <template x-for="task in upcomingTasks" :key="task.id">
-                                                <div class="trv2-row" :class="{ 'is-overdue': isOverdue(task), 'is-done': task.status==='done' }" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
+                                                <div class="trv2-row" :class="{ 'is-overdue': isOverdue(task), 'is-done': task.status==='done' }" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name" style="grid-template-columns: auto auto minmax(0, 1fr) auto;">
+                                                    <div class="trv2-drag-handle" style="cursor: grab; opacity: 0.3;" aria-hidden="true" title="Drag to reorder (future)">⋮⋮</div>
                                                     <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                     </button>
                                                     <div class="trv2-body">
                                                         <div class="trv2-name" x-text="task.name"></div>
                                                         <div class="trv2-meta">
+                                                            <template x-if="task.priority === 'high'">
+                                                                <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
+                                                                <span class="trv2-focus-pill" style="display:none;"></span>
+                                                            </template>
                                                             <template x-if="task.kind==='reminder'">
                                                                 <span class="trv2-kind reminder">
                                                                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -396,13 +401,18 @@
                                                 <div>
                                                     <div class="task-list-divider">Recently completed</div>
                                                     <template x-for="task in recentlyCompleted" :key="task.id">
-                                                        <div class="trv2-row is-done is-inert" style="grid-template-columns: auto minmax(0, 1fr) auto;">
+                                                        <div class="trv2-row is-done is-inert" style="grid-template-columns: auto auto minmax(0, 1fr) auto;">
+                                                            <div class="trv2-drag-handle" style="cursor: grab; opacity: 0.3; visibility: hidden;" aria-hidden="true">⋮⋮</div>
                                                             <button class="trv2-check is-done" tabindex="-1" aria-hidden="true">
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                             </button>
                                                             <div class="trv2-body">
                                                                 <div class="trv2-name" x-text="task.name"></div>
                                                                 <div class="trv2-meta">
+                                                                    <template x-if="task.priority === 'high'">
+                                                                        <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
+                                                                        <span class="trv2-focus-pill" style="display:none;"></span>
+                                                                    </template>
                                                                     <template x-if="task.kind!=='reminder'">
                                                                         <span class="trv2-kind task" x-text="projectFor(task) ? 'Task' : 'Task · Standalone'"></span>
                                                                     </template>
@@ -872,7 +882,7 @@
                                                 <div class="field">
                                                     <label>Time</label>
                                                     <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="logForm.time">
-                                                        <input type="tel" :value="hh" @input="updateHH($event.target.value)" maxlength="2" placeholder="12" inputmode="numeric" aria-label="Hour"><span class="colon">:</span><input type="tel" :value="mm" @input="updateMM($event.target.value)" maxlength="2" placeholder="00" inputmode="numeric" aria-label="Minute"><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
+                                                        <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
                                                     </div>
                                                 </div>
                                                 <div class="field">
@@ -946,7 +956,7 @@
                                         <div class="field"><label>Date</label><input type="date" x-model="taskForm.date"></div>
                                         <div class="field"><label>Time</label>
                                             <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="taskForm.time">
-                                                <input type="tel" :value="hh" @input="updateHH($event.target.value)" maxlength="2" placeholder="12" inputmode="numeric" aria-label="Hour"><span class="colon">:</span><input type="tel" :value="mm" @input="updateMM($event.target.value)" maxlength="2" placeholder="00" inputmode="numeric" aria-label="Minute"><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
+                                                <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
                                             </div>
                                         </div>
                                     </div>
@@ -1529,18 +1539,26 @@
                                 <div class="ws-section">
                                     <div class="ws-section-head">
                                         <h2>Tasks</h2>
+                                        <!-- Future Phase Only: History Map Tab Placeholder -->
+                                        <!-- <button class="btn-text">History Map</button> -->
                                         <button class="head-action" x-show="project.status !== 'completed'" @click="openAddTaskModal()">+ Add task</button>
+
                                     </div>
                                     <div class="task-list" style="max-height: none; overflow: visible;">
                                         <template x-for="task in tasks" :key="task.id">
                                             <div>
-                                                <div class="trv2-row" :class="{ 'is-done': task.status==='done' }" @click="project.status === 'completed' ? null : openEditTaskModal(task)" role="button" tabindex="0" @keydown.enter.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" @keydown.space.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" :aria-label="'Edit task: ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
+                                                <div class="trv2-row" :class="{ 'is-done': task.status==='done' }" @click="project.status === 'completed' ? null : openEditTaskModal(task)" role="button" tabindex="0" @keydown.enter.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" @keydown.space.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" :aria-label="'Edit task: ' + task.name" style="grid-template-columns: auto auto minmax(0, 1fr) auto;">
+                                                    <div class="trv2-drag-handle" style="cursor: grab; opacity: 0.3;" aria-hidden="true" title="Drag to reorder (future)">⋮⋮</div>
                                                     <button class="trv2-check" :disabled="project.status === 'completed'" :class="{ 'is-pending': isPendingComplete(task), 'is-done': task.status==='done' }" @click.stop="(task.status==='done' || project.status === 'completed') ? null : handleCompleteClick(task)" :aria-label="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Confirm mark done' : 'Mark done')" :title="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done')">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                     </button>
                                                     <div class="trv2-body">
                                                         <div class="trv2-name" x-text="task.name"></div>
                                                         <div class="trv2-meta">
+                                                            <template x-if="task.priority === 'high'">
+                                                                <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
+                                                                <span class="trv2-focus-pill" style="display:none;"></span>
+                                                            </template>
                                                             <span class="trv2-kind task">Task</span>
                                                             <template x-if="task.status==='not_started' || task.status==='paused'">
                                                                 <button class="trv2-start" @click.stop="startTask(task)" :title="task.status==='paused' ? 'Resume task' : 'Start task'" x-text="task.status==='paused' ? '▶ Resume' : '▶ Start'"></button>
@@ -1667,7 +1685,7 @@
                                         <div class="field"><label>Date</label><input type="date" x-model="taskForm.scheduled_date"></div>
                                         <div class="field"><label>Time</label>
                                             <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="taskForm.scheduled_time">
-                                                <input type="tel" :value="hh" @input="updateHH($event.target.value)" maxlength="2" placeholder="12" inputmode="numeric" aria-label="Hour"><span class="colon">:</span><input type="tel" :value="mm" @input="updateMM($event.target.value)" maxlength="2" placeholder="00" inputmode="numeric" aria-label="Minute"><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
+                                                <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
                                             </div>
                                         </div>
                                     </div>

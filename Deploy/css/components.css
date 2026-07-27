@@ -1271,6 +1271,14 @@
    sage-tinted with a sage border on pending confirm; fully sage with
    a white checkmark once committed. Double-tap-to-commit visual is
    the pending state itself + the inline hint in .trv2-meta. */
+/* Future Phase: Drag handle placeholder for reordering tasks */
+.trv2-drag-handle {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: 12px; font-weight: 700;
+    user-select: none;
+    margin-right: 4px;
+}
+
 .trv2-check {
     width: 28px;
     height: 28px;
@@ -2157,8 +2165,8 @@
     padding: 6px;
     max-width: 100%;
 }
-.tp-numeric input[type="tel"] {
-    width: 44px; height: 34px;
+.tp-numeric select {
+    width: 46px; height: 34px;
     background: var(--surface-1); border: 1px solid var(--border-hover);
     color: var(--text-primary); font-family: var(--font-sans);
     font-size: 16px; font-weight: 500;
@@ -2166,14 +2174,11 @@
     border-radius: 6px;
     font-variant-numeric: tabular-nums;
     outline: none;
-    -moz-appearance: textfield;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
 }
-.tp-numeric input[type="tel"]::-webkit-outer-spin-button,
-.tp-numeric input[type="tel"]::-webkit-inner-spin-button {
-    -webkit-appearance: none; margin: 0;
-}
-.tp-numeric input[type="tel"]:focus { border-color: var(--accent-blue); background: var(--surface-1-hover); }
-.tp-numeric input[type="tel"]::placeholder { color: var(--text-muted); }
+.tp-numeric select:focus { border-color: var(--accent-blue); background: var(--surface-1-hover); }
 .tp-numeric .colon { color: var(--text-muted); font-size: 16px; font-weight: 500; user-select: none; }
 
 .tp-ampm {

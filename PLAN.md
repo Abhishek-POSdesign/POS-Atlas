@@ -150,6 +150,14 @@ Every migration applied. Current tables (all `atlas_` prefix, all RLS enabled):
 
 Nothing in this list is on the current sprint. Each is a candidate for the next design review round when Abhishek re-opens it.
 
+### Phase 6 – Tasks & Reminders redesign + Time Picker
+- **Time Picker Overhaul (Shipped as starter slice):** Numeric HH:MM inputs replaced with native `<select>` dropdowns for Hours (01-12) and Minutes (15-minute increments: 00, 15, 30, 45). The user-facing format is strictly 12h AM/PM, but it internally stores the 24h `HH:MM` string for the backend. Applied universally to the shared `timePicker12h` component across all modals.
+- **Structural Hooks (Shipped as starter slice):** 
+  - Priority/focus pill placeholder (`<template x-if="task.priority === 'high'">`) embedded inside the task row meta section. 
+  - Inert drag-handle element beside the checkbox, styled minimally as a structural placeholder.
+  - History Map tab HTML comment placeholder in the Tasks header area ("future phase only").
+- **Future:** AI features, calendar logic, deep grouping behaviors, and drag-and-drop implementations are deferred to the full Phase 6 build.
+
 ### Sleep/Workout — AI screenshot parsing
 Full sleep-side plan in [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md). The trend roll-up chart itself shipped 2026-07-27 (inline compact trend in each Health panel — see "Removed 2026-07-27" note above); what's left:
 1. **Screenshot parser** — upload ring/workout-app screenshot → Vertex AI (existing `VERTEX_API_KEY_POS`) → review-before-save modal. Both panels already have a non-functional "Attach screenshot (future AI)" placeholder button (`.health-attach-btn`, `disabled`, no upload logic, no schema change) marking where this wires in.
@@ -164,8 +172,6 @@ Round 2 built the per-day toggle. A follow-up would let Abhishek set default pat
 ### Notebook — floating draggable window
 Currently a modal overlay. A floating draggable variant (stay open while using the rest of the app) was scoped-out for later. Deferred.
 
-### Time picker — full numpad variant
-Round 2 shipped the simpler two-input variant. A phone-clock-app style numpad grid (~120 lines) was flagged as a further follow-up. Deferred.
 
 ### Visual-hierarchy pass on Projects list + Notebook
 Round 1 covered Today. Round 2 covered the Project workspace. A similar polish pass on the Projects list surface and the Notebook overlay was scoped-out for later. Deferred.

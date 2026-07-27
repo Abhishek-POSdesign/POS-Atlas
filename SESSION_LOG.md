@@ -367,3 +367,6 @@ Companion docs sit beside this one:
  -   A d d e d   ' M a r k   a s   c o m p l e t e d '   f o r   p r o j e c t s   i n   t h e   w o r k s p a c e   o v e r f l o w   m e n u . 
   
  
+### 2026-07-27 - Phase 6 tasks and time picker starter slice
+- **Time Picker Overhaul**: Switched the 12-hour time picker numeric inputs to <select> dropdowns enforcing 15-minute minute intervals (00, 15, 30, 45) to enable native mobile scrolling. Time format displayed to user remains strictly AM/PM while silently mapping to HH:MM internally.
+- **Tasks & Reminders Hooks**: Added structural placeholders across all .trv2-row occurrences for future drag handles, priority/focus pills, and a History Map comment tab without touching deeper data models or decorative styling.
