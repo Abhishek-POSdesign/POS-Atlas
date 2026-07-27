@@ -8,7 +8,38 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-29 (Atlas AI Phase 1 shipped: overlay, persona+PIN, hybrid routing, memory notebook, log-workout/log-sleep voice-write flows; header made sticky) -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v42` -- **Latest migration:** `016_ai_notebook.sql`
+**Last updated:** 2026-07-29 (Atlas AI Phase 1 shipped and live-testing-fixed across two rounds: overlay, persona+PIN, hybrid routing, memory notebook, log-workout/log-sleep voice-write flows, conversation-first persona rewrite, web-search opt-in on the shared `pos-partner` Edge Function; header made sticky) -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v44` -- **Latest migration:** `016_ai_notebook.sql`
+
+---
+
+## Account handover (2026-07-29)
+
+Abhishek is switching to a different Claude account (his wife's) for future sessions, working against this **same GitHub repo and same Supabase project** — nothing about the codebase or backend changes, only which Claude account is doing the work. Any new agent picking this up, on either account, should:
+
+1. Read this section, then the **"Recommended next sequence"** section further down.
+2. Read the last 2-3 entries in `SESSION_LOG.md`.
+3. Treat `CLAUDE.md`'s rules as non-negotiable regardless of which account is running the session.
+
+**Phase status at handover:**
+- **Phase 5 (Health + Insight Pills) — CLOSED**, per Abhishek's explicit sign-off 2026-07-27.
+- **Phase 6 (Tasks & Reminders + sparkline fix + split cards + Upcoming modal) — substantially closed** as of 2026-07-28/29.
+- **Atlas AI Phase 1 — in a stable, testable state** as of 2026-07-29 (two build rounds + two live-testing fix rounds already done this same day). Not "done" in the sense of every planned flow existing, but the core loop (chat, persona, routing, notebook, two voice-write flows) is real and working, not a mockup.
+
+**What's live now for Atlas AI:**
+- Sticky header (`.app-header-sticky`), floating launcher (Atlas's own compass mark), docked AI panel that content-shifts the page rather than overlaying it.
+- Persona (7 fields: Role, Job, Targets, Knowledge, About Me, Responsibilities, Strict Instructions) + 6-digit PIN lock (SHA-256 hashed, Forgot/Change both preserve persona + notebook).
+- Hybrid routing skeleton: Local (Ollama, non-streaming `/api/chat`, manual model-name field) and Cloud (the sibling apps' shared `pos-partner` Edge Function, called with Atlas's own signed-in session JWT) with a working provider toggle in the header pill and in Settings, kept in sync.
+- Memory Notebook: Pin / Save Session / Compact, backed by the new `atlas_ai_notebook` table (migration 016), local-first read with last-write-wins cloud sync.
+- Two voice-write flows — **Log workout** and **Log sleep** — using the full "dictate → Atlas rephrases as a draft → Confirm → real write via `DB.Workout.save()`/`DB.Sleep.save()`" loop. Cancel discards; nothing is ever written without an explicit tap.
+- Web search opt-in on Cloud: a checkbox (header + Settings) sends `webSearch:true` to `pos-partner`, which now (v2, deployed 2026-07-29) conditionally attaches Google Search grounding -- additive only, the Task Manager and Finance apps calling the same function unaffected.
+
+**What's still to be refined in upcoming sessions** (starting points for the next account, not blocking anything):
+- **Provider dropdown behavior and model label** — the click-outside bug is fixed and the pill now shows the real model name, but this was only just fixed this session and hasn't had a full second round of live confirmation yet.
+- **Web search on Cloud/Gemini** — just deployed; unverified live whether grounding actually improves answers for real "latest info" questions, and whether `groundingMetadata`/citations from the Vertex response are worth surfacing in the UI (currently just the plain text reply is shown, no source links).
+- **Scrollbar visuals** — AI panel, Notebook list, and Tasks & Reminders card scrollbars were tightened twice (6px → 4px thumb, hidden button-arrows) but Abhishek reported them still looking chunky after the first pass; this may be a Windows display-scaling/accessibility setting outside what page CSS can control, not a code bug — worth a fresh look with screenshots from his actual device before assuming it's fixable in CSS.
+- **Persona tone / "data reader" avoidance** — the conversation-first system-prompt rewrite (this session) is the real fix attempt, but was not live-tested by Claude before this handover (Abhishek confirmed verbally it's "replying perfectly" after the rewrite, but no side-by-side transcript was captured). Worth a deliberate test pass early next session: try "hello", "how are you", "can we just chat" and confirm the tone lands before building anything further on top.
+- **Remaining 3 of 5 voice-write flows** (task completion, checklist marking, journal reflections) — deliberately deferred per the original Phase 1 plan's phased approach; only attempt once the two shipped flows are confirmed solid.
+- **Per-view Fact Package binding** — every chat message still carries `explain_day` as ambient context regardless of which page the panel was opened from (the context badge that would have shown this binding was cut from the UI early on to de-clutter the header). A future session could reintroduce a lighter version of this if it turns out to matter in practice.
 
 ---
 

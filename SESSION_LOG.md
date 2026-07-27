@@ -32,6 +32,29 @@ Companion docs sit beside this one:
 
 ---
 
+### 2026-07-29 — Atlas AI Phase 1 handover (Abhishek's Claude account)
+
+**This entry marks the end of work on Abhishek's own Claude account.** He's near his usage limit and will continue future sessions from a different Claude account (his wife's), against this exact same GitHub repo and Supabase project — no codebase or backend change, only the account running the session.
+
+**What was implemented across this account's sessions today (2026-07-29), in order:**
+- Sticky header (`.app-header-sticky` wrapping `.top-header`+`.top-tabs`, was a real pre-existing scroll-away bug, fixed because the AI panel needed to dock flush against it).
+- Atlas AI Phase 1 build: floating launcher (Atlas's own compass mark), docked content-shifting panel, persona (7 fields) + PIN lock, hybrid Local/Cloud routing, Memory Notebook (`atlas_ai_notebook` table, migration 016), and two voice-write flows (Log workout, Log sleep) with the full dictate → rephrase → confirm → write loop.
+- Live-testing fix round 1: pointed Cloud routing at the real, already-existing shared `pos-partner` Edge Function (not a new one, and using the real session JWT since that function requires `verify_jwt:true`); added the model name to the header pill; added an explicit Persona Save button; improved Ollama error messages; added an Alt+M voice shortcut; tightened scrollbars.
+- Live-testing fix round 2: **found and fixed the actual model-pill bug** (a `@click.outside` handler was bound to the dropdown itself instead of its wrapper, so clicking the pill closed it again in the same click); **rewrote the persona/system-prompt** to fix the "data reader" behavior Abhishek flagged (Atlas was answering "hello" with a task/checklist status report and saying "I don't have personal feelings" unprompted) — added an explicit "CONVERSATION FIRST, DATA SECOND" rule as the first thing the model reads, anchored with a literal example transcript; added a per-message muted provider label ("Local · gemma4" / "Cloud · Gemini"); wired a web-search opt-in checkbox end-to-end.
+- **Deployed `pos-partner` v2** (with Abhishek's explicit go-ahead, since it's shared production infrastructure with the Task Manager and Finance apps) — adds Google Search grounding to the Vertex call, but only when the caller explicitly sends `webSearch:true`; additive/opt-in, zero behavior change for the other two apps.
+- Cache bumped `v41` → `v44` across the day's rounds.
+
+**Remaining issues / TODOs for Atlas AI (starting points for the next account):**
+- Provider dropdown + model label just got their real bug fix this session — needs a fresh round of live confirmation, not assumed solid yet.
+- Web search just deployed — unverified live whether grounding actually improves "latest info" answers, and whether source citations (`groundingMetadata` in the Vertex response) are worth surfacing in the UI.
+- Scrollbars tightened twice; Abhishek reported them still chunky after the first pass. Possibly a Windows display-scaling setting rather than a CSS bug — worth confirming with a screenshot from his device before assuming more CSS will fix it.
+- Persona rewrite (this session's main behavioral fix) was **not live-tested by Claude** before this handover — Abhishek said verbally it's "replying perfectly" after the fix, but no side-by-side transcript exists in this log. First thing next session should do: test "hello", "how are you", "can we just chat" and confirm the tone actually lands.
+- Remaining 3 of 5 planned voice-write flows (task completion, checklist marking, journal reflections) intentionally not started — Phase 1 shipped only the two Abhishek named as examples, per the approved plan's phased approach.
+
+**What NOT to do:** Don't re-deploy `pos-partner` without checking `webSearch` stays a strict opt-in — the Task Manager and Finance apps depend on unchanged behavior when they don't send that flag. Don't assume the model-pill/persona fixes are fully confirmed just because they're in this log — they're fixed in code, not yet re-confirmed live by Abhishek as of this entry.
+
+---
+
 ## 2026-07-29 · Claude Code (Opus 4.6/Sonnet 5) — Atlas AI Phase 1: planning, mockups, and build
 
 **Session scope:** A full cycle for Atlas's AI layer — read the four canonical AI architecture chapters (`Atlas/AI Chapters/19-22`) plus the sibling Task Manager app's real, shipped "Partner" AI reference implementation; wrote a structured Phase 1 plan (approved); built two mockup rounds (approved with named refinements); then built Phase 1 for real.

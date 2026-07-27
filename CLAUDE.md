@@ -10,6 +10,17 @@ For everything not covered here (history, phased roadmap, detailed tokens, modul
 
 ---
 
+## Account switch (2026-07-29)
+
+This file reflects the state as of the last session on Abhishek's own Claude account. Starting now, sessions will run from a **different Claude account (his wife's)**, against this exact same GitHub repo and Supabase project — the codebase and backend are unchanged, only the account running the session is different. **Every rule in this file is still non-negotiable regardless of which account is running.**
+
+Any new agent, on either account, should always:
+1. Read `PLAN.md`'s **"Recommended next sequence"** section, plus its **"Account handover"** section (added the same day as this note) for the specific Atlas AI Phase 1 status.
+2. Read the last 2-3 entries in `SESSION_LOG.md`.
+3. Treat everything in this file as binding, exactly as if it were the same account continuing.
+
+---
+
 ## About Abhishek
 
 He is not technical. Talk in plain English. Never dump code at him for approval — describe what changes and why. Any real design/layout weight goes through the mockup-first review process (mockup → approve → build), documented in `handover-docs/CLAUDE.md` at the bottom.
