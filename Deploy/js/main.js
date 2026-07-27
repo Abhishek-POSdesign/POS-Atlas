@@ -26,6 +26,23 @@ window.formatTime12h = function(timeStr) {
     return `${h}:${m} ${ampm}`;
 };
 
+// Combined "MMM D · h:mmA" label for the right side of a trv2-row --
+// shared by Today's dashboard task list and every Project workspace
+// Tasks section (both use the same .trv2-row markup). Pure display
+// formatting, same pattern as formatTime12h above -- no data change.
+window.formatTaskDateTime = function(dateStr, timeStr) {
+    let out = '';
+    if (dateStr) {
+        const d = new Date(dateStr + 'T00:00:00');
+        out = isNaN(d) ? dateStr : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    if (timeStr) {
+        const t = window.formatTime12h(timeStr);
+        out = out ? (out + ' · ' + t) : t;
+    }
+    return out;
+};
+
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/service-worker.js').catch(err => {

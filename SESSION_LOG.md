@@ -32,6 +32,32 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Final polish: Insight Pill contrast, Tasks date+time, Workout tint softened (P3)
+
+**Session scope:** Three-part closing polish pass, explicitly the last one before AI/Tasks-redesign sessions start. (1) Fix Insight Pill contrast/sizing in Projects (Health row was the reference, not to be touched). (2) Add date+time to Tasks & Reminders rows on both Today and the Project workspace, plus rebalance left/right content. (3) Soften Workout's coral tint to amber. Abhishek explicitly allowed doing all three in one pass rather than checkpointing after (1)+(2).
+
+**Clarifying questions asked before building (both via AskUserQuestion, not guessed):**
+1. Whether dashboard Tasks rows should show project info on both the left (existing chip) AND right (new badge), or left-only with the right getting just date+time. **Resolved: left-only** — his own spec listed project info in both places, which would have been genuinely redundant; confirmed before touching any markup rather than risk building the wrong one across two page templates.
+
+**What shipped (commit pending):**
+- **Insight Pill bed colour, real fix, not cosmetic:** `.insight-pill` background was `--surface-2` sitting on a `--surface-1` parent — but `--surface-2` is LIGHTER than `--surface-1` in both themes (the token ordering is surface-0 < surface-1 < surface-2 by lightness, confirmed by reading `tokens.css` directly), so it read as a pale wash, the opposite of Health's pills. Changed to `--surface-0` (darker than `--surface-1` in both themes, guaranteed) — this is the real, deterministic fix, not a guess. Padding bumped 12px → 17px vertical.
+- **Goal pills:** new `.insight-pill.goal .insight-pill-body` modifier at 15px (up from the shared 14px). Hover step changed from `--surface-1-hover` to plain `--surface-1` (a gentler one-step lighten from the new darker `--surface-0` resting state, rather than a bigger jump).
+- **Running Now pill:** task name moved off the shared `.insight-pill-body` onto a new dedicated `.insight-pill-running-name` (16px/600) so it visually dominates the small caption above it — the shared body class stays untouched at 14px/500 for Goals and the Work log's Latest Update pill, which weren't asked to change.
+- **Projects-list mini "Running" pill:** background bumped from `--accent-blue-tint` to `--accent-blue-tint-hover` (an existing token, not a new one) since the base tint was blending into the card's own `--surface-2` background.
+- **Tasks & Reminders, both Today and Project workspace:** new `window.formatTaskDateTime(dateStr, timeStr)` helper in `js/main.js` (same `window.*` pattern as the existing `formatTime12h`) renders `"Jul 27 · 10:00 PM"` combined format. Today's dashboard row: right column upgraded to this, left side (project chip) untouched per the confirmed answer above. Project workspace row: right column gets the same date+time PLUS a new status tag (reused `.task-edit-status` pill from the task edit modal, not a new component) for not-done tasks — moved OFF the left meta line, which used to append "· In progress"/"· Done"/"· Paused" as a text suffix there (now just plain "Task"). Chose **status**, not **priority**, for the workspace tag — `priority` exists in the schema but there's no UI anywhere to ever set a task to `'high'`, so a priority tag would never actually render; status is the one that's real.
+- **Workout tint softened, coral → amber:** `tint-coral`→`tint-amber` on the panel, `.health-panel-icon.coral`→`.amber` on the header icon. Reason: coral is the app's destructive/caution accent everywhere else (Delete buttons, overdue tags, missed-checklist bars) — using it as a whole-panel decorative wash read as alarm, not "effort." Amber keeps warmth/energy without the danger read, and stays clearly distinct from Sleep's sage. **Delete buttons inside the Workout panel are untouched, still coral** — verified via grep that no other coral usage in `index.html` was accidentally changed; that's a semantic colour (destructive action), completely separate from this decorative panel wash.
+- `Deploy/service-worker.js` — cache `v37` → `v38`.
+
+**Health row: confirmed untouched.** No edits to `.health-panel`, `.health-chip*`, `.wo-session-row`, `.wo-session-stack`, `sleepSparkline`, `workoutWeekAggregate`, or Sleep's `tint-sage`. Sleep/Workout multi-session and targets data logic untouched.
+
+**What was verified locally:** `node --check` clean on `main.js`, `today.js`, `project-workspace.js`. `<div>`/`<template>` tag counts balanced (422/422, 161/161), CSS brace count balanced (544/544). Grepped for every remaining `coral` usage in `index.html` to confirm only semantic ones (Delete/Archive/Confirm-relapse) survived the Workout tint swap. Dev server boots with zero console/server errors (login screen only, per project rule).
+
+**What's still open:** Abhishek to view live and confirm. If the workspace status tag reads as still-redundant with the "In progress"/"Paused" language elsewhere on the row, or if the Running Now name feels too big/bold now, those are easy follow-up tweaks (single class-size changes, not structural).
+
+**What NOT to do:** Don't revert `.insight-pill`'s background back to `--surface-2` — that was the literal bug being fixed, verified against the actual token values in `tokens.css`, not a stylistic preference. Don't add a priority tag to workspace task rows without first checking whether a UI to actually set `priority='high'` has been built — as of this session it hasn't, so it would render as permanently empty.
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Phase 5 CLOSE-OUT: Insight Pills extended to Projects
 
 **Session scope:** Abhishek confirmed the Health row (Sleep + Workout) "matches my intent and is closed for Phase 5" — no further changes wanted there. As one last polish pass before closing Phase 5 entirely, he asked for the same pill pattern built for Health (Sleep chips, Workout session rows) to be generalized and applied to four specific spots in Projects: Running Now band, Short-/Long-term goal cards, Projects-list "Running: X" line (optional), and Work log's latest entry (optional). Explicitly NOT the Tasks & Reminders list, hero KPI/streak cards, Routine, or the Checklist chart.

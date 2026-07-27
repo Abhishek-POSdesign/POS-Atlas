@@ -384,7 +384,7 @@
                                                         </template>
                                                     </div>
                                                     <div class="trv2-time-col">
-                                                        <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || '')"></div>
+                                                        <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="window.formatTaskDateTime(task.scheduled_date, task.scheduled_time)"></div>
                                                         <template x-if="isOverdue(task)">
                                                             <div class="trv2-time-tag">Overdue</div>
                                                         </template>
@@ -537,10 +537,10 @@
                                                 </button>
                                             </div>
                                         </div>
-                                        <div class="card health-panel tint-coral">
+                                        <div class="card health-panel tint-amber">
                                             <div class="health-panel-head">
                                                 <div class="health-panel-title">
-                                                    <span class="health-panel-icon coral">
+                                                    <span class="health-panel-icon amber">
                                                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v16M18 4v16M4 8h4M4 16h4M16 8h4M16 16h4"/></svg>
                                                     </span>
                                                     <h2>Workout</h2>
@@ -1470,7 +1470,7 @@
                                          colored-left-edge .ws-goal treatment. Same click/keyboard
                                          behavior, same startEditHeader() modal; only the container
                                          visuals changed to match the Health chip/session pills. -->
-                                    <div class="insight-pill clickable" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit short-term goal">
+                                    <div class="insight-pill clickable goal" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit short-term goal">
                                         <div class="insight-pill-head">
                                             <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>
                                             <span class="insight-pill-label">Short-term goal</span>
@@ -1482,7 +1482,7 @@
                                             <p class="insight-pill-body inactive">Not set — click to add.</p>
                                         </template>
                                     </div>
-                                    <div class="insight-pill clickable" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit long-term goal">
+                                    <div class="insight-pill clickable goal" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit long-term goal">
                                         <div class="insight-pill-head">
                                             <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
                                             <span class="insight-pill-label">Long-term goal</span>
@@ -1516,7 +1516,7 @@
                                             <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg></span>
                                             <span class="insight-pill-label">Running now</span>
                                         </div>
-                                        <p class="insight-pill-body" x-text="runningTask ? runningTask.name : ''"></p>
+                                        <p class="insight-pill-running-name" x-text="runningTask ? runningTask.name : ''"></p>
                                         <p class="insight-pill-note" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
                                     </div>
                                 </div>
@@ -1541,7 +1541,7 @@
                                                     <div class="trv2-body">
                                                         <div class="trv2-name" x-text="task.name"></div>
                                                         <div class="trv2-meta">
-                                                            <span class="trv2-kind task" x-text="task.status==='in_progress' ? 'Task · In progress' : (task.status==='done' ? 'Task · Done' : (task.status==='paused' ? 'Task · Paused' : 'Task'))"></span>
+                                                            <span class="trv2-kind task">Task</span>
                                                             <template x-if="task.status==='not_started' || task.status==='paused'">
                                                                 <button class="trv2-start" @click.stop="startTask(task)" :title="task.status==='paused' ? 'Resume task' : 'Start task'" x-text="task.status==='paused' ? '▶ Resume' : '▶ Start'"></button>
                                                             </template>
@@ -1553,8 +1553,17 @@
                                                             <div class="trv2-pause-reason" x-text="task.running_note"></div>
                                                         </template>
                                                     </div>
+                                                    <!-- Right side: date+time, plus a status tag for not-done tasks
+                                                         (moved off the left meta line, which used to append
+                                                         "· In progress"/"· Paused" there -- redundant with this
+                                                         tag once both existed). Reuses the existing
+                                                         .task-edit-status pill from the task edit modal, not a
+                                                         new component. -->
                                                     <div class="trv2-time-col">
-                                                        <div class="trv2-time" x-text="task.status==='done' && task.completed_at ? ('Done · ' + window.formatTime12h(task.completed_at.slice(11,16))) : (task.scheduled_time ? window.formatTime12h(task.scheduled_time) : (task.scheduled_date || ''))"></div>
+                                                        <div class="trv2-time" x-text="task.status==='done' && task.completed_at ? ('Done · ' + window.formatTime12h(task.completed_at.slice(11,16))) : window.formatTaskDateTime(task.scheduled_date, task.scheduled_time)"></div>
+                                                        <template x-if="task.status !== 'done'">
+                                                            <span class="task-edit-status" :class="{ 'in-progress': task.status === 'in_progress' }" x-text="task.status === 'in_progress' ? 'In progress' : (task.status === 'paused' ? 'Paused' : 'Not started')"></span>
+                                                        </template>
                                                     </div>
                                                 </div>
                                                 <p class="task-note" x-show="task.status==='done' && task.completion_note" x-text="task.completion_note" style="padding: 4px 12px 8px 54px; color: var(--text-muted); font-size: 13px; font-style: italic;"></p>
