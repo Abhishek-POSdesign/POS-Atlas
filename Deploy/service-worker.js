@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v39';
+const CACHE_NAME = 'atlas-offline-shell-v40';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -61,6 +61,22 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+    // Navigation requests (the page load/reload itself) are network-first
+    // (2026-07-28 fix). The old pure cache-first strategy meant a normal
+    // reload never checked the network at all once anything was cached
+    // under the current CACHE_NAME -- combined with the browser's own HTTP
+    // cache sometimes serving a stale copy of this very file (see the
+    // updateViaCache:'none' fix in main.js), a repeated Ctrl+R could keep
+    // landing back on an old shell. Static assets (JS/CSS/images) stay
+    // cache-first -- that's what makes offline support and instant loads
+    // work at all, and CACHE_NAME already refreshes them on every
+    // deploy-worthy bump (old cache deleted in 'activate' above).
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request).catch(() => caches.match(event.request).then((r) => r || caches.match('/index.html')))
+        );
+        return;
+    }
     event.respondWith(
         caches.match(event.request).then((response) => {
             return response || fetch(event.request);

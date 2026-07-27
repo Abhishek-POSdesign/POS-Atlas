@@ -45,7 +45,13 @@ window.formatTaskDateTime = function(dateStr, timeStr) {
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js').catch(err => {
+        // updateViaCache: 'none' (2026-07-28 fix) -- without this, the
+        // browser's own HTTP cache can serve a stale copy of
+        // service-worker.js itself when checking for updates, meaning a
+        // new deploy sometimes goes unnoticed and a normal reload can
+        // land back on an old cached shell. This forces the SW update
+        // check to always hit the network for the SW script itself.
+        navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' }).catch(err => {
             console.error('ServiceWorker registration failed: ', err);
         });
     });

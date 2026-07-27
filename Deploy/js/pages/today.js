@@ -252,15 +252,15 @@ export function todayPage() {
         closeTaskModal() { this.taskModalOpen = false; this.editingTaskId = null; },
 
         // ---- Upcoming modal (Phase 6) ----
+        // Stays open behind the task edit modal (2026-07-28) -- clicking a
+        // row calls the ordinary openTaskEditModal(task) directly, no
+        // special wrapper needed. Its overlay has a higher z-index (150,
+        // see index.html) so it visually stacks on top; cancel/save/delete
+        // on the edit modal only ever touches taskModalOpen, so closing it
+        // naturally reveals this modal again, still open, list already
+        // reactive to whatever changed.
         openUpcomingModal() { this.upcomingModalOpen = true; },
         closeUpcomingModal() { this.upcomingModalOpen = false; },
-        // Row click from inside the Upcoming modal -- close it first so we
-        // never have two full-size modals stacked, then reuse the exact
-        // same edit modal every other row in the app opens.
-        openTaskFromUpcoming(task) {
-            this.upcomingModalOpen = false;
-            this.openTaskEditModal(task);
-        },
         async submitTask() {
             const name = this.taskForm.name.trim();
             if (!name) return;

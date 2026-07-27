@@ -333,7 +333,14 @@
                                 <div class="card panel">
                                         <div class="panel-head">
                                             <h2 style="margin:0;">Tasks &amp; Reminders</h2>
-                                            <button class="add-btn" @click="openTaskModal()">+ Add task</button>
+                                            <div class="panel-head-actions">
+                                                <!-- Upcoming (Phase 6, moved to header 2026-07-28): today's own
+                                                     list/filter never widens -- this is the one place future-dated
+                                                     tasks/reminders are visible and manageable without leaving
+                                                     Today. Secondary action, sits quiet next to +Add task. -->
+                                                <button class="btn-text" x-show="futureTasks.length > 0" @click="openUpcomingModal()">View more<span x-text="' (' + futureTasks.length + ')'"></span></button>
+                                                <button class="add-btn" @click="openTaskModal()">+ Add task</button>
+                                            </div>
                                         </div>
                                         <div class="task-list">
                                             <!-- Empty state: three pulsing dots + one headline + one line of
@@ -428,12 +435,6 @@
                                                     </template>
                                                 </div>
                                             </template>
-                                        </div>
-                                        <!-- Upcoming (Phase 6): today's own list/filter never widens --
-                                             this is the one place future-dated tasks/reminders are visible
-                                             and manageable without leaving Today. -->
-                                        <div class="task-list-footer" x-show="futureTasks.length > 0">
-                                            <button class="btn-text" @click="openUpcomingModal()">View more<span x-text="' (' + futureTasks.length + ' upcoming)'"></span></button>
                                         </div>
                                 </div>
 
@@ -938,7 +939,10 @@
                              row with Delete bottom-left and Cancel/Save right.
                              (Round 2 build, item 13.) -->
                         <template x-if="taskModalOpen">
-                            <div class="modal-overlay" @click.self="closeTaskModal()">
+                            <!-- z-index bumped above the base .modal-overlay (100) so this can stack
+                                 on top of the Upcoming modal (2026-07-28) -- same pattern the Restore
+                                 view's hard-delete confirm already uses to stack on its own overlay. -->
+                            <div class="modal-overlay" style="z-index: 150;" @click.self="closeTaskModal()">
                                 <div class="modal task-edit-modal">
                                     <div class="task-edit-hero">
                                         <div class="task-edit-hero-left">
@@ -1008,7 +1012,11 @@
                              never widens to show these; this modal is the interim home
                              for them until a full History/Calendar page exists. Reuses
                              the exact same .trv2-row anatomy and edit flow as Today's
-                             list -- no new row component. -->
+                             list -- no new row component. Stays open behind the task edit
+                             modal when a row is clicked (2026-07-28) -- editing/rescheduling/
+                             completing/deleting a task from here returns to this list, still
+                             open, not back to the Today homepage. The edit modal's overlay
+                             has a higher z-index (150) so it visually stacks on top. -->
                         <template x-if="upcomingModalOpen">
                             <div class="modal-overlay" @click.self="closeUpcomingModal()">
                                 <div class="modal" style="max-width: 560px;">
@@ -1019,7 +1027,7 @@
                                     <p style="color: var(--text-muted); font-size: 12.5px; margin: 0 0 16px;">Future-dated tasks and reminders. Tap one to edit or reschedule it.</p>
                                     <div class="task-list" style="max-height: 60vh;">
                                         <template x-for="task in futureTasks" :key="task.id">
-                                            <div class="trv2-row" @click="openTaskFromUpcoming(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskFromUpcoming(task)" @keydown.space.prevent="openTaskFromUpcoming(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
+                                            <div class="trv2-row" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
                                                 <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                 </button>
