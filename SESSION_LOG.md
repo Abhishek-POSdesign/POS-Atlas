@@ -32,6 +32,23 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Sonnet 5) — PLAN.md mojibake repair
+
+**Session scope:** Fix widespread mojibake corruption in `PLAN.md` (~95 instances of em-dashes/curly quotes/middle-dots garbled into sequences like "â€”"), confirmed via byte-level inspection to be UTF-8 text that got decoded as Windows-1252 and re-saved as UTF-8. A text/encoding-only fix, no code or schema touched.
+
+**What shipped (commits):**
+- Wrote a one-off Node script (kept in the session scratchpad, not committed) that reverses the double mis-encode: for each corrupted character run, re-encode the already-UTF-8-decoded string as Windows-1252 bytes (using a manual mapping table for the 0x80-0x9F range, since Node's built-in `latin1` is plain ISO-8859-1 and gets that range wrong), then decode those bytes as UTF-8 to recover the original character.
+- Verified the transform on the 8 distinct corrupted sequences present in the file before running it file-wide: `â€”`->`—` (em dash), `Â·`->`·` (middle dot), `â†’`->`→` (arrow), `â€¢`->`•` (bullet), `â‹®`->`⋮` (vertical ellipsis), `Ã—`->`×` (multiplication sign), `â–¶`->`▶` (play triangle), `â€“`->`–` (en dash).
+- Ran it file-wide (120 corrupted runs fixed, zero left unresolved), then verified: zero occurrences of the corruption marker bytes remain; every remaining non-ASCII character is a single well-formed character; stripping all non-ASCII from the old and new file produces byte-identical ASCII skeletons, confirming nothing else changed. `git diff --stat`: 67 insertions/67 deletions -- exactly the corrupted lines round-tripped, nothing structural moved. Spot-checked several restored lines by eye.
+
+**What was verified live:** N/A -- pure text file, not observable in the app; no preview server needed.
+
+**What's still open:** None for this task. What tool/workflow keeps causing this class of encoding bug (this is at least the second instance in the project's history) is still unanswered.
+
+**What NOT to do:** Don't hand-fix individual mojibake occurrences with find-and-replace in an editor -- the corrupted byte sequences aren't all visually distinguishable in every font/tool, and a manual pass is how new corruption gets introduced.
+
+---
+
 ## 2026-07-27 · Antigravity (Gemini 3.1 Pro)
 
 **Session scope:** Update Smoke-free streak hero card color to match the Workout panel's new softened amber tone. Mark Phase 5 Health + Insight Pills as done/closed.
