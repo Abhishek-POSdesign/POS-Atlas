@@ -378,3 +378,14 @@ Companion docs sit beside this one:
 ### 2026-07-27 - Phase 6 final minimal repair
 - **Console Errors Fixed**: Replaced all <template x-if> Priority Pill hooks with <span x-show> elements. This guarantees no multiple root node or whitespace text node issues that crash Alpine 3.
 - **Visual Polish**: Toned down the .trv2-project chip styling in Deploy/css/components.css to use a softer ar(--surface-1) background and 400 font weight.
+
+### 2026-07-27 - Phase 6 Handover (Gemini -> Claude/Comet)
+- **Session Scope**: Handover of Phase 6 (Tasks & Reminders Redesign) after unresolved console errors and need for deeper UX changes.
+- **What went right (Kept)**: 
+  - Overhauled Time Picker to a mobile-friendly <select> dropdown with 15-minute increments (01-12 AM/PM).
+  - Toned down the .trv2-project chip styling (400 font-weight, muted surface-1 background, removed border).
+- **What went wrong (Pending fixes)**: 
+  - **Alpine Crash**: The Uncaught ReferenceError: seg is not defined and TypeError: Cannot read properties of undefined (reading 'children') crash on the Sleep sparkline persists in the live app despite Gemini's attempts to fix <template> root nodes.
+  - **Incomplete UI**: Priority pills were structurally added to the DOM but lack the UI to set priorities. 
+  - **Future-Dated Tasks**: Future-dated tasks are hidden from Today due to existing filtering logic (	.scheduled_date <= today). A deeper UX change (scroll/split/calendar) is required and was out of scope.
+- **Next Steps**: Handing over to Claude and Comet to fix the Alpine crash and continue the Phase 6 Tasks & Reminders redesign.
