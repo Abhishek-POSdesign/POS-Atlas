@@ -63,6 +63,32 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Opus 4.6) — Atlas AI live-testing fix round
+
+**Session scope:** Abhishek tested the Phase 1 build live and reported 9 items. Fixed the real bugs; answered the rest as plain explanations (no code needed).
+
+**What shipped (commit `ee392f3`):**
+- **Vertex was pointed at the wrong function entirely.** Built assuming no Edge Function existed yet (`atlas-ai`, not deployed) — Abhishek corrected this: `pos-partner` already exists in this Supabase project and is already shared by the Task Manager and Finance apps. Confirmed via Supabase MCP (`list_edge_functions`/`get_edge_function`): it's a generic `{messages}->{reply}` Vertex/Gemini proxy, `verify_jwt: true`. Fixed `callVertex()` in `features/aiConfig.js` to call `pos-partner` using the real signed-in session's `access_token` (via `auth.js`'s `getSession()`) instead of the anon key — the anon key alone doesn't satisfy `verify_jwt:true`.
+- **Header model pill was cosmetic-only** — showed literal "Local ▾"/"Cloud ▾" regardless of which model was configured in Settings, and had no way to change the model name itself. Now shows the real model name for Local, and the dropdown has its own model-name input synced to the same underlying config Settings reads/writes.
+- **Persona editor had no visible Save.** Fields silently auto-saved on blur (`@change`) with zero feedback — read by Abhishek as "there's no way to save." Replaced with explicit Save (shows "✓ Saved" for 1.5s) / Cancel (reloads last saved copy) buttons.
+- **Ollama default model was hardcoded to `llama3.2`** — Abhishek doesn't have that model (he has Gemma4 and Qwen3.6-ish). Default is now empty with a clear error if unset, rather than silently trying a model that isn't installed.
+- **Ollama error messages improved** to distinguish a network-level failure (Ollama not running, or CORS-blocked) from an HTTP error from a bad/missing model name.
+- **Alt+M keyboard shortcut** toggles voice input, added per direct request as a second path in case the mic button click isn't registering.
+- **Chat + Notebook scrollbars were completely unstyled** (browser default) — Abhishek called them "big and ugly," also said the same about Today's Tasks card scrollbar (which *does* already have the thin-scrollbar CSS from 2026-07-28 — likely an OS/browser rendering quirk with the scrollbar-button arrows, not a missing rule there). Applied the same thin/muted pattern to `.ai-messages`/`.nb-list`, and added `::-webkit-scrollbar-button{display:none}` everywhere this pattern is used to kill the chunky up/down arrow buttons Windows' classic scrollbar renders regardless of thumb width.
+- Cache bump `v42` → `v43`.
+
+**Explained, not code (answered directly in chat):**
+- **Why local Ollama likely isn't responding at all:** browsers block a page on `https://atlas.abhisheksikka.com` from calling `http://localhost:11434` unless Ollama's CORS policy explicitly allows that origin. Ollama's default server doesn't set `Access-Control-Allow-Origin` for a foreign HTTPS origin — needs `OLLAMA_ORIGINS` set (e.g. to the site's origin, or `*`) as an env var before starting Ollama. This is a device-side fix Abhishek needs to make, not something fixable from the app.
+- **Voice not working separately from the above:** Web Speech API (browser mic transcription) is unrelated to which model provider is selected — likely a mic-permission or browser-support issue, not a "local model" issue. Added the keyboard shortcut as a workaround path; couldn't diagnose further without knowing his exact browser.
+- **Web search question:** confirmed by reading `pos-partner`'s actual source — it does **not** have Google Search grounding wired in; Cloud/Gemini right now is just a different (larger, hosted) model, not internet-connected. If real-time web lookups are wanted, that's a small addition to `pos-partner` itself (a `tools` field on the Vertex request) — but since that function is shared across 3 apps, changing it needs an explicit yes from Abhishek, not a silent addition.
+- **Notebook mechanics:** explained the local-fast-read + cloud-backup (`atlas_ai_notebook`) sync model and the three entry types (Pin/Session/Compact) in plain language.
+
+**What's still open:** Abhishek needs to retest Vertex (should work now with the real function + JWT), Local (still blocked on his own `OLLAMA_ORIGINS` config), the persona Save button, the header model field, and the scrollbar appearance.
+
+**What NOT to do:** Don't point Cloud calls at a new `atlas-ai` function — `pos-partner` is the real, live, shared one. Don't add Google Search grounding to `pos-partner` without asking first — it's shared infrastructure with two other apps.
+
+---
+
 ## 2026-07-29 · Claude Code (Sonnet 5) — Repo cleanup: dead worktree + duplicate files, drag-to-complete deferred
 
 **Session scope:** Abhishek accepted the split-card Tasks layout + empty-state illustration as-is (no changes needed). He asked one question — is a "drag a task onto the Completed card to mark it done" gesture feasible, and how big a build — got a direct size answer (small-medium desktop-only, medium-large for real touch support) and chose to defer it. Then asked for two things before closing: (1) document the deferred drag-to-complete idea as a future item, (2) audit the Atlas folder for duplicate files/folders and remove them, keeping only what's current. No app code (`Deploy/`) touched this pass — pure docs + repo hygiene.
