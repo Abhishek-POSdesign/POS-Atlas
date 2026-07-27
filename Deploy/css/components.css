@@ -1251,10 +1251,11 @@
    hover. Applies to both Today's Tasks card and the Upcoming modal's list
    (same .task-list class, same reasoning either place). */
 .task-list { scrollbar-width: thin; scrollbar-color: var(--border-hover) transparent; }
-.task-list::-webkit-scrollbar { width: 6px; }
+.task-list::-webkit-scrollbar { width: 4px; }
 .task-list::-webkit-scrollbar-track { background: transparent; }
-.task-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
+.task-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
 .task-list::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+.task-list::-webkit-scrollbar-corner { background: transparent; }
 /* =========================================================
    TASK ROW V2 -- the "design review approved" two-tier row.
    Used on both the Today Tasks & Reminders card and every
@@ -2740,6 +2741,8 @@ body:has(.ai-panel-open) .content-area {
 .model-menu-field { padding: 4px 9px 7px; }
 .model-menu-field label { display: block; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin-bottom: 4px; }
 .model-menu-field input { width: 100%; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; color: var(--text-primary); font-family: inherit; font-size: 12px; }
+.model-menu-checkbox { display: flex; align-items: center; gap: 6px; padding: 7px 9px; font-size: 12px; color: var(--text-primary); cursor: pointer; }
+.model-menu-checkbox input { margin: 0; }
 
 .ai-chat-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .ai-quick-actions { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border); overflow-x: auto; flex-shrink: 0; }
@@ -2757,10 +2760,11 @@ body:has(.ai-panel-open) .content-area {
     scrollbar-width: thin;
     scrollbar-color: var(--border-hover) transparent;
 }
-.ai-messages::-webkit-scrollbar, .nb-list::-webkit-scrollbar { width: 6px; }
+.ai-messages::-webkit-scrollbar, .nb-list::-webkit-scrollbar { width: 4px; }
 .ai-messages::-webkit-scrollbar-track, .nb-list::-webkit-scrollbar-track { background: transparent; }
-.ai-messages::-webkit-scrollbar-thumb, .nb-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
+.ai-messages::-webkit-scrollbar-thumb, .nb-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 2px; }
 .ai-messages::-webkit-scrollbar-thumb:hover, .nb-list::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+.ai-messages::-webkit-scrollbar-corner, .nb-list::-webkit-scrollbar-corner { background: transparent; }
 .ai-messages::-webkit-scrollbar-button, .nb-list::-webkit-scrollbar-button,
 .task-list::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
 .ai-empty-state { text-align: center; padding: 24px 12px; }
@@ -2773,7 +2777,13 @@ body:has(.ai-panel-open) .content-area {
 .msg-bubble { max-width: 88%; padding: 9px 13px; font-size: 13.5px; line-height: 1.55; }
 .msg-bubble.user { background: var(--accent-blue); color: #fff; border-radius: 14px 14px 4px 14px; }
 .msg-bubble.assistant { background: var(--surface-2); color: var(--text-primary); border-radius: 14px 14px 14px 4px; max-width: 92%; }
-.msg-time { font-size: 10px; color: var(--text-muted); opacity: .55; margin-top: 3px; padding: 0 3px; }
+.msg-meta-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 3px; padding: 0 3px; }
+.msg-time { font-size: 10px; color: var(--text-muted); opacity: .55; }
+/* Which model actually answered -- muted grey, never a semantic accent
+   colour (coral/sage/etc would read as a status, which this isn't). Sits
+   on the right of the meta row per direct request, low-contrast so it
+   never competes with the reply text itself. */
+.msg-provider-tag { font-size: 10px; color: var(--text-muted); opacity: .7; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .msg-actions { display: flex; gap: 8px; margin-top: 5px; padding-left: 2px; }
 .msg-action-btn { background: none; border: 0; color: var(--text-muted); font-size: 11px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 4px; font-family: inherit; padding: 2px; }
 .msg-action-btn:hover { color: var(--accent-blue); }
@@ -2788,6 +2798,7 @@ body:has(.ai-panel-open) .content-area {
 .composer-wrap { position: relative; background: var(--surface-2); border: 1px solid var(--border); border-radius: 16px; padding: 8px 76px 8px 12px; }
 .composer-wrap textarea { width: 100%; background: none; border: 0; outline: 0; color: var(--text-primary); font-family: inherit; font-size: 13.5px; line-height: 1.5; resize: none; min-height: 2.9em; max-height: 4.4em; overflow-y: auto; display: block; }
 .composer-wrap textarea::placeholder { color: var(--text-muted); }
+.composer-hint { font-size: 10px; color: var(--text-muted); opacity: .7; margin-top: 6px; padding: 0 3px; }
 .composer-icons { position: absolute; right: 6px; bottom: 6px; display: flex; align-items: center; gap: 5px; }
 .mic-btn { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--surface-1); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all var(--dur-fast) var(--ease-out); }
 .mic-btn:hover { color: var(--accent-blue); }

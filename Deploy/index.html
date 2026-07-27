@@ -140,9 +140,9 @@
                             <span class="ai-panel-title">Atlas</span>
                         </div>
                         <div class="ai-header-icons">
-                            <div class="model-pill-wrap">
-                                <button class="model-pill" @click="modelMenuOpen = !modelMenuOpen" x-text="provider === 'vertex' ? 'Cloud (Gemini) ▾' : (model || 'Local') + ' ▾'"></button>
-                                <div class="model-menu" :class="{ 'model-menu-open': modelMenuOpen }" @click.outside="modelMenuOpen = false">
+                            <div class="model-pill-wrap" @click.outside="modelMenuOpen = false">
+                                <button class="model-pill" @click.stop="modelMenuOpen = !modelMenuOpen" x-text="provider === 'vertex' ? 'Cloud (Gemini) ▾' : (model || 'Local') + ' ▾'"></button>
+                                <div class="model-menu" :class="{ 'model-menu-open': modelMenuOpen }">
                                     <button :class="{ sel: provider === 'ollama' }" @click="setProvider('ollama')">🖥 Local</button>
                                     <template x-if="provider === 'ollama'">
                                         <div class="model-menu-field">
@@ -151,6 +151,12 @@
                                         </div>
                                     </template>
                                     <button :class="{ sel: provider === 'vertex' }" @click="setProvider('vertex')">☁ Cloud (Gemini)</button>
+                                    <template x-if="provider === 'vertex'">
+                                        <label class="model-menu-checkbox">
+                                            <input type="checkbox" x-model="webSearch" @change="saveProviderConfig()">
+                                            <span>🔍 Use web search</span>
+                                        </label>
+                                    </template>
                                 </div>
                             </div>
                             <button class="hicon" @click="view = (view === 'notebook' ? 'chat' : 'notebook')" title="Memory Notebook">
@@ -214,7 +220,12 @@
                                                 <template x-if="m.type !== 'confirm'">
                                                     <div>
                                                         <div class="msg-bubble" :class="m.role" x-text="m.text"></div>
-                                                        <div class="msg-time" x-text="m.time"></div>
+                                                        <div class="msg-meta-row">
+                                                            <span class="msg-time" x-text="m.time"></span>
+                                                            <template x-if="m.role === 'assistant' && m.providerLabel">
+                                                                <span class="msg-provider-tag" x-text="m.providerLabel"></span>
+                                                            </template>
+                                                        </div>
                                                         <template x-if="m.role === 'assistant' && !m.pinned">
                                                             <div class="msg-actions"><button class="msg-action-btn" @click="pinMessage(m)">📌 Pin</button></div>
                                                         </template>
@@ -244,6 +255,7 @@
                                     </div>
                                 </div>
                                 <div class="field-error" x-show="errorMsg" x-text="errorMsg" style="margin: 6px 0 0; font-size: 11.5px;"></div>
+                                <div class="composer-hint">Voice input only, text replies · Alt+M toggles the mic</div>
                             </div>
                         </div>
                     </template>
@@ -300,12 +312,18 @@
                                 </div>
                                 <div class="pfield">
                                     <label>Local model name</label>
-                                    <input type="text" x-model="model" @change="saveProviderConfig()" placeholder="e.g. llama3.2">
+                                    <input type="text" x-model="model" @change="saveProviderConfig()" placeholder="e.g. gemma4, qwen3.6">
                                 </div>
                                 <div class="pfield">
                                     <label>Local endpoint</label>
                                     <input type="text" x-model="endpoint" @change="saveProviderConfig()" placeholder="http://localhost:11434">
                                 </div>
+                                <template x-if="provider === 'vertex'">
+                                    <label class="model-menu-checkbox" style="background:var(--surface-2); border-radius:8px;">
+                                        <input type="checkbox" x-model="webSearch" @change="saveProviderConfig()">
+                                        <span>🔍 Use web search (live results via Gemini)</span>
+                                    </label>
+                                </template>
                                 <div class="settings-row-link" @click="view = 'persona'">
                                     <span>🔒 Persona &amp; PIN</span><span>→</span>
                                 </div>

@@ -60,8 +60,9 @@ export function atlasAi() {
         modelMenuOpen: false,
 
         provider: 'ollama',
-        model: 'llama3.2',
+        model: '',
         endpoint: 'http://localhost:11434',
+        webSearch: false,
 
         messages: [],
         draft: '',
@@ -90,6 +91,7 @@ export function atlasAi() {
             this.provider = cfg.provider;
             this.model = cfg.model;
             this.endpoint = cfg.endpoint;
+            this.webSearch = !!cfg.webSearch;
             this.persona = loadPersona();
             this.hasPin = pinExists();
             this.messages = loadChatHistory();
@@ -106,11 +108,11 @@ export function atlasAi() {
 
         setProvider(p) {
             this.provider = p;
-            saveConfig({ provider: p, model: this.model, endpoint: this.endpoint });
+            saveConfig({ provider: p, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch });
             this.modelMenuOpen = false;
         },
         saveProviderConfig() {
-            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint });
+            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch });
         },
 
         get messageGroups() {
@@ -128,8 +130,8 @@ export function atlasAi() {
             saveChatHistory(this.messages);
             this.$nextTick(() => this._scrollToBottom());
         },
-        _pushAssistantText(text) {
-            this._pushMessage({ role: 'assistant', type: 'text', text });
+        _pushAssistantText(text, providerLabel) {
+            this._pushMessage({ role: 'assistant', type: 'text', text, providerLabel: providerLabel || null });
         },
         _scrollToBottom() {
             const el = this.$refs.messagesEl;
@@ -196,7 +198,12 @@ export function atlasAi() {
                 const pkg = await buildFactPackage(factUseCase, entityId);
                 const notebookCtx = getNotebookContext();
                 let systemPrompt = buildSystemPrompt(this.persona, notebookCtx);
-                systemPrompt += '\n\n## CURRENT FACTS (Fact Package)\n' + JSON.stringify(pkg.facts, null, 1);
+                // Framed as "available if relevant," not "always in play" --
+                // this is the other half of the conversation-first fix (the
+                // rule itself lives in buildSystemPrompt(), this is where the
+                // data actually gets attached, so the framing has to match
+                // here too or the rule and the data contradict each other).
+                systemPrompt += '\n\n## FACTS AVAILABLE IF RELEVANT (do not mention these for a greeting or small talk)\n' + JSON.stringify(pkg.facts, null, 1);
                 systemPrompt += '\n\n## VOICE-WRITE EXTRACTION RULES (only apply if the message matches)\n';
                 systemPrompt += WRITE_FLOWS.log_workout.extractionInstruction + '\n' + WRITE_FLOWS.log_sleep.extractionInstruction;
 
@@ -207,16 +214,21 @@ export function atlasAi() {
                 for (const m of recent) apiMessages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text });
                 apiMessages.push({ role: 'user', content: userText });
 
-                const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint };
+                const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch };
                 const reply = await sendToProvider(apiMessages, cfg);
-                this._handleModelReply(reply);
+                this._handleModelReply(reply, this._currentProviderLabel());
             } catch (e) {
                 this._pushAssistantText('Atlas AI is unavailable right now (' + e.message + '). Check the provider in settings, or try the other one.');
             }
             this.thinking = false;
         },
 
-        _handleModelReply(reply) {
+        _currentProviderLabel() {
+            if (this.provider === 'vertex') return 'Cloud · Gemini' + (this.webSearch ? ' (web)' : '');
+            return 'Local · ' + (this.model || 'unknown');
+        },
+
+        _handleModelReply(reply, providerLabel) {
             let parsed = null;
             try { parsed = JSON.parse(reply.trim()); } catch (e) { /* not a draft -- plain prose reply */ }
 
@@ -224,7 +236,7 @@ export function atlasAi() {
                 const flow = WRITE_FLOWS[parsed.intent];
                 const fields = sanitizeDraftFields(parsed.intent, parsed.fields);
                 if (!fields || Object.keys(fields).length === 0) {
-                    this._pushAssistantText("I heard that as a log entry but couldn't pull out any real values -- want to try again with the specific numbers?");
+                    this._pushAssistantText("I heard that as a log entry but couldn't pull out any real values -- want to try again with the specific numbers?", providerLabel);
                     return;
                 }
                 const fieldRows = flow.fields
@@ -238,7 +250,7 @@ export function atlasAi() {
                 });
                 return;
             }
-            this._pushAssistantText(reply);
+            this._pushAssistantText(reply, providerLabel);
         },
 
         async confirmDraft(msg) {
