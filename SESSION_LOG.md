@@ -32,6 +32,30 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-28 · Claude Code (Sonnet 4.6) — Atlas AI end-of-session: voice fix + doc update
+
+**Session scope:** Late-session fixes and documentation update after Abhishek's final testing round before sleep.
+
+**What shipped (commits):**
+- `830e8f9` — Fix voice reply double-toggle (x-model + manual toggle were fighting each other); add voice selector in Settings (lists all browser voices, stores choice in config)
+
+**Issues confirmed by Abhishek in live testing (documented, not yet fixed):**
+1. **Fake notebook save** — Atlas said "I've saved that to the Memory Notebook" in a chat reply. It did not — only Pin button and Save Session actually save. Same class of bug as fake task completion (already blocked in the CANNOT-DO list). Fix: add notebook to the CANNOT-DO system prompt in `features/aiConfig.js`. 5-minute fix.
+2. **Voice quality not good enough** — browser `SpeechSynthesis` is inconsistent in speed and quality. Abhishek has a soundbar and wants a real TTS API (ElevenLabs or Google Cloud Neural2 recommended). Medium build, not this session.
+3. **No delete for sleep/workout entries** — he logged test data across multiple sessions and can't delete from the UI. Needed before real daily use. Small build.
+
+**Data state note:** Abhishek logged fake/test sleep and workout entries throughout this session. They will show in the 14-day trend. They are NOT from real usage. He plans to start real data tomorrow (2026-07-29) when he wakes up. The "Data Interpretation Note" he asked Atlas to save (around 4:23 AM) was NOT actually saved to the notebook (that's the fake-save bug above) -- the real note of this is this log entry.
+
+**What to do at start of next session:**
+1. Fix fake notebook save (5 min, `buildSystemPrompt()` in `aiConfig.js`)
+2. Delete sleep/workout entries feature (design + build)
+3. Screenshot parsing (Abhishek's stated next priority)
+4. Then real TTS API
+
+**What NOT to do:** Don't treat the pre-2026-07-29-2PM sleep/workout data as real -- it's all test data from this session.
+
+---
+
 ## 2026-07-28 · Claude Code (Sonnet 4.6) — Atlas AI live-testing fix round 3: extraction root causes + voice replies
 
 **Session scope:** First session on the new Claude account (Abhishek's wife's). Picked up after the Phase 1 handover. Spent the session doing deep live-testing and fixing three layers of extraction bugs, then shipped voice replies + a workout score fix.

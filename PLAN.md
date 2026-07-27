@@ -39,6 +39,9 @@ Abhishek is switching to a different Claude account (his wife's) for future sess
 - **Scrollbar visuals** — AI panel, Notebook list, and Tasks & Reminders card scrollbars were tightened twice (6px → 4px thumb, hidden button-arrows) but Abhishek reported them still looking chunky after the first pass; this may be a Windows display-scaling/accessibility setting outside what page CSS can control, not a code bug — worth a fresh look with screenshots from his actual device before assuming it's fixable in CSS.
 - **Persona tone / "data reader" avoidance** — the conversation-first system-prompt rewrite (this session) is the real fix attempt, but was not live-tested by Claude before this handover (Abhishek confirmed verbally it's "replying perfectly" after the rewrite, but no side-by-side transcript was captured). Worth a deliberate test pass early next session: try "hello", "how are you", "can we just chat" and confirm the tone lands before building anything further on top.
 - **Remaining 3 of 5 voice-write flows** (task completion, checklist marking, journal reflections) — deliberately deferred per the original Phase 1 plan's phased approach; only attempt once the two shipped flows are confirmed solid.
+- **[BUG] Model claims to save to Memory Notebook but cannot (confirmed 2026-07-28).** Atlas said "I've saved that note to our Memory Notebook" in a chat reply. It did not. The only real notebook saves are the Pin button (per message) and Save Session (in Notebook view) -- both of these actually call the real save path. A verbal "yes" from Abhishek in a normal chat message does NOT trigger a notebook save, and the model must not claim otherwise. Same class of bug as the fake task completion (already blocked in the CANNOT-DO system prompt list). Fix: add "You cannot save to the Memory Notebook -- only the Pin button and Save Session button do that" to the CANNOT-DO list in `buildSystemPrompt()` in `features/aiConfig.js`.
+- **[BUG] Voice quality is inconsistent -- browser SpeechSynthesis is not good enough (confirmed 2026-07-28).** Abhishek has a soundbar and wants a real, natural-sounding voice. The browser's built-in `speechSynthesis` is unreliable in speed and quality even with Microsoft neural voices. A real TTS API is needed: candidates are ElevenLabs (best quality, has a free tier), Google Cloud TTS (Neural2/Journey voices, pay-per-character), or OpenAI TTS. This is a proper build item, not a quick fix -- needs API key management, a streaming or chunked audio playback approach, and a voice picker UI.
+- **[MISSING] No delete option for sleep/workout log entries (confirmed 2026-07-28).** Abhishek logged test data (multiple fake sleep + workout entries) and has no way to delete them from the UI. They will show up in the 14-day trend charts and health history. The health panels only have "Add" / "Log" actions. A delete option (inside the panel, following the two-step `askConfirm()` + undo toast pattern) is needed. Low urgency since test data doesn't permanently corrupt anything meaningful, but it should exist before real daily use begins.
 - **Per-view Fact Package binding** — every chat message still carries `explain_day` as ambient context regardless of which page the panel was opened from (the context badge that would have shown this binding was cut from the UI early on to de-clutter the header). A future session could reintroduce a lighter version of this if it turns out to matter in practice.
 
 ---
@@ -229,7 +232,7 @@ Not started yet, deliberately deferred per the approved plan:
 - The `atlas-ai` Supabase Edge Function itself (Cloud provider needs this + a real Vertex/Gemini secret before it stops showing "unavailable").
 - The remaining three voice-write flows: task completion, checklist marking, journal reflections.
 - Per-view Fact Package binding (a context badge showing "About: Project X" etc. -- cut from the Phase 1 UI to de-clutter the header; every message currently carries `explain_day` as ambient context regardless of which page the panel was opened from).
-- **Voice output mode (text-to-speech):** currently Atlas only supports voice *input* (speech-to-text via Web Speech API). Abhishek requested voice *output* -- Atlas reading its replies aloud -- as a convenience feature, with a clear way to toggle between voice mode and text-only mode. Would use the Web Speech Synthesis API (`speechSynthesis.speak()`), needs a voice picker (Indian English voice preferred) and a visible toggle in the AI panel header or composer. Not started.
+- **Voice output mode (text-to-speech):** shipped 2026-07-28 using browser `SpeechSynthesis` with a voice picker in Settings. Works, but quality is inconsistent -- browser voices vary in speed and naturalness even with Microsoft neural voices. Abhishek has a soundbar and wants a properly high-quality voice. **Next step:** replace SpeechSynthesis with a real TTS API (ElevenLabs recommended for quality; Google Cloud Neural2/Journey or OpenAI TTS are alternatives). Needs API key management + audio playback (chunked or streamed). The toggle + voice picker UI stays as-is; only the playback back-end changes.
 - Chapter 21 Stage 2+ (Vertex Teacher Mode, Logic Card versioning, Learning Records, Evaluation Packs) -- not attempted anywhere yet, including the sibling app; a distinct future initiative, not a Phase 1 gap.
 
 ---
@@ -253,16 +256,21 @@ Standing "would want an answer before starting" items — these are not blocking
 
 **Atlas AI Phase 1 shipped 2026-07-29** (overlay, persona+PIN, hybrid routing, memory notebook, log-workout/log-sleep voice-write flows). See the "AI layer" section above for what's deliberately still open.
 
-### Next workstreams
-1. **Atlas AI fast-follow:** deploy the `atlas-ai` Edge Function (needs a real Vertex/Gemini secret), then the remaining three voice-write flows once the first two are live-tested.
-2. **Real priority system + real drag-and-drop:** design pass needed before building either -- see the Phase 6 status note for why the placeholders were removed rather than kept half-built.
-3. **History/Calendar page:** its own future phase; the Upcoming modal is the interim stand-in, not a replacement.
+### Next workstreams (priority order as of 2026-07-28)
+
+1. **[BUG FIX] Fake notebook save block** -- add notebook to the CANNOT-DO system prompt list. 5-minute fix, do at start of next session before anything else. See bug entry above.
+2. **[MISSING] Delete sleep/workout entries** -- two-step confirm + undo toast in the health panels. Needed before real daily data starts. Small build (~1 session).
+3. **Screenshot parsing (Garmin/ring app)** -- upload a screenshot of your sleep or workout summary from the Garmin app, Atlas reads the image and fills the confirm card automatically. Gemini 2.5 Flash is multimodal, the Edge Function just needs an image payload added. The placeholder "Attach screenshot" buttons are already in both health panels. Medium build (~1 session). **Abhishek's stated next priority.**
+4. **Real TTS API for voice** -- replace browser `SpeechSynthesis` with ElevenLabs or Google Cloud Neural2 TTS. Quality is not good enough for a soundbar. Needs API key management. Medium build.
+5. **Remaining 3 voice-write flows** -- task completion, checklist marking, journal reflection -- once screenshot parsing and delete are done.
+6. **Real priority system + real drag-and-drop:** design pass needed before building either.
+7. **History/Calendar page:** its own future phase; the Upcoming modal is the interim stand-in.
 
 Older deferred items, still valid but not the stated priority:
 - Projects list visual-hierarchy pass.
 - Notebook layout pass.
 - Phase 3 Targets (`count_toward_goal`).
-- Sleep AI stages (screenshot parsing etc.).
+- Per-view Fact Package binding in the AI panel (currently always `explain_day` regardless of which page the panel is open from).
 - **PLAN.md encoding corruption (found 2026-07-28, not yet fixed):** ~95 mojibake sequences throughout this file (em-dashes/curly-quotes/middle-dots corrupted into sequences like "—"/"·") -- confirmed via byte inspection to be UTF-8 text that got decoded as Windows-1252 and re-saved as UTF-8 at some point, most likely during Gemini's Phase 6 session (SESSION_LOG.md has zero instances of the same pattern, so it's isolated to this file). New content added in this session's edits uses plain ASCII punctuation (`--` instead of em-dash) specifically to avoid adding more of the same corruption on top. Needs a proper repair pass -- not attempted here, out of scope for a Phase 6 close-out.
 
 Nothing on this list starts without Abhishek re-opening the conversation.
