@@ -1333,17 +1333,17 @@
 .trv2-kind svg { flex-shrink: 0; }
 
 /* Project chip -- contrast fix (Round 2 build, item 2). Old style was
-   flat secondary-color text which read as 2.7:1 on Paper Studio (illegible)
-   and only marginally better on Charcoal Muse. New style: tinted chip on
-   --surface-2 with hairline border, primary-text weight-600. Colored
-   identity dot on the left carries the project's accent. Reads clearly
-   on both themes at a glance without inspecting the row. */
+   flat secondary-color text which read as 2.7:1 on Paper Studio (illegible).
+   New style: tinted chip on --surface-2 with hairline border. Originally
+   bumped to primary-text weight-600, but softened to secondary-text
+   weight-500 because it read too loudly on the dashboard (Phase 5 polish).
+   Colored identity dot on the left carries the project's accent. */
 .trv2-project {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    color: var(--text-primary);
-    font-weight: 600;
+    color: var(--text-secondary);
+    font-weight: 500;
     font-size: 11.5px;
     padding: 3px 8px 3px 5px;
     border-radius: 999px;

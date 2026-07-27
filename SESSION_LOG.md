@@ -37,8 +37,8 @@ Companion docs sit beside this one:
 **Session scope:** Update Smoke-free streak hero card color to match the Workout panel's new softened amber tone. Mark Phase 5 Health + Insight Pills as done/closed.
 
 **What shipped (commits):**
-- `components.css` — changed `.streak-card.color-coral` gradient and text color to use the `--accent-amber-tint` and `--accent-amber` tokens instead of coral, matching the new Workout amber theme for visual consistency.
-- `PLAN.md` — marked Phase 5 Health as closed and added a note about the Smoke-free streak color update.
+- `components.css` — changed `.streak-card.color-coral` gradient and text color to use the `--accent-amber-tint` and `--accent-amber` tokens instead of coral, matching the new Workout amber theme for visual consistency. Softened the `.trv2-project` chip from `--text-primary` weight-600 to `--text-secondary` weight-500 so it doesn't visually dominate the task name on the dashboard.
+- `PLAN.md` — marked Phase 5 Health as closed and added a note about the Smoke-free streak color update and project chip softening.
 
 **What was verified locally:**
 - Verified that the changes only affected `.streak-card.color-coral` and did not modify the `color-coral` definitions used for semantic warnings or other components.
