@@ -1,6 +1,6 @@
 # CLAUDE.md — Atlas
 
-Guardrails for any Claude session editing code in `D:\Calude\POS\Atlas\`. **Full architecture, design tokens, and phased roadmap live in `plan.md` next to this file — read it first if you haven't.**
+Guardrails for any Claude session editing code in `D:\Calude\POS\Atlas\`. **This whole file is historical reference as of 2026-07-29 — it describes Phase 1/2 state (2026-07-26). The current-truth rules doc is the root [`CLAUDE.md`](../CLAUDE.md); current state lives in the root [`PLAN.md`](../PLAN.md). The `plan.md` this file used to point to (lowercase, in this same folder) was retired 2026-07-29 as a duplicate of the root `PLAN.md` it long since diverged from — its content is fully superseded, nothing was lost.**
 
 Atlas is a ground-up rebuild of the POS Task Manager, in its own folder, sharing the same Supabase project as the current app but with a new `atlas_` table prefix so nothing can touch old `pos_` data. Alpine.js + plain HTML/CSS/JS. No React, no build step. Ships to MilesWeb via GitHub Actions.
 

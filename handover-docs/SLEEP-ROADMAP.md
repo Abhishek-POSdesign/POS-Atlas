@@ -66,6 +66,8 @@ Weekly summary that correlates sleep with other logged behavior:
 
 Higher payoff, higher effort. Depends on the roll-up existing first.
 
+**AI tone, carried over from an earlier planning note (folded in 2026-07-29, standalone doc retired — see below):** the AI should work as a reflective coach, not a rigid judge — noticing patterns in metrics/context/morning notes and discussing them carefully over time, not reacting strongly to one or two nights. Pattern suggestions should only surface once enough entries have accumulated to mean something.
+
 ---
 
 ## What we're deliberately NOT planning
