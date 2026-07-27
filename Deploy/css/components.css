@@ -1164,11 +1164,11 @@
 }
 .streak-card:hover { transform: translateY(-3px); box-shadow: var(--top-edge), var(--shadow-card-hover); }
 .streak-card.color-sage { background: linear-gradient(160deg, var(--accent-sage-tint), var(--surface-1) 70%); }
-.streak-card.color-coral { background: linear-gradient(160deg, var(--accent-coral-tint), var(--surface-1) 70%); }
+.streak-card.color-coral { background: linear-gradient(160deg, var(--accent-amber-tint), var(--surface-1) 70%); }
 .streak-card.color-blue { background: linear-gradient(160deg, var(--accent-blue-tint), var(--surface-1) 70%); }
 .streak-card.color-lilac { background: linear-gradient(160deg, var(--accent-lilac-tint), var(--surface-1) 70%); }
 .streak-card.color-sage .streak-num { color: var(--accent-sage); }
-.streak-card.color-coral .streak-num { color: var(--accent-coral); }
+.streak-card.color-coral .streak-num { color: var(--accent-amber); }
 .streak-card.color-blue .streak-num { color: var(--accent-blue); }
 .streak-card.color-lilac .streak-num { color: var(--accent-lilac); }
 /* No icon -- just a bigger, bolder number carries the card (2026-07-25: the star/fire icon

@@ -32,6 +32,22 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Antigravity (Gemini 3.1 Pro)
+
+**Session scope:** Update Smoke-free streak hero card color to match the Workout panel's new softened amber tone. Mark Phase 5 Health + Insight Pills as done/closed.
+
+**What shipped (commits):**
+- `components.css` — changed `.streak-card.color-coral` gradient and text color to use the `--accent-amber-tint` and `--accent-amber` tokens instead of coral, matching the new Workout amber theme for visual consistency.
+- `PLAN.md` — marked Phase 5 Health as closed and added a note about the Smoke-free streak color update.
+
+**What was verified locally:**
+- Verified that the changes only affected `.streak-card.color-coral` and did not modify the `color-coral` definitions used for semantic warnings or other components.
+
+**What's still open:**
+- Nothing.
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Final polish: Insight Pill contrast, Tasks date+time, Workout tint softened (P3)
 
 **Session scope:** Three-part closing polish pass, explicitly the last one before AI/Tasks-redesign sessions start. (1) Fix Insight Pill contrast/sizing in Projects (Health row was the reference, not to be touched). (2) Add date+time to Tasks & Reminders rows on both Today and the Project workspace, plus rebalance left/right content. (3) Soften Workout's coral tint to amber. Abhishek explicitly allowed doing all three in one pass rather than checkpointing after (1)+(2).
