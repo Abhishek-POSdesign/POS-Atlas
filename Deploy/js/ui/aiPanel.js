@@ -198,30 +198,56 @@ export function atlasAi() {
                 const pkg = await buildFactPackage(factUseCase, entityId);
                 const notebookCtx = getNotebookContext();
                 let systemPrompt = buildSystemPrompt(this.persona, notebookCtx);
-                // Framed as "available if relevant," not "always in play" --
-                // this is the other half of the conversation-first fix (the
-                // rule itself lives in buildSystemPrompt(), this is where the
-                // data actually gets attached, so the framing has to match
-                // here too or the rule and the data contradict each other).
                 systemPrompt += '\n\n## FACTS AVAILABLE IF RELEVANT (do not mention these for a greeting or small talk)\n' + JSON.stringify(pkg.facts, null, 1);
-                systemPrompt += '\n\n## VOICE-WRITE EXTRACTION RULES (only apply if the message matches)\n';
-                systemPrompt += 'STEP 1: Decide which SINGLE intent matches the message. A message is about WORKOUT if it mentions exercise, training, cardio, strength, calories burned, gym, etc. A message is about SLEEP if it mentions sleeping, hours of sleep, sleep score, deep sleep, REM, resting heart rate, HRV, etc. If neither matches, reply normally in prose. Never apply both intents to one message.\n';
-                systemPrompt += 'STEP 2: Produce ONLY the JSON for the matched intent.\n\n';
-                systemPrompt += '### If WORKOUT:\n' + WRITE_FLOWS.log_workout.extractionInstruction + '\n\n';
-                systemPrompt += '### If SLEEP:\n' + WRITE_FLOWS.log_sleep.extractionInstruction;
 
+                // Client-side pre-classification: only attach the extraction
+                // instruction that matches this message's intent. Sending both
+                // sleep and workout instructions every time -- especially with
+                // sleep values in the conversation history -- primes the model
+                // to anchor on the wrong intent. When neither keyword set
+                // matches, skip extraction instructions entirely so the model
+                // just replies in prose.
+                const detectedIntent = this._detectIntent(userText);
+                if (detectedIntent) {
+                    systemPrompt += '\n\n## DATA LOGGING (apply ONLY because this message matches "' + detectedIntent + '")\n';
+                    systemPrompt += WRITE_FLOWS[detectedIntent].extractionInstruction;
+                }
+
+                // Build conversation history for the model. Exclude the
+                // current userText -- it was already pushed to this.messages
+                // by sendMessage() before _askModel was called, so we slice
+                // to -1 to avoid sending it twice (duplicate user turns cause
+                // Gemini to reject or misbehave). Confirm cards are included
+                // as a brief "[saved / discarded]" note -- NO field values,
+                // so prior sleep numbers don't prime the model for a workout.
+                const historyMessages = this.messages.slice(0, -1).slice(-14);
                 const apiMessages = [{ role: 'system', content: systemPrompt }];
-                const recent = this.messages.slice(-12);
-                for (const m of recent) {
+                let lastRole = 'system';
+                for (const m of historyMessages) {
+                    let role, content;
                     if (m.type === 'text') {
-                        apiMessages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text });
+                        role = m.role === 'user' ? 'user' : 'assistant';
+                        content = m.text;
                     } else if (m.type === 'confirm' && m.decided) {
-                        const summary = m.decided === 'saved'
-                            ? '[System: ' + m.draft.title + ' was confirmed and saved to Atlas. Fields: ' + m.draft.fields.map(f => f.k + '=' + f.v).join(', ') + '. That intent is now complete -- do not repeat it.]'
-                            : '[System: Draft was discarded -- nothing was saved.]';
-                        apiMessages.push({ role: 'assistant', content: summary });
+                        role = 'assistant';
+                        // Intentionally omit field values to prevent value anchoring
+                        content = m.decided === 'saved'
+                            ? '[' + m.draft.title + ' was confirmed and saved. That intent is complete.]'
+                            : '[Draft was discarded — nothing was saved.]';
+                    } else {
+                        continue;
+                    }
+                    // Merge consecutive same-role messages (Gemini requires strict alternation)
+                    if (role === lastRole && apiMessages.length > 1) {
+                        apiMessages[apiMessages.length - 1].content += '\n' + content;
+                    } else {
+                        apiMessages.push({ role, content });
+                        lastRole = role;
                     }
                 }
+                // Ensure last message before the new user turn is 'assistant'
+                // if the history ended on 'user' (can happen if history was
+                // empty or all same-role); just append user turn directly.
                 apiMessages.push({ role: 'user', content: userText });
 
                 const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch };
@@ -251,6 +277,15 @@ export function atlasAi() {
                 if (ch === '{') depth++;
                 else if (ch === '}') { depth--; if (depth === 0) { try { return JSON.parse(str.slice(start, i + 1)); } catch (e) { return null; } } }
             }
+            return null;
+        },
+
+        _detectIntent(text) {
+            const t = text.toLowerCase();
+            const w = /\b(workout|exercise|training|cardio|strength|calories|gym|leg\s*day|push\s*day|pull\s*day|run(ning)?|jog(ging)?|swim(ming)?|cycling|lift(ing)?|weights?|squats?|deadlifts?|bench|hiit|yoga|burned|reps|sets|treadmill)\b/.test(t);
+            const s = /\b(sle(ep|pt)|nap(ped)?|sleep\s*score|deep\s*sleep|rem\b|resting\s*(heart\s*rate|hr)|hrv|heart\s*rate\s*variability|woke\s*up|bed\s*time|hours?\s+(of\s+)?sleep)\b/.test(t);
+            if (w && !s) return 'log_workout';
+            if (s && !w) return 'log_sleep';
             return null;
         },
 
