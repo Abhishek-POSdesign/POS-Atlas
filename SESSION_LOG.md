@@ -32,6 +32,24 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-28 · Claude Code (Sonnet 5) — PLAN.md mojibake repair
+
+**Session scope:** Fix the ~95 mojibake-corrupted characters in `PLAN.md` flagged (but not fixed) at the end of the prior Phase 6 close-out session — a text/encoding-only fix, no code or schema touched.
+
+**What shipped (commits):**
+- Wrote a one-off Node script (kept in the session scratchpad, not committed) that reverses the double mis-encode: for each corrupted character run, re-encode the already-UTF-8-decoded string as Windows-1252 bytes (using a manual mapping table for the 0x80–0x9F range, since Node's built-in `latin1` is plain ISO-8859-1 and gets that range wrong), then decode those bytes as UTF-8 to recover the original character.
+- Verified the transform on the 8 distinct corrupted sequences actually present in the file before running it file-wide: `â€”`→`—` (em dash, 75×), `Â·`→`·` (middle dot, 18×), `â†’`→`→` (arrow, 13×), `â€¢`→`•` (bullet, 6×), `â‹®`→`⋮` (vertical ellipsis, 2×), `Ã—`→`×` (multiplication sign, 1×), `â–¶`→`▶` (play triangle, 1×), `â€“`→`–` (en dash, 1×).
+- Ran it across the whole file (117 corrupted runs fixed, zero left unresolved), then verified: (1) zero occurrences of the corruption marker bytes (`â`, `Ã`, `€`, `�`) remain; (2) every remaining non-ASCII character in the file is a single, well-formed character, not a fragment of another mojibake sequence; (3) stripping all non-ASCII from both the old and new file produces byte-identical ASCII skeletons, confirming nothing else in the file changed. Spot-checked several restored lines by eye (title line, a "38×38px" spec, a "⋮ overflow menu" line, a "▶ Start" line) — all read correctly.
+- `git diff --stat`: 65 insertions/65 deletions — exactly the corrupted lines round-tripped, nothing structural moved.
+
+**What was verified live:** N/A — pure text file, not observable in the app; no preview server needed.
+
+**What's still open:** None for this task. The broader question the prior session raised — what tool/workflow keeps causing this class of encoding bug (this is the second instance, after a CSS file earlier in the project's history) — is still unanswered and worth a look if it recurs a third time.
+
+**What NOT to do:** Don't hand-fix individual mojibake occurrences with find-and-replace in an editor — the corrupted byte sequences aren't all visually distinguishable from each other in every font/tool, and a manual pass is exactly how new corruption gets introduced (this is why the prior session was careful to use plain ASCII punctuation while editing around the problem instead of typing real em-dashes near already-corrupted text).
+
+---
+
 ## 2026-07-28 · Claude Code (Sonnet 5) — Phase 6 close-out
 
 **Session scope:** Take over Phase 6 (Tasks & Reminders) from Gemini's starter slice and close it properly: fix the live Sleep-sparkline console crash, resolve the future-dated-tasks UX question, add inner scroll to the Tasks card, and remove the two inert priority/drag hooks rather than leave them half-built. Planned first (plan mode, three clarifying questions asked and answered before any code), then implemented.
