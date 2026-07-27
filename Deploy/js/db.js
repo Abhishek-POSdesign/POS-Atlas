@@ -491,6 +491,29 @@ export const DB = {
         hardDelete(id) { return verifiedHardDelete('atlas_workout_logs', id); }
     },
 
+    // Atlas AI Memory Notebook -- single-row cloud backup for the AI's
+    // pin/session/compact entries. The client's real read path on every AI
+    // message is localStorage (see features/aiConfig.js); this table only
+    // gets touched on notebook writes and the occasional pull-and-merge,
+    // same single-row-upsert shape as HealthSettings below.
+    AiNotebook: {
+        async get() {
+            const { data, error } = await supabase
+                .from('atlas_ai_notebook')
+                .select('*')
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async save(entries) {
+            const existing = await this.get();
+            if (existing) {
+                return verifiedUpdate('atlas_ai_notebook', existing.id, { entries });
+            }
+            return verifiedInsert('atlas_ai_notebook', { entries });
+        }
+    },
+
     // Only the streak (kind='streak') side of Targets is built -- Phase 3 owns
     // the count_toward_goal card UI and its own methods here.
     Targets: {

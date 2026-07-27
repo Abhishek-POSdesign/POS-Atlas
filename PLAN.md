@@ -8,7 +8,7 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-29 (Repo cleanup: removed an abandoned git worktree + 6 duplicate/dead files; drag-to-complete documented as a future item — no app code changed this pass) -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v41` -- **Latest migration:** `015_sleep_morning_note.sql`
+**Last updated:** 2026-07-29 (Atlas AI Phase 1 shipped: overlay, persona+PIN, hybrid routing, memory notebook, log-workout/log-sleep voice-write flows; header made sticky) -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v42` -- **Latest migration:** `016_ai_notebook.sql`
 
 ---
 
@@ -119,6 +119,20 @@ Everything below is deployed and confirmed on the live app. Anything Antigravity
 - Restore (via RPC) + "Delete forever" (hard delete, second confirmation modal).
 - Config-driven via `SECTION_DEFS` — adding a 10th soft-deletable entity is one entry there + matching db.js methods.
 
+### Atlas AI — Phase 1 (shipped 2026-07-29, mockup-approved beforehand)
+Full architecture plan lives in the session's approved plan doc (see SESSION_LOG.md entry below for the summary); built directly on the proven, already-shipped reference pattern from the sibling Task Manager app's "Partner" AI layer (`Personal management system/Deploy/js/features/ai.js` + `ui/aiPanel.js`), not the stale/superseded planning doc that sits next to it.
+- **Floating launcher** (`.ai-launcher`, 48px, bottom-right, Atlas's own compass mark — not an invented icon) opens the panel; hides while the panel is open.
+- **Docked panel, content-shifting, not an overlay** (`.ai-panel`) — no backdrop dim, no scroll lock. Docks flush against the bottom of Atlas's own header with zero gap (`--atlas-header-h` CSS var, measured at runtime in `ui/aiPanel.js`'s `init()` off `.app-header-sticky`'s real height — not a hardcoded pixel guess). `.content-area` picks up `margin-right: 370px` via a `body:has(.ai-panel-open)` CSS rule when open.
+- **Header made sticky** (`.app-header-sticky` wrapping `.top-header` + `.top-tabs` in `index.html`, `position: sticky; top:0` in `layout.css`) — was a real pre-existing bug (scrolled away), fixed as part of this pass since the AI panel needed to align with it.
+- **Header utility row**: context badge and "Atlas ·" prefix were both cut after mockup review (kept the header from feeling crowded) — just a bare `Local ▾`/`Cloud ▾` pill, notebook icon, settings gear, clear-chat (trash, routed through the existing `askConfirm()` singleton — not a bespoke inline bar), close.
+- **Persona system**: 7 fields (Role, Job, Targets, Knowledge, About Me, Responsibilities, Strict Instructions) in `features/aiConfig.js`, compiled into one system prompt via `buildSystemPrompt()`. Stored in `localStorage` only (`atlas_ai_persona`) — no schema needed, matches Partner's own pattern.
+- **PIN lock**: 6-digit numeric pad, SHA-256 hashed via Web Crypto (`atlas_ai_pin` in `localStorage`). Forgot-PIN / Change-PIN both clear only the hash — persona text and notebook are untouched.
+- **Hybrid routing**: one stored `{provider, model, endpoint}` setting (`atlas_ai_config`). Local = Ollama non-streaming `/api/chat` call (manual model-name field, no CORS auto-probe). Cloud = a **new, Atlas-specific Supabase Edge Function** (`atlas-ai`, distinct from the sibling app's `pos-partner`) — **not deployed yet**, needs its own Vertex/Gemini secret provisioned before Cloud actually answers; until then it fails with a plain "unavailable" message, never a silent fallback to Local.
+- **AI Memory Notebook**: new `atlas_ai_notebook` table (migration 016, single-row `entries jsonb`, RLS `authenticated`-only) + `localStorage` fast-read path, last-write-wins on `updated_at`. Pin / Save Session / Compact all implemented, each tries a real model summarization call first and falls back to a plain-text truncation if the provider is unreachable (never a hard failure).
+- **Voice-write flows — two shipped**: Log workout, Log sleep. Dictation (Web Speech API, same proven pattern as Partner) → the model is asked (via a fixed extraction instruction in `features/aiContext.js`) to respond with strict JSON if it recognizes either intent → the app validates/clamps every field (`sanitizeDraftFields()`, never trusts the model's raw values) → a confirm card renders inline in the chat stream → **only Confirm calls the real write** (`DB.Workout.save()` / `DB.Sleep.save()`) → Cancel discards, nothing written either way.
+- **Fact Package**: `features/aiContext.js`'s `buildFactPackage()` covers `explain_day`, `explain_task`, `explain_health`, `log_workout`, `log_sleep` — every one reads through existing `DB.*` methods only, no new queries invented. Every ordinary chat message currently carries `explain_day` as ambient context (the per-view context-badge binding was cut from this round's UI, so there's no separate "About: Project X" Fact Package variant live yet — `explain_task`/`explain_health` are reachable via the quick-action chips, which build their own package on demand).
+- **What's NOT done yet**: the `atlas-ai` Edge Function itself (Cloud provider will show "unavailable" until this is deployed with a real secret); the remaining three voice-write flows (task completion, checklist marking, journal reflections) — Phase 1 deliberately shipped only the two Abhishek's own examples named, per the approved plan's phased approach; per-view Fact Package binding (badge was cut, so it's always `explain_day` right now).
+
 ### Universal time picker (Round 2 build)
 - Shared Alpine `timePicker12h` component + `.tp-numeric` markup: two 2-digit numeric HH/MM inputs + AM/PM segmented control.
 - `inputmode="numeric"` opens the OS number pad on mobile.
@@ -179,8 +193,12 @@ Currently a modal overlay. A floating draggable variant (stay open while using t
 ### Visual-hierarchy pass on Projects list + Notebook
 Round 1 covered Today. Round 2 covered the Project workspace. A similar polish pass on the Projects list surface and the Notebook overlay was scoped-out for later. Deferred.
 
-### AI-teacher / conversational layer
-The old app has a full AI-layer plan (`handover-docs/AI-LAYER-IMPLEMENTATION-PLAN.md` in the sibling repo). Nothing equivalent has been planned for Atlas. Would be its own multi-round design review if Abhishek wants it.
+### AI layer -- Phase 1 shipped 2026-07-29 (see LIVE section above); fast-follow work
+Not started yet, deliberately deferred per the approved plan:
+- The `atlas-ai` Supabase Edge Function itself (Cloud provider needs this + a real Vertex/Gemini secret before it stops showing "unavailable").
+- The remaining three voice-write flows: task completion, checklist marking, journal reflections.
+- Per-view Fact Package binding (a context badge showing "About: Project X" etc. -- cut from the Phase 1 UI to de-clutter the header; every message currently carries `explain_day` as ambient context regardless of which page the panel was opened from).
+- Chapter 21 Stage 2+ (Vertex Teacher Mode, Logic Card versioning, Learning Records, Evaluation Packs) -- not attempted anywhere yet, including the sibling app; a distinct future initiative, not a Phase 1 gap.
 
 ---
 
@@ -201,8 +219,10 @@ Standing "would want an answer before starting" items — these are not blocking
 
 **Phase 6 (Tasks & Reminders) is substantially closed as of 2026-07-28.** Gemini shipped a starter slice (time picker, compact row, muted project chip) on 2026-07-27; Claude Code took it over and closed out the remaining items the same round: the sparkline console-crash fix, the Upcoming modal for future-dated tasks, Tasks-card inner scroll, and removal of the inert priority-pill/drag-handle hooks. See the "Phase 6 status" note under Today's Tasks & Reminders card (above) and under PLANNED (below) for the full detail on each. What's left is genuinely new work, not a fix-up of this round: a real priority system, real drag-and-drop, and the full History/Calendar page -- none of those were built this round, all three need their own design pass before any code starts.
 
+**Atlas AI Phase 1 shipped 2026-07-29** (overlay, persona+PIN, hybrid routing, memory notebook, log-workout/log-sleep voice-write flows). See the "AI layer" section above for what's deliberately still open.
+
 ### Next workstreams
-1. **AI planning:** Nothing scoped yet beyond the historical reference (`handover-docs/AI-LAYER-IMPLEMENTATION-PLAN.md`, written for the old app, not Atlas). Would need its own multi-round design review before any build starts.
+1. **Atlas AI fast-follow:** deploy the `atlas-ai` Edge Function (needs a real Vertex/Gemini secret), then the remaining three voice-write flows once the first two are live-tested.
 2. **Real priority system + real drag-and-drop:** design pass needed before building either -- see the Phase 6 status note for why the placeholders were removed rather than kept half-built.
 3. **History/Calendar page:** its own future phase; the Upcoming modal is the interim stand-in, not a replacement.
 

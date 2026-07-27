@@ -32,6 +32,37 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Opus 4.6/Sonnet 5) — Atlas AI Phase 1: planning, mockups, and build
+
+**Session scope:** A full cycle for Atlas's AI layer — read the four canonical AI architecture chapters (`Atlas/AI Chapters/19-22`) plus the sibling Task Manager app's real, shipped "Partner" AI reference implementation; wrote a structured Phase 1 plan (approved); built two mockup rounds (approved with named refinements); then built Phase 1 for real.
+
+**Research correction worth remembering:** the sibling app's `handover-docs/AI-LAYER-IMPLEMENTATION-PLAN.md` opens "status: proposal, not yet approved" but that app's own `CLAUDE.md` confirms a full AI layer ("Partner") actually shipped on top of it (Phase 3, v32–v36). The proposal doc is stale — the real code (`Deploy/js/features/ai.js`, `aiContext.js`, `ui/aiPanel.js` in `Personal management system/`) is what this session's plan and build were grounded in.
+
+**What shipped (commit pending):**
+- **Sticky header fix** — `.app-header-sticky` wrapper (`index.html`) + `position: sticky; top:0` (`layout.css`) around `.top-header` + `.top-tabs`. Was a real pre-existing bug (header scrolled away); fixed because the AI panel needed to dock flush against it.
+- **Migration `016_ai_notebook.sql`** — `atlas_ai_notebook` table (single-row `entries jsonb`), applied live via Supabase MCP. `DB.AiNotebook.get()/save()` added to `db.js`.
+- **`features/aiConfig.js`** (new) — persona/PIN/provider config storage, SHA-256 PIN hashing (Web Crypto), Ollama (non-streaming `/api/chat`) + Cloud (new `atlas-ai` Edge Function — not yet deployed) routing, notebook local+cloud sync (last-write-wins), `buildSystemPrompt()` compiling the 7-field persona + hard limits + notebook context.
+- **`features/aiContext.js`** (new) — `buildFactPackage()` for `explain_day`/`explain_task`/`explain_health`/`log_workout`/`log_sleep`, every one reading through existing `DB.*` methods only. `WRITE_FLOWS` definitions (log_workout, log_sleep) each carrying a fixed JSON-extraction instruction + a `write()` that calls the real `DB.Workout.save()`/`DB.Sleep.save()`. `sanitizeDraftFields()` validates/clamps every model-produced field before it's ever shown or written — the model's raw output is never trusted directly.
+- **`ui/aiPanel.js`** (new) — the Alpine component behind everything: panel open/close + content-shift, header-height measurement (`--atlas-header-h` CSS var, measured at runtime off `.app-header-sticky`, not hardcoded), chat send/receive, the propose→confirm→write loop for the two voice flows, Pin/Save Session/Compact notebook actions (each tries a real model summarization, falls back to plain truncation if unreachable), PIN gate + persona editor, provider picker, Web Speech API voice input (same proven pattern as the sibling app's `togglePartnerVoice()`), clear-chat routed through the existing `askConfirm()` singleton.
+- **`index.html`**: floating launcher (Atlas's own compass mark, not an invented icon) + the full docked panel markup (header row, chat/notebook/settings/persona views).
+- **`components.css`**: ~230 new lines for the launcher, panel, header icons/model-pill, composer, message bubbles/day-separators/timestamps, confirm card, notebook/settings/persona views, PIN pad.
+- Cache bump `v41` → `v42`.
+
+**Mockup-review refinements applied before this build** (both rounds approved, second round's exact asks are all reflected in the code above): floating launcher instead of always-visible panel; content-shifting dock instead of overlay; full header icon row (model switch, notebook, settings, clear, close); growing textarea composer (Enter sends, Shift+Enter newlines); day separators + muted timestamps; **removed** the per-view context badge and the "Atlas ·" prefix on the model pill (both cut for header decluttering per direct feedback); **used Atlas's real compass logo**, not an invented AI icon.
+
+**What's deliberately NOT done (see PLAN.md "AI layer" section for the full list):**
+- The `atlas-ai` Supabase Edge Function itself isn't deployed — Cloud provider will show "unavailable" until a real Vertex/Gemini secret is provisioned and the function is created. This needed real credentials I don't have; building it blind would mean shipping a broken cloud path, so it's left as the explicit next infra step instead.
+- Only 2 of the plan's 5 voice-write flows shipped (log workout, log sleep) — exactly Abhishek's own dictation examples, per the plan's phased "prove it, then expand" approach. Task completion / checklist / journal reflection flows are a fast-follow.
+- No per-view Fact Package binding — every chat message currently carries `explain_day` as ambient context regardless of which page the panel was opened from, since the context badge that would have shown this was cut from the header this round.
+
+**What was verified:** `node --check` clean on all 3 new files + `main.js` + `db.js`. HTML tag balance (div/template/svg/button/aside all matched). CSS brace balance matched (681/681). Dev server boots with zero console/server errors on the login screen (per Atlas's own local-dev rule — shared prod DB, no sign-in-and-click-around locally). Migration applied and confirmed via Supabase MCP.
+
+**What's still open:** Abhishek needs to test live — panel open/close + content-shift, header sticky behavior, PIN set/unlock/forgot, persona editing, Local provider (if Ollama is running on his machine) actually answering, and the two voice-write confirm cards actually parsing a dictated "logged my workout, score X, calories Y" / "slept N hours" correctly before Confirm writes anything real.
+
+**What NOT to do:** Don't wire Cloud provider calls to the sibling app's `pos-partner` Edge Function or its `VERTEX_API_KEY_POS` secret — Atlas needs its own `atlas-ai` function and its own secret, per the module-independence convention every other Atlas backend object already follows. Don't trust the model's JSON draft fields directly in a write — always go through `sanitizeDraftFields()`. Don't add a 6th write flow without also adding its confirm-card fields + a `write()` in `WRITE_FLOWS` — the pattern is meant to stay flow-definition-driven, not special-cased per flow in `aiPanel.js`.
+
+---
+
 ## 2026-07-29 · Claude Code (Sonnet 5) — Repo cleanup: dead worktree + duplicate files, drag-to-complete deferred
 
 **Session scope:** Abhishek accepted the split-card Tasks layout + empty-state illustration as-is (no changes needed). He asked one question — is a "drag a task onto the Completed card to mark it done" gesture feasible, and how big a build — got a direct size answer (small-medium desktop-only, medium-large for real touch support) and chose to defer it. Then asked for two things before closing: (1) document the deferred drag-to-complete idea as a future item, (2) audit the Atlas folder for duplicate files/folders and remove them, keeping only what's current. No app code (`Deploy/`) touched this pass — pure docs + repo hygiene.

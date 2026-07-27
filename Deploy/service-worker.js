@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v41';
+const CACHE_NAME = 'atlas-offline-shell-v42';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -30,6 +30,9 @@ const ASSETS_TO_CACHE = [
     '/js/pages/notebook.js',
     '/js/pages/restore.js',
     '/js/pages/checklist.js',
+    '/js/ui/aiPanel.js',
+    '/js/features/aiConfig.js',
+    '/js/features/aiContext.js',
     '/js/entities/project.js',
     '/js/entities/project-note.js',
     '/js/entities/task.js',
