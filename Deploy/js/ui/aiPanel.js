@@ -64,6 +64,8 @@ export function atlasAi() {
         endpoint: 'http://localhost:11434',
         webSearch: false,
         voiceReply: false,
+        voiceName: '',
+        voiceList: [],
 
         messages: [],
         draft: '',
@@ -94,7 +96,16 @@ export function atlasAi() {
             this.endpoint = cfg.endpoint;
             this.webSearch = !!cfg.webSearch;
             this.voiceReply = !!cfg.voiceReply;
+            this.voiceName = cfg.voiceName || '';
             this.persona = loadPersona();
+
+            // Populate voice list — voices load asynchronously on some browsers
+            const loadVoices = () => {
+                const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+                if (voices.length) this.voiceList = voices.map(v => ({ name: v.name, lang: v.lang }));
+            };
+            loadVoices();
+            if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
             this.hasPin = pinExists();
             this.messages = loadChatHistory();
             this.notebookEntries = loadNotebookLocal();
@@ -114,17 +125,20 @@ export function atlasAi() {
             this.modelMenuOpen = false;
         },
         saveProviderConfig() {
-            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply });
+            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply, voiceName: this.voiceName });
         },
-        toggleVoiceReply() {
-            this.voiceReply = !this.voiceReply;
-            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply });
-            if (!this.voiceReply) window.speechSynthesis.cancel();
+        // Called by @change on the voice-reply checkbox. x-model already toggled
+        // this.voiceReply; this function only saves + cancels queued speech.
+        onVoiceReplyChange() {
+            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply, voiceName: this.voiceName });
+            if (!this.voiceReply && window.speechSynthesis) window.speechSynthesis.cancel();
+        },
+        onVoiceNameChange() {
+            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply, voiceName: this.voiceName });
         },
         _speak(text) {
             if (!this.voiceReply || !window.speechSynthesis) return;
             window.speechSynthesis.cancel();
-            // Strip confirm-card interjection text and UI noise; speak just the prose
             const clean = text
                 .replace(/\[System:.*?\]/g, '')
                 .replace(/⚠[^\n]*/g, '')
@@ -132,8 +146,13 @@ export function atlasAi() {
                 .trim();
             if (!clean) return;
             const utt = new SpeechSynthesisUtterance(clean);
-            utt.rate = 1.05;
+            utt.rate = 1.0;
             utt.pitch = 1;
+            if (this.voiceName) {
+                const voices = window.speechSynthesis.getVoices();
+                const match = voices.find(v => v.name === this.voiceName);
+                if (match) utt.voice = match;
+            }
             window.speechSynthesis.speak(utt);
         },
 

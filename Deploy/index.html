@@ -158,7 +158,7 @@
                                         </label>
                                     </template>
                                     <label class="model-menu-checkbox">
-                                        <input type="checkbox" x-model="voiceReply" @change="toggleVoiceReply()">
+                                        <input type="checkbox" x-model="voiceReply" @change="onVoiceReplyChange()">
                                         <span>🔊 Voice replies</span>
                                     </label>
                                 </div>
@@ -329,9 +329,21 @@
                                     </label>
                                 </template>
                                 <label class="model-menu-checkbox" style="background:var(--surface-2); border-radius:8px;">
-                                    <input type="checkbox" x-model="voiceReply" @change="toggleVoiceReply()">
+                                    <input type="checkbox" x-model="voiceReply" @change="onVoiceReplyChange()">
                                     <span>🔊 Voice replies (Atlas speaks its answers aloud)</span>
                                 </label>
+                                <template x-if="voiceReply && voiceList.length">
+                                    <div class="pfield">
+                                        <label>Voice</label>
+                                        <select x-model="voiceName" @change="onVoiceNameChange()" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-1);color:var(--text);font-size:13px;">
+                                            <option value="">Default voice</option>
+                                            <template x-for="v in voiceList" :key="v.name">
+                                                <option :value="v.name" x-text="v.name + ' (' + v.lang + ')'"></option>
+                                            </template>
+                                        </select>
+                                        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">On Windows, look for Microsoft voices — they sound the most natural.</div>
+                                    </div>
+                                </template>
                                 <div class="settings-row-link" @click="view = 'persona'">
                                     <span>🔒 Persona &amp; PIN</span><span>→</span>
                                 </div>
