@@ -32,6 +32,42 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-28 · Claude Code (Sonnet 4.6) — Atlas AI live-testing fix round 3: extraction root causes + voice replies
+
+**Session scope:** First session on the new Claude account (Abhishek's wife's). Picked up after the Phase 1 handover. Spent the session doing deep live-testing and fixing three layers of extraction bugs, then shipped voice replies + a workout score fix.
+
+**What shipped (commits):**
+- `b5219b4` — Strip markdown code fences from model JSON replies; add IST/Delhi/India-first to system prompt
+- `d6e8a4b` — Safety-net warning when model mentions logging in prose but no JSON parsed; sleep empty-state SVG illustration; trend chart pinned to bottom of panel
+- `f9b7f50` — Expand sleep extraction to all 7 fields (was only 3); `_extractFirstJson()` brace-depth parser for double-JSON replies
+- `c839f7a` — **Root cause fix**: include confirm card outcomes in conversation history sent to model; restructure extraction as two-step decision tree (classify intent → extract)
+- `86ef090` — **Deeper root cause fix**: client-side intent pre-classification (`_detectIntent()`), only attach the matching extraction instruction; fix duplicate user message; strip field values from confirm card history summaries to prevent value anchoring; merge consecutive same-role messages
+- `b2d3dc8` — Voice replies (SpeechSynthesis, toggle in header + Settings); workout score fix (max 10→100); hard block on fake task completion in system prompt
+
+**What was confirmed live by Abhishek:**
+- Gemini (Cloud): sleep logged correctly with all 7 fields (420 min, score 86, deep 30, REM 80, resting HR 55, HRV 40)
+- Gemini (Cloud): workout logged correctly after sleep (score, calories, duration, note — separate confirm card, not re-logging sleep)
+- Gemma4 (Local): workout also worked (calories 300, duration 50, note "Leg day")
+- Conversation tone (Gemma4): warm, non-robotic, asking follow-up questions naturally
+- Task marking asked → model now told it cannot do this; will redirect to the task card checkbox
+
+**Key root causes found (for future agents):**
+1. Duplicate user message — `sendMessage()` pushes to `this.messages`, then old `_askModel()` loop iterated ALL messages (including the just-pushed one) AND appended `userText` again. Fixed: slice to `[0, -1]`, append once at end.
+2. Both extraction instructions always sent — sleep instruction (7 fields, detailed) always dominated when sleep values were in history. Fixed: `_detectIntent()` keyword-matches the message; only the matching instruction is sent.
+3. Value anchoring via confirm history — confirm card summaries included all field values (480, 93, 70...) priming the model to repeat them. Fixed: summaries now say only "[title] was confirmed and saved. That intent is complete.]" — no values.
+
+**What's still open / next session:**
+- Screenshot parsing (Garmin ring app screenshots → auto-fill confirm card) — PLAN.md already has this noted, placeholder "Attach screenshot" buttons already in the UI. Abhishek wants this next.
+- Voice replies shipped but not yet tested live — he was going to sleep. Test: enable the 🔊 checkbox in the model menu, say something, confirm Atlas speaks back.
+- The "morning_note" field takes qualitative text ("to be honest I had a good sleep") including filler words. Not a bug, but could be filtered with a note to the model to keep only meaningful reflections.
+- Task completion as a real write flow (confirm card) is the natural next AI write flow after screenshot parsing.
+
+**What NOT to do:**
+- Do NOT re-enable sending both extraction instructions at once — the intent pre-classification on the client side is the fix; sending both = value anchoring regression.
+- Do NOT include field values in confirm card history summaries — it primes the model to repeat old numbers on the next message.
+
+---
+
 ### 2026-07-29 — Atlas AI Phase 1 handover (Abhishek's Claude account)
 
 **This entry marks the end of work on Abhishek's own Claude account.** He's near his usage limit and will continue future sessions from a different Claude account (his wife's), against this exact same GitHub repo and Supabase project — no codebase or backend change, only the account running the session.
