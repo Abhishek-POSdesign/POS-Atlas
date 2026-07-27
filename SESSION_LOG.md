@@ -370,3 +370,7 @@ Companion docs sit beside this one:
 ### 2026-07-27 - Phase 6 tasks and time picker starter slice
 - **Time Picker Overhaul**: Switched the 12-hour time picker numeric inputs to <select> dropdowns enforcing 15-minute minute intervals (00, 15, 30, 45) to enable native mobile scrolling. Time format displayed to user remains strictly AM/PM while silently mapping to HH:MM internally.
 - **Tasks & Reminders Hooks**: Added structural placeholders across all .trv2-row occurrences for future drag handles, priority/focus pills, and a History Map comment tab without touching deeper data models or decorative styling.
+
+### 2026-07-27 - Phase 6 minimal repair and compact layout
+- **Console Errors Fixed**: Moved HTML placeholders inside the span node for the <template x-if=...> priority hook blocks, ensuring Alpine v3 sees exactly one root node, fixing the children and seg is not defined crash chain.
+- **Compact Row Layout**: Updated Today's upcoming and completed task rows to combine the Task Name and Priority Pill onto a single flex row, and the Project Chip and Context Note onto a single flex row with CSS ellipsis truncation, making the UI denser without touching data logic.
