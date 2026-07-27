@@ -8,7 +8,7 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-27 (Phase 5 Health panel polish — pill depth now on both Sleep chips AND Workout session rows) · **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) · **Current cache version:** `atlas-offline-shell-v34` · **Latest migration:** `015_sleep_morning_note.sql`
+**Last updated:** 2026-07-27 (Phase 5 Health panel polish — pill depth on both panels + EXPERIMENTAL gradient tint, not yet confirmed) · **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) · **Current cache version:** `atlas-offline-shell-v35` · **Latest migration:** `015_sleep_morning_note.sql`
 
 ---
 
@@ -47,6 +47,7 @@ Everything below is deployed and confirmed on the live app. Anything Antigravity
 - **Checklist Today ring — skipped colour:** `--accent-amber` (was `--border-hover`, invisible). Matches trend chart + mini-dots.
 - **Journal pencil:** icon-button next to the Today H1, real hover/focus `.tooltip` in `--surface-2` (not `title=`), toggles the inline daily-note composer.
 - **Health row (2026-07-27 restructure):** Sleep + Workout panels sit in their own full-width row below Tasks, not squeezed into a 40% column beside it. Plain CSS grid (`display:grid; grid-template-columns:1fr 1fr`, default `align-items:stretch`) equalizes both panel heights automatically — no scroll cage, no min/max plumbing needed. Single column under 900px. Both panels have `.nodata` two-line helper when unset (names the manual + planned-AI-parse flow).
+- **EXPERIMENTAL, unconfirmed (2026-07-27):** both panels currently carry `tint-lilac`/`tint-blue` — a faint gradient wash (`linear-gradient(180deg, var(--accent-*-tint), var(--surface-1) 38%)`, same tint-token pattern as `.kpi-card.hero`/`.streak-card.color-*`) concentrated behind the header, fading to plain `--surface-1` before the note chips/session pills. Abhishek asked to try this right at the end of the session and had not seen it live yet when the session ended — it may get reverted next session. See `SESSION_LOG.md`'s matching entry for exact revert steps if asked.
 - **Routine (checklist):** always visible below the Health row. Starts fully collapsed on every mount (session-only, never persisted). Four blocks (Morning/Afternoon/Night/Sleep) with 5 px coloured left-edge. Mini-dots share colour language with the trend chart. Log popup (name + time + note). Log button muted 35% on already-marked rows.
 - **Checklist Completion trend:** 30-day stacked bar chart (sage done / amber skipped / coral missed). Legend at 11 px dots + 500-weight secondary text.
 

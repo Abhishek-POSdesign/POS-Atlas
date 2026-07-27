@@ -1459,6 +1459,14 @@
 @media (max-width: 900px) { .health-row { grid-template-columns: 1fr; } }
 
 .health-panel { padding: var(--pad-lg); display: flex; flex-direction: column; }
+/* Experimental (2026-07-27, "just a little bit" ask) -- same gradient-tint
+   pattern the KPI hero card and streak cards already use (accent-tint
+   fading into --surface-1), no new colours. Stop pulled way in from the
+   KPI card's 75% since a Health panel is much taller -- this keeps the
+   wash concentrated behind the header/metrics and fades out well before
+   the note chips/session pills, instead of tinting the whole card. */
+.health-panel.tint-lilac { background: linear-gradient(180deg, var(--accent-lilac-tint), var(--surface-1) 38%); }
+.health-panel.tint-blue { background: linear-gradient(180deg, var(--accent-blue-tint), var(--surface-1) 38%); }
 .health-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 /* Title promoted 13px -> 17px (Comet review) -- was reading as a label,
    not a section title. Matches the weight of Work log / Tasks headers

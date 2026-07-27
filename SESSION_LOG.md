@@ -32,6 +32,21 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — EXPERIMENT: subtle gradient tint on Health panels
+
+**Session scope:** Abhishek, closing out the session: "I want to give it a try before I close... if it doesn't look good, we will revert back." Wants the Health panels to pick up a faint version of the same colored-gradient wash the KPI hero card / streak cards already use, since those read as "premium" and the flat Health panels look comparatively flat by contrast. Explicitly: no new colors, just a little bit, must still look professional.
+
+**What shipped (commit pending) — EXPLICITLY EXPERIMENTAL, may get reverted next session:**
+- `Deploy/index.html` — added `tint-lilac` class to the Sleep `.card.health-panel`, `tint-blue` to the Workout one (matching each panel's existing header icon-chip color).
+- `Deploy/css/components.css` — `.health-panel.tint-lilac`/`.tint-blue`: `linear-gradient(180deg, var(--accent-{lilac,blue}-tint), var(--surface-1) 38%)` — the exact same tint-token pattern `.kpi-card.hero`/`.streak-card.color-*` already use elsewhere in this file, not a new colour. Stop pulled in to 38% (vs. the KPI hero card's 75%) because Health panels are much taller than a KPI card — this concentrates the wash behind the header/metrics and fades to plain `--surface-1` well before the note chips / session pills, so it reads as a subtle top accent, not a full-card tint.
+- `Deploy/service-worker.js` — cache `v34` → `v35`.
+
+**What was verified locally:** brace/tag balance checks clean, `node --check` clean, dev server boots with zero console/server errors.
+
+**What's still open / what NOT to do:** Abhishek has not yet seen this live and was explicit it might get reverted. **If the next session opens with "revert the tint" or similar, just remove the two `tint-lilac`/`tint-blue` classes from the two `.card.health-panel` elements in `index.html` and delete the `.health-panel.tint-lilac`/`.tint-blue` CSS rule — don't re-litigate the rest of the Health panel work, only this one experimental addition is in question.** Everything else from this session's earlier passes (pill-depth chips, session icons, sparkline color echo, legend placement) is separately confirmed-good and should stay regardless of this experiment's outcome.
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Pill depth on Workout session rows too
 
 **Session scope:** Abhishek's exact words: "you did right with the sleep section... but you didn't apply it in the strength section... today's workout with the same professional [design], without the color icon of workout, walk, play — the options we have should have the same design, so yes, that is what is pending." Reading: the previous pass only put the track/pill depth treatment on Sleep's note chips; the Workout panel's "Today's sessions" rows (strength/cardio_walk/yoga_stretch/active_play/cleaning) were left as flat `--surface-2` boxes. This pass gives session rows the identical pill treatment, plus a small muted (not colour-coded) icon per activity type.
