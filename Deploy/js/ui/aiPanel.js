@@ -205,13 +205,23 @@ export function atlasAi() {
                 // here too or the rule and the data contradict each other).
                 systemPrompt += '\n\n## FACTS AVAILABLE IF RELEVANT (do not mention these for a greeting or small talk)\n' + JSON.stringify(pkg.facts, null, 1);
                 systemPrompt += '\n\n## VOICE-WRITE EXTRACTION RULES (only apply if the message matches)\n';
-                systemPrompt += WRITE_FLOWS.log_workout.extractionInstruction + '\n' + WRITE_FLOWS.log_sleep.extractionInstruction;
+                systemPrompt += 'STEP 1: Decide which SINGLE intent matches the message. A message is about WORKOUT if it mentions exercise, training, cardio, strength, calories burned, gym, etc. A message is about SLEEP if it mentions sleeping, hours of sleep, sleep score, deep sleep, REM, resting heart rate, HRV, etc. If neither matches, reply normally in prose. Never apply both intents to one message.\n';
+                systemPrompt += 'STEP 2: Produce ONLY the JSON for the matched intent.\n\n';
+                systemPrompt += '### If WORKOUT:\n' + WRITE_FLOWS.log_workout.extractionInstruction + '\n\n';
+                systemPrompt += '### If SLEEP:\n' + WRITE_FLOWS.log_sleep.extractionInstruction;
 
                 const apiMessages = [{ role: 'system', content: systemPrompt }];
-                // Last few turns of real conversation history for continuity --
-                // not the whole session, keeps the prompt small.
-                const recent = this.messages.filter(m => m.type === 'text').slice(-8);
-                for (const m of recent) apiMessages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text });
+                const recent = this.messages.slice(-12);
+                for (const m of recent) {
+                    if (m.type === 'text') {
+                        apiMessages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text });
+                    } else if (m.type === 'confirm' && m.decided) {
+                        const summary = m.decided === 'saved'
+                            ? '[System: ' + m.draft.title + ' was confirmed and saved to Atlas. Fields: ' + m.draft.fields.map(f => f.k + '=' + f.v).join(', ') + '. That intent is now complete -- do not repeat it.]'
+                            : '[System: Draft was discarded -- nothing was saved.]';
+                        apiMessages.push({ role: 'assistant', content: summary });
+                    }
+                }
                 apiMessages.push({ role: 'user', content: userText });
 
                 const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch };
@@ -309,9 +319,12 @@ export function atlasAi() {
         },
 
         async saveSession() {
-            const recent = this.messages.filter(m => m.type === 'text').slice(-10);
+            const recent = this.messages.filter(m => m.type === 'text' || (m.type === 'confirm' && m.decided)).slice(-10);
             if (!recent.length) return;
-            const transcript = recent.map(m => `${m.role}: ${m.text}`).join('\n');
+            const transcript = recent.map(m => {
+                if (m.type === 'confirm') return 'assistant: [' + (m.decided === 'saved' ? 'Saved ' + m.draft.title : 'Discarded draft') + ']';
+                return `${m.role}: ${m.text}`;
+            }).join('\n');
             let summary = 'Session covered: ' + recent.filter(m => m.role === 'user').map(m => m.text).slice(0, 3).join('; ');
             try {
                 const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint };
