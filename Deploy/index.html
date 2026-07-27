@@ -353,16 +353,13 @@
                                                 </div>
                                             </template>
                                             <template x-for="task in upcomingTasks" :key="task.id">
-                                                <div class="trv2-row" :class="{ 'is-overdue': isOverdue(task), 'is-done': task.status==='done' }" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name" style="grid-template-columns: auto auto minmax(0, 1fr) auto;">
-                                                    <div class="trv2-drag-handle" style="cursor: grab; opacity: 0.3;" aria-hidden="true" title="Drag to reorder (future)">⋮⋮</div>
+                                                <div class="trv2-row" :class="{ 'is-overdue': isOverdue(task), 'is-done': task.status==='done' }" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
                                                     <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                     </button>
                                                     <div class="trv2-body" style="min-width: 0;">
                                                         <div style="display: flex; align-items: center; gap: 6px;">
                                                             <div class="trv2-name" x-text="task.name"></div>
-                                                            <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
-                                                            <span x-show="task.priority === 'high'" class="trv2-focus-pill" style="display:none;"></span>
                                                         </div>
                                                         <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
                                                             <template x-if="task.kind==='reminder'">
@@ -401,16 +398,13 @@
                                                 <div>
                                                     <div class="task-list-divider">Recently completed</div>
                                                     <template x-for="task in recentlyCompleted" :key="task.id">
-                                                        <div class="trv2-row is-done is-inert" style="grid-template-columns: auto auto minmax(0, 1fr) auto;">
-                                                            <div class="trv2-drag-handle" style="cursor: grab; opacity: 0.3; visibility: hidden;" aria-hidden="true">⋮⋮</div>
+                                                        <div class="trv2-row is-done is-inert" style="grid-template-columns: auto minmax(0, 1fr) auto;">
                                                             <button class="trv2-check is-done" tabindex="-1" aria-hidden="true">
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                             </button>
                                                             <div class="trv2-body" style="min-width: 0;">
                                                                 <div style="display: flex; align-items: center; gap: 6px;">
                                                                     <div class="trv2-name" x-text="task.name"></div>
-                                                                        <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
-                                                                        <span x-show="task.priority === 'high'" class="trv2-focus-pill" style="display:none;"></span>
                                                                 </div>
                                                                 <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
                                                                     <template x-if="task.kind!=='reminder'">
@@ -434,6 +428,12 @@
                                                     </template>
                                                 </div>
                                             </template>
+                                        </div>
+                                        <!-- Upcoming (Phase 6): today's own list/filter never widens --
+                                             this is the one place future-dated tasks/reminders are visible
+                                             and manageable without leaving Today. -->
+                                        <div class="task-list-footer" x-show="futureTasks.length > 0">
+                                            <button class="btn-text" @click="openUpcomingModal()">View more<span x-text="' (' + futureTasks.length + ' upcoming)'"></span></button>
                                         </div>
                                 </div>
 
@@ -528,9 +528,13 @@
                                                             </defs>
                                                             <line class="health-spark-goal" x1="0" :y1="sleepSparkline.goalY" :x2="sleepSparkline.W" :y2="sleepSparkline.goalY"></line>
                                                             <polygon class="health-spark-area" :points="sleepSparkline.areaPoints" fill="url(#sleepSparkGradient)"></polygon>
-                                                            <template x-for="seg in sleepSparkline.segments" :key="seg.key">
-                                                                <line class="health-spark-line" :class="seg.above ? 'above' : 'below'" :x1="seg.x1" :y1="seg.y1" :x2="seg.x2" :y2="seg.y2"></line>
-                                                            </template>
+                                                            <!-- Colored segments injected via x-html, not a looped Alpine
+                                                                 template (Phase 6 console-error fix, 2026-07-28) -- a
+                                                                 template tag inside an svg element parses in the SVG
+                                                                 namespace, not HTML, and Alpine's x-for cloning can't walk
+                                                                 it. x-html just sets innerHTML directly, same safe pattern
+                                                                 sessionIconSvg() below already uses inside an svg element. -->
+                                                            <g x-html="sleepSparkline.segmentsSvg"></g>
                                                             <circle class="health-spark-dot" :class="sleepSparkline.last.above ? 'above' : 'below'" :cx="sleepSparkline.last.x" :cy="sleepSparkline.last.y" r="3.5"></circle>
                                                         </svg>
                                                     </div>
@@ -994,6 +998,62 @@
                                             <button class="btn-text" @click="closeTaskModal()">Cancel</button>
                                             <button class="btn btn-primary" @click="submitTask()" x-text="editingTaskId ? 'Save' : 'Add'"></button>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Upcoming modal (Phase 6) -- lists every future-dated task/
+                             reminder (scheduled_date > today). Today's own list/filter
+                             never widens to show these; this modal is the interim home
+                             for them until a full History/Calendar page exists. Reuses
+                             the exact same .trv2-row anatomy and edit flow as Today's
+                             list -- no new row component. -->
+                        <template x-if="upcomingModalOpen">
+                            <div class="modal-overlay" @click.self="closeUpcomingModal()">
+                                <div class="modal" style="max-width: 560px;">
+                                    <div class="section-header" style="margin-top: 0;">
+                                        <h2 style="margin: 0;">Upcoming</h2>
+                                        <button class="btn-text" @click="closeUpcomingModal()">Close</button>
+                                    </div>
+                                    <p style="color: var(--text-muted); font-size: 12.5px; margin: 0 0 16px;">Future-dated tasks and reminders. Tap one to edit or reschedule it.</p>
+                                    <div class="task-list" style="max-height: 60vh;">
+                                        <template x-for="task in futureTasks" :key="task.id">
+                                            <div class="trv2-row" @click="openTaskFromUpcoming(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskFromUpcoming(task)" @keydown.space.prevent="openTaskFromUpcoming(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
+                                                <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                </button>
+                                                <div class="trv2-body" style="min-width: 0;">
+                                                    <div class="trv2-name" x-text="task.name"></div>
+                                                    <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
+                                                        <template x-if="task.kind==='reminder'">
+                                                            <span class="trv2-kind reminder" style="flex-shrink: 0; margin-right: 6px;">
+                                                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                                                                Reminder
+                                                            </span>
+                                                        </template>
+                                                        <template x-if="task.kind!=='reminder'">
+                                                            <span class="trv2-kind task" x-text="projectFor(task) ? 'Task' : 'Task · Standalone'" style="flex-shrink: 0; margin-right: 6px;"></span>
+                                                        </template>
+                                                        <template x-if="projectFor(task)">
+                                                            <span class="trv2-project" :class="'color-' + projectFor(task).color_key" style="flex-shrink: 0; margin-right: 6px;">
+                                                                <span class="trv2-project-dot"></span>
+                                                                <span x-text="projectFor(task).name"></span>
+                                                            </span>
+                                                        </template>
+                                                        <template x-if="isPendingComplete(task)">
+                                                            <span class="trv2-confirm-hint" style="flex-shrink: 0;">Tap ✓ again to confirm</span>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                                <div class="trv2-time-col">
+                                                    <div class="trv2-time" x-text="window.formatTaskDateTime(task.scheduled_date, task.scheduled_time)"></div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template x-if="futureTasks.length === 0">
+                                            <p style="color: var(--text-muted); font-style: italic; padding: var(--pad-md) 0;">Nothing upcoming.</p>
+                                        </template>
                                     </div>
                                 </div>
                             </div>
@@ -1539,24 +1599,18 @@
                                 <div class="ws-section">
                                     <div class="ws-section-head">
                                         <h2>Tasks</h2>
-                                        <!-- Future Phase Only: History Map Tab Placeholder -->
-                                        <!-- <button class="btn-text">History Map</button> -->
                                         <button class="head-action" x-show="project.status !== 'completed'" @click="openAddTaskModal()">+ Add task</button>
-
                                     </div>
                                     <div class="task-list" style="max-height: none; overflow: visible;">
                                         <template x-for="task in tasks" :key="task.id">
                                             <div>
-                                                <div class="trv2-row" :class="{ 'is-done': task.status==='done' }" @click="project.status === 'completed' ? null : openEditTaskModal(task)" role="button" tabindex="0" @keydown.enter.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" @keydown.space.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" :aria-label="'Edit task: ' + task.name" style="grid-template-columns: auto auto minmax(0, 1fr) auto;">
-                                                    <div class="trv2-drag-handle" style="cursor: grab; opacity: 0.3;" aria-hidden="true" title="Drag to reorder (future)">⋮⋮</div>
+                                                <div class="trv2-row" :class="{ 'is-done': task.status==='done' }" @click="project.status === 'completed' ? null : openEditTaskModal(task)" role="button" tabindex="0" @keydown.enter.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" @keydown.space.prevent="project.status === 'completed' ? null : openEditTaskModal(task)" :aria-label="'Edit task: ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
                                                     <button class="trv2-check" :disabled="project.status === 'completed'" :class="{ 'is-pending': isPendingComplete(task), 'is-done': task.status==='done' }" @click.stop="(task.status==='done' || project.status === 'completed') ? null : handleCompleteClick(task)" :aria-label="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Confirm mark done' : 'Mark done')" :title="task.status==='done' ? 'Already done' : (isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done')">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                     </button>
                                                     <div class="trv2-body">
                                                         <div class="trv2-name" x-text="task.name"></div>
                                                         <div class="trv2-meta">
-                                                            <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
-                                                            <span x-show="task.priority === 'high'" class="trv2-focus-pill" style="display:none;"></span>
                                                             <span class="trv2-kind task">Task</span>
                                                             <template x-if="task.status==='not_started' || task.status==='paused'">
                                                                 <button class="trv2-start" @click.stop="startTask(task)" :title="task.status==='paused' ? 'Resume task' : 'Start task'" x-text="task.status==='paused' ? '▶ Resume' : '▶ Start'"></button>

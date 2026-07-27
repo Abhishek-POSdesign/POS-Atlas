@@ -62,6 +62,12 @@ export function todayPage() {
         editingTaskId: null,
         taskForm: { name: '', kind: 'task', date: '', time: '', projectId: '', notify: false },
 
+        // ---- Upcoming modal (Phase 6) ----
+        // Today's own list/filter (upcomingTasks below) never widens beyond
+        // today+overdue+undated -- this modal is the one place future-dated
+        // tasks/reminders are visible and manageable without leaving Today.
+        upcomingModalOpen: false,
+
         // ---- checklist KPI (today's done/total, for the ring) ----
         checklistDoneToday: 0,
         checklistTotalToday: 0,
@@ -151,6 +157,22 @@ export function todayPage() {
         get tasksTodayTotal() {
             return this.upcomingTasks.length + this.recentlyCompleted.length;
         },
+        // ---- future-dated tasks/reminders (Phase 6, Upcoming modal) ----
+        // A clean partition of upcomingTasks above: that one only ever
+        // includes scheduled_date <= today or undated, this one is strictly
+        // scheduled_date > today. No overlap, upcomingTasks itself unchanged.
+        get futureTasks() {
+            const today = todayIsoDate();
+            return this.tasks
+                .filter(t => t.status !== 'done' && t.scheduled_date && t.scheduled_date > today)
+                .sort((a, b) => {
+                    if (a.scheduled_date !== b.scheduled_date) return a.scheduled_date < b.scheduled_date ? -1 : 1;
+                    const at = a.scheduled_time || '';
+                    const bt = b.scheduled_time || '';
+                    return at < bt ? -1 : (at > bt ? 1 : 0);
+                })
+                .slice(0, 50);
+        },
         get activeProjectCount() {
             return this.projects.length;
         },
@@ -228,6 +250,17 @@ export function todayPage() {
             this.taskModalOpen = true;
         },
         closeTaskModal() { this.taskModalOpen = false; this.editingTaskId = null; },
+
+        // ---- Upcoming modal (Phase 6) ----
+        openUpcomingModal() { this.upcomingModalOpen = true; },
+        closeUpcomingModal() { this.upcomingModalOpen = false; },
+        // Row click from inside the Upcoming modal -- close it first so we
+        // never have two full-size modals stacked, then reuse the exact
+        // same edit modal every other row in the app opens.
+        openTaskFromUpcoming(task) {
+            this.upcomingModalOpen = false;
+            this.openTaskEditModal(task);
+        },
         async submitTask() {
             const name = this.taskForm.name.trim();
             if (!name) return;
@@ -762,11 +795,22 @@ export function todayPage() {
         // in the line, never a fake zero/flat-carry value. Coordinate space
         // is a fixed 280x80 viewBox rendered with preserveAspectRatio="none"
         // so the SVG stretches to whatever width the panel actually has.
-        // `segments` (added in the follow-up polish pass) lets the line echo
-        // sage/coral per-night relative to the goal line, same colour
-        // language as sleepBarColor() used to give the old bar chart --
-        // rendered as individual <line> elements since a single <polyline>
-        // can only take one stroke colour.
+        //
+        // `segmentsSvg` (Phase 6 fix, 2026-07-28): the colored per-night
+        // line segments used to be a `segments` array looped with
+        // `<template x-for>` *inside* the <svg> element. SVG content parses
+        // in a different namespace than HTML, so a <template> there isn't a
+        // real HTMLTemplateElement -- Alpine's directive walker can't read
+        // .content off it, which is what threw "Cannot read properties of
+        // undefined (reading 'children')" and "seg is not defined" in the
+        // console. Fix: precompute the <line> tags as one markup string
+        // here and inject it with x-html on a <g> in index.html -- x-html
+        // just sets innerHTML, no template-cloning involved, same safe
+        // pattern sessionIconSvg() below already uses for the workout
+        // session icons (also injected into an <svg> via x-html, and it
+        // works fine). Same at-a-glance sage/coral-vs-goal colouring as
+        // before, same colour language sleepBarColor() used to give the
+        // old bar chart -- only how the markup reaches the DOM changed.
         get sleepSparkline() {
             const days = this.sleepTrendDays.slice(-14).filter(d => d.duration != null);
             if (days.length < 2) return null;
@@ -783,12 +827,13 @@ export function todayPage() {
             const linePoints = points.map(p => `${p.x},${p.y}`).join(' ');
             const areaPoints = `0,${H} ${linePoints} ${W},${H}`;
             const goalY = Math.round((PAD + (1 - (this.sleepGoalMinutes - min) / range) * (H - PAD * 2)) * 10) / 10;
-            const segments = [];
+            let segmentsSvg = '';
             for (let i = 0; i < points.length - 1; i++) {
-                segments.push({ key: i, x1: points[i].x, y1: points[i].y, x2: points[i + 1].x, y2: points[i + 1].y, above: points[i].above });
+                const cls = points[i].above ? 'above' : 'below';
+                segmentsSvg += `<line class="health-spark-line ${cls}" x1="${points[i].x}" y1="${points[i].y}" x2="${points[i + 1].x}" y2="${points[i + 1].y}"></line>`;
             }
             const last = points[points.length - 1];
-            return { points, linePoints, areaPoints, goalY, last, segments, W, H };
+            return { points, linePoints, areaPoints, goalY, last, segmentsSvg, W, H };
         },
 
         get workoutConsistency() {

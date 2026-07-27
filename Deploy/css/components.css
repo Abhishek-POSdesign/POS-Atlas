@@ -1237,8 +1237,15 @@
 .kpi-ring-num .n { font-family: var(--font-serif); font-size: 28px; line-height: 1; color: var(--accent-sage); font-variant-numeric: tabular-nums; }
 .kpi-ring-num .d { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
-.task-list { margin: 0 -6px; padding: 0 6px; }
+/* Inner scroll (Phase 6, 2026-07-28) -- a long list used to just stretch
+   the whole page. Same max-height + overflow pattern already used on
+   .modal and .cl-block-body elsewhere in this file. The Project
+   workspace's own Tasks section overrides this inline
+   (max-height:none; overflow:visible) and stays unbounded -- this is
+   Today's card only. */
+.task-list { margin: 0 -6px; padding: 0 6px; max-height: 480px; overflow-y: auto; }
 .task-list-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: var(--pad-md) 0 4px; padding: 0 6px; }
+.task-list-footer { margin-top: var(--pad-sm); padding-top: var(--pad-sm); border-top: 1px solid var(--border); text-align: center; }
 
 /* =========================================================
    TASK ROW V2 -- the "design review approved" two-tier row.
@@ -1271,14 +1278,6 @@
    sage-tinted with a sage border on pending confirm; fully sage with
    a white checkmark once committed. Double-tap-to-commit visual is
    the pending state itself + the inline hint in .trv2-meta. */
-/* Future Phase: Drag handle placeholder for reordering tasks */
-.trv2-drag-handle {
-    display: flex; align-items: center; justify-content: center;
-    color: var(--text-muted); font-size: 12px; font-weight: 700;
-    user-select: none;
-    margin-right: 4px;
-}
-
 .trv2-check {
     width: 28px;
     height: 28px;
