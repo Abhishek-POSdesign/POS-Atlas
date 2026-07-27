@@ -374,3 +374,7 @@ Companion docs sit beside this one:
 ### 2026-07-27 - Phase 6 minimal repair and compact layout
 - **Console Errors Fixed**: Moved HTML placeholders inside the span node for the <template x-if=...> priority hook blocks, ensuring Alpine v3 sees exactly one root node, fixing the children and seg is not defined crash chain.
 - **Compact Row Layout**: Updated Today's upcoming and completed task rows to combine the Task Name and Priority Pill onto a single flex row, and the Project Chip and Context Note onto a single flex row with CSS ellipsis truncation, making the UI denser without touching data logic.
+
+### 2026-07-27 - Phase 6 final minimal repair
+- **Console Errors Fixed**: Replaced all <template x-if> Priority Pill hooks with <span x-show> elements. This guarantees no multiple root node or whitespace text node issues that crash Alpine 3.
+- **Visual Polish**: Toned down the .trv2-project chip styling in Deploy/css/components.css to use a softer ar(--surface-1) background and 400 font weight.

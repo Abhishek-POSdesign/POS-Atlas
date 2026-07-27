@@ -361,9 +361,8 @@
                                                     <div class="trv2-body" style="min-width: 0;">
                                                         <div style="display: flex; align-items: center; gap: 6px;">
                                                             <div class="trv2-name" x-text="task.name"></div>
-                                                            <template x-if="task.priority === 'high'">
-                                                                <span class="trv2-focus-pill" style="display:none;"><!-- Future Phase Only: Priority/Focus Pill Placeholder --></span>
-                                                            </template>
+                                                            <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
+                                                            <span x-show="task.priority === 'high'" class="trv2-focus-pill" style="display:none;"></span>
                                                         </div>
                                                         <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
                                                             <template x-if="task.kind==='reminder'">
@@ -410,9 +409,8 @@
                                                             <div class="trv2-body" style="min-width: 0;">
                                                                 <div style="display: flex; align-items: center; gap: 6px;">
                                                                     <div class="trv2-name" x-text="task.name"></div>
-                                                                    <template x-if="task.priority === 'high'">
-                                                                        <span class="trv2-focus-pill" style="display:none;"><!-- Future Phase Only: Priority/Focus Pill Placeholder --></span>
-                                                                    </template>
+                                                                        <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
+                                                                        <span x-show="task.priority === 'high'" class="trv2-focus-pill" style="display:none;"></span>
                                                                 </div>
                                                                 <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
                                                                     <template x-if="task.kind!=='reminder'">
@@ -1557,9 +1555,8 @@
                                                     <div class="trv2-body">
                                                         <div class="trv2-name" x-text="task.name"></div>
                                                         <div class="trv2-meta">
-                                                            <template x-if="task.priority === 'high'">
-                                                                <span class="trv2-focus-pill" style="display:none;"><!-- Future Phase Only: Priority/Focus Pill Placeholder --></span>
-                                                            </template>
+                                                            <!-- Future Phase Only: Priority/Focus Pill Placeholder -->
+                                                            <span x-show="task.priority === 'high'" class="trv2-focus-pill" style="display:none;"></span>
                                                             <span class="trv2-kind task">Task</span>
                                                             <template x-if="task.status==='not_started' || task.status==='paused'">
                                                                 <button class="trv2-start" @click.stop="startTask(task)" :title="task.status==='paused' ? 'Resume task' : 'Start task'" x-text="task.status==='paused' ? '▶ Resume' : '▶ Start'"></button>
