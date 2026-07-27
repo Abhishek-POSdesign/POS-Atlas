@@ -32,6 +32,22 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Tint color correction: sage/coral, not lilac/blue
+
+**Session scope:** Abhishek corrected the just-shipped experimental tint — he wanted the streak-card colors specifically (greenish = same as the Sobriety streak, reddish = same as the Smoke-free streak), not lilac/blue. His message used "street court"/"streetcars" for "streak cards" (voice-to-text), which was ambiguous enough that per his own explicit instruction ("if you don't understand, check first") I confirmed the exact mapping via AskUserQuestion before touching anything: **Sleep → sage (green), Workout → coral (red)**. Confirmed correct.
+
+**What shipped (commit pending):**
+- `Deploy/index.html` — Sleep panel: `tint-lilac` → `tint-sage`, header icon chip `lilac` → `sage`. Workout panel: `tint-blue` → `tint-coral`, header icon chip `blue` → `coral`.
+- `Deploy/css/components.css` — `.health-panel.tint-lilac`/`.tint-blue` renamed to `.tint-sage`/`.tint-coral` (same `linear-gradient(180deg, var(--accent-*-tint), var(--surface-1) 38%)` formula, just swapped tokens — still no new colors, still the same gradient-tint pattern `.kpi-card.hero`/`.streak-card.color-*` already use). Added `.health-panel-icon.sage`/`.coral` variants alongside the existing `.lilac`/`.blue` ones (kept, not removed — matches the pattern of always defining the small full accent family, same as `.kpi-icon`/`.monogram-chip` elsewhere).
+- **Also changed the header icon chip colors, not just the background wash** — a judgment call beyond the literal ask, made because leaving a lilac icon on a sage background (or blue icon on coral background) would have looked visually incoherent. Each panel now has one single accent identity (icon + background wash both the same color) instead of two different accents fighting in the same card. Flagged here in case Abhishek only wanted the background changed.
+- `Deploy/service-worker.js` — cache `v35` → `v36`.
+
+**What was verified locally:** brace/tag balance clean, dev server boots with zero console/server errors.
+
+**What's still open:** this is still the same experimental tint from the previous entry, just corrected to the right colors — Abhishek has not yet confirmed he likes the tint concept itself, only that sage/coral is the right color family if it stays. If reverted, remove `tint-sage`/`tint-coral` classes from the two panel `<div>`s and delete the `.health-panel.tint-sage`/`.tint-coral` CSS rule (same two-step revert as before, just updated class names).
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — EXPERIMENT: subtle gradient tint on Health panels
 
 **Session scope:** Abhishek, closing out the session: "I want to give it a try before I close... if it doesn't look good, we will revert back." Wants the Health panels to pick up a faint version of the same colored-gradient wash the KPI hero card / streak cards already use, since those read as "premium" and the flat Health panels look comparatively flat by contrast. Explicitly: no new colors, just a little bit, must still look professional.

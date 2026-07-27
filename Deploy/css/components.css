@@ -1464,9 +1464,12 @@
    fading into --surface-1), no new colours. Stop pulled way in from the
    KPI card's 75% since a Health panel is much taller -- this keeps the
    wash concentrated behind the header/metrics and fades out well before
-   the note chips/session pills, instead of tinting the whole card. */
-.health-panel.tint-lilac { background: linear-gradient(180deg, var(--accent-lilac-tint), var(--surface-1) 38%); }
-.health-panel.tint-blue { background: linear-gradient(180deg, var(--accent-blue-tint), var(--surface-1) 38%); }
+   the note chips/session pills, instead of tinting the whole card.
+   Corrected same day: Abhishek specifically wanted the streak-card
+   greenish/reddish tints (sage = Sobriety streak's colour, coral =
+   Smoke-free streak's colour), not lilac/blue. */
+.health-panel.tint-sage { background: linear-gradient(180deg, var(--accent-sage-tint), var(--surface-1) 38%); }
+.health-panel.tint-coral { background: linear-gradient(180deg, var(--accent-coral-tint), var(--surface-1) 38%); }
 .health-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 /* Title promoted 13px -> 17px (Comet review) -- was reading as a label,
    not a section title. Matches the weight of Work log / Tasks headers
@@ -1476,6 +1479,8 @@
 .health-panel-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .health-panel-icon.lilac { background: var(--accent-lilac-tint); color: var(--accent-lilac); }
 .health-panel-icon.blue { background: var(--accent-blue-tint); color: var(--accent-blue); }
+.health-panel-icon.sage { background: var(--accent-sage-tint); color: var(--accent-sage); }
+.health-panel-icon.coral { background: var(--accent-coral-tint); color: var(--accent-coral); }
 .health-panel-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 /* Shared Edit/Log pill for both Sleep and Workout panel headers -- upgraded
