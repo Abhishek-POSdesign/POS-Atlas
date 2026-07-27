@@ -114,7 +114,7 @@
             </div>
 
             <!-- ==================== ATLAS AI ==================== -->
-            <div x-data="atlasAi()" x-init="init()">
+            <div x-data="atlasAi()" x-init="init()" @keydown.window="handleGlobalKey($event)">
                 <!-- Floating launcher: visible only when the panel is closed. Uses
                      Atlas's own compass mark (same icon as the header logo), not an
                      invented AI icon. -->
@@ -141,10 +141,16 @@
                         </div>
                         <div class="ai-header-icons">
                             <div class="model-pill-wrap">
-                                <button class="model-pill" @click="modelMenuOpen = !modelMenuOpen" x-text="provider === 'vertex' ? 'Cloud ▾' : 'Local ▾'"></button>
+                                <button class="model-pill" @click="modelMenuOpen = !modelMenuOpen" x-text="provider === 'vertex' ? 'Cloud (Gemini) ▾' : (model || 'Local') + ' ▾'"></button>
                                 <div class="model-menu" :class="{ 'model-menu-open': modelMenuOpen }" @click.outside="modelMenuOpen = false">
                                     <button :class="{ sel: provider === 'ollama' }" @click="setProvider('ollama')">🖥 Local</button>
-                                    <button :class="{ sel: provider === 'vertex' }" @click="setProvider('vertex')">☁ Cloud</button>
+                                    <template x-if="provider === 'ollama'">
+                                        <div class="model-menu-field">
+                                            <label>Model name</label>
+                                            <input type="text" x-model="model" @change="saveProviderConfig()" @click.stop placeholder="e.g. gemma4, qwen3.6">
+                                        </div>
+                                    </template>
+                                    <button :class="{ sel: provider === 'vertex' }" @click="setProvider('vertex')">☁ Cloud (Gemini)</button>
                                 </div>
                             </div>
                             <button class="hicon" @click="view = (view === 'notebook' ? 'chat' : 'notebook')" title="Memory Notebook">
@@ -338,13 +344,19 @@
                                     <template x-for="f in personaFieldDefs" :key="f.key">
                                         <div class="pfield">
                                             <label x-text="f.label"></label>
-                                            <textarea rows="2" x-model="persona[f.key]" @change="savePersonaNow()"></textarea>
+                                            <textarea rows="2" x-model="persona[f.key]"></textarea>
                                             <div class="hint" x-show="f.hint" x-text="f.hint"></div>
                                         </div>
                                     </template>
                                     <div class="pin-section-row">
                                         <span class="txt">🔒 <span x-text="hasPin ? 'Change PIN' : 'Set a PIN'"></span></span>
                                         <button class="btn-text" @click="startPinChange()">Change</button>
+                                    </div>
+                                    <div class="persona-actions">
+                                        <button class="btn-text" @click="reloadPersona()">Cancel</button>
+                                        <button class="btn btn-primary" @click="savePersonaNow()">
+                                            <span x-text="personaSaved ? '✓ Saved' : 'Save persona'"></span>
+                                        </button>
                                     </div>
                                 </div>
                             </template>

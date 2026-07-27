@@ -6,8 +6,9 @@
 // apps never collide even though they share one browser profile.
 
 import { DB } from '../db.js';
+import { getSession } from '../auth.js';
 
-const DEFAULT_CONFIG = { provider: 'ollama', endpoint: 'http://localhost:11434', model: 'llama3.2' };
+const DEFAULT_CONFIG = { provider: 'ollama', endpoint: 'http://localhost:11434', model: '' };
 
 export function loadConfig() {
     try { return Object.assign({}, DEFAULT_CONFIG, JSON.parse(localStorage.getItem('atlas_ai_config') || '{}')); }
@@ -118,12 +119,24 @@ export async function probeOllama(endpoint) {
 // streaming, unlike the sibling app's advisory-only chat.
 export async function callOllama(messages, cfg) {
     const endpoint = cfg.endpoint || 'http://localhost:11434';
-    const model = cfg.model || 'llama3.2';
-    let res = await fetch(endpoint + '/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, stream: false, think: false, options: { num_ctx: 16384, temperature: 0.2 } })
-    });
+    const model = cfg.model;
+    if (!model) throw new Error('No local model name set -- open AI settings and enter one (e.g. gemma4, qwen3.6)');
+    let res;
+    try {
+        res = await fetch(endpoint + '/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages, stream: false, think: false, options: { num_ctx: 16384, temperature: 0.2 } })
+        });
+    } catch (e) {
+        // A network-level throw here (not an HTTP error status) almost
+        // always means either Ollama isn't running, or it's running but
+        // rejecting the request via CORS -- Ollama's default server does
+        // not send Access-Control-Allow-Origin for a foreign HTTPS origin
+        // like the deployed PWA. Fix: `OLLAMA_ORIGINS=https://atlas.abhisheksikka.com`
+        // (or `*`) as an env var before starting Ollama, then restart it.
+        throw new Error('Could not reach Ollama at ' + endpoint + ' -- is it running? If you\'re on the live site (not localhost), Ollama also needs OLLAMA_ORIGINS set to allow this origin.');
+    }
     if (!res.ok && res.status === 400) {
         // Retry without the `think` flag -- some local models reject it.
         res = await fetch(endpoint + '/api/chat', {
@@ -132,24 +145,27 @@ export async function callOllama(messages, cfg) {
             body: JSON.stringify({ model, messages, stream: false, options: { num_ctx: 16384, temperature: 0.2 } })
         });
     }
-    if (!res.ok) throw new Error('Ollama error ' + res.status);
+    if (!res.ok) throw new Error('Ollama error ' + res.status + ' -- check the model name "' + model + '" is actually pulled (ollama list)');
     const data = await res.json();
     if (!data.message || !data.message.content) throw new Error('Empty Ollama response');
     return data.message.content;
 }
 
-// Calls a dedicated Atlas Supabase Edge Function (not the sibling app's
-// `pos-partner` -- Atlas gets its own, matching the module-independence
-// convention every other Atlas backend object already follows). The
-// function itself (holding the real Vertex/Gemini secret server-side) is
-// not deployed yet -- this call will fail gracefully with a clear
-// "unavailable" message until that Edge Function is set up, exactly the
-// failure mode the plan calls for (never a silent fallback).
-const ATLAS_AI_FUNCTION_URL = 'https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/atlas-ai';
-export async function callVertex(messages, anonKey) {
-    const res = await fetch(ATLAS_AI_FUNCTION_URL, {
+// Calls Abhishek's existing shared Vertex Edge Function (`pos-partner`),
+// already deployed and already in production use by the Task Manager and
+// Finance apps in this same Supabase project -- Atlas reuses it rather than
+// standing up a duplicate, since it's a generic {messages}->{reply} proxy
+// with no app-specific logic baked in. `verify_jwt: true` on this function
+// means the platform itself requires a real signed-in user's access token,
+// not just the anon key -- Atlas already has one via its own Supabase Auth
+// session. Model defaults to gemini-2.5-flash server-side if omitted.
+const POS_PARTNER_FUNCTION_URL = 'https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/pos-partner';
+export async function callVertex(messages) {
+    const session = getSession();
+    if (!session) throw new Error('Not signed in');
+    const res = await fetch(POS_PARTNER_FUNCTION_URL, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + anonKey, 'Content-Type': 'application/json' },
+        headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages })
     });
     const data = await res.json().catch(() => null);
@@ -161,8 +177,8 @@ export async function callVertex(messages, anonKey) {
 // Single entry point -- routes to whichever provider the user has picked.
 // Never silently falls back to the other provider on failure; callers show
 // the thrown error as a plain "unavailable" state.
-export async function sendToProvider(messages, cfg, anonKey) {
-    if (cfg.provider === 'vertex') return callVertex(messages, anonKey);
+export async function sendToProvider(messages, cfg) {
+    if (cfg.provider === 'vertex') return callVertex(messages);
     return callOllama(messages, cfg);
 }
 

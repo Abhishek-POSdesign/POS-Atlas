@@ -18,7 +18,6 @@
 //   anywhere in the conversation, not just behind a specific quick-action.
 
 import { DB } from '../db.js';
-import { CONFIG } from '../config.js';
 import { todayIsoDate } from '../date-utils.js';
 import { askConfirm } from '../components/confirm-dialog.js';
 import {
@@ -76,6 +75,7 @@ export function atlasAi() {
         persona: {},
         personaFieldDefs: PERSONA_FIELD_DEFS,
         personaUnlocked: false,
+        personaSaved: false,
         hasPin: false,
         pinInput: '',
         pinError: '',
@@ -208,7 +208,7 @@ export function atlasAi() {
                 apiMessages.push({ role: 'user', content: userText });
 
                 const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint };
-                const reply = await sendToProvider(apiMessages, cfg, CONFIG.SUPABASE_KEY);
+                const reply = await sendToProvider(apiMessages, cfg);
                 this._handleModelReply(reply);
             } catch (e) {
                 this._pushAssistantText('Atlas AI is unavailable right now (' + e.message + '). Check the provider in settings, or try the other one.');
@@ -266,7 +266,7 @@ export function atlasAi() {
                 const reply = await sendToProvider([
                     { role: 'system', content: 'Summarize the following AI response in 2-3 plain lines -- the key insight, decision, or fact. No preamble, just the summary.' },
                     { role: 'user', content: m.text }
-                ], cfg, CONFIG.SUPABASE_KEY);
+                ], cfg);
                 if (reply && reply.trim()) summary = reply.trim();
             } catch (e) { /* fallback to the verbatim slice already set above */ }
             this._addNotebookEntry('pin', summary);
@@ -282,7 +282,7 @@ export function atlasAi() {
                 const reply = await sendToProvider([
                     { role: 'system', content: 'Summarize this conversation in 4-6 plain lines: key questions, facts discussed, and any decisions or action items. No preamble.' },
                     { role: 'user', content: transcript }
-                ], cfg, CONFIG.SUPABASE_KEY);
+                ], cfg);
                 if (reply && reply.trim()) summary = reply.trim();
             } catch (e) { /* fallback summary already set above */ }
             this._addNotebookEntry('session', summary);
@@ -297,7 +297,7 @@ export function atlasAi() {
                 const reply = await sendToProvider([
                     { role: 'system', content: 'Consolidate these AI-notebook entries into one 8-12 line brief, grouped by theme (standing rules, active goals, resolved questions, open items). No preamble.' },
                     { role: 'user', content: all }
-                ], cfg, CONFIG.SUPABASE_KEY);
+                ], cfg);
                 if (reply && reply.trim()) summary = reply.trim();
             } catch (e) { /* fallback summary already set above */ }
             const first = this.notebookEntries[this.notebookEntries.length - 1];
@@ -348,6 +348,19 @@ export function atlasAi() {
             speechRecognition.start();
         },
 
+        // Keyboard shortcut for voice, requested directly: Alt+M toggles
+        // listening on/off, same underlying toggleVoice() the mic button
+        // calls -- a second way in if the mic button itself isn't
+        // registering a click for some reason (small touch target, focus
+        // stolen by the composer, etc.), and a faster path for repeat use.
+        handleGlobalKey(event) {
+            if (!this.panelOpen || this.view !== 'chat') return;
+            if (event.altKey && event.key.toLowerCase() === 'm') {
+                event.preventDefault();
+                this.toggleVoice();
+            }
+        },
+
         // ---- persona / PIN ----
         pinTap(n) {
             if (this.pinInput.length >= 6) return;
@@ -383,6 +396,16 @@ export function atlasAi() {
         },
         savePersonaNow() {
             savePersona(this.persona);
+            this.personaSaved = true;
+            setTimeout(() => { this.personaSaved = false; }, 1500);
+        },
+        // Discards any unsaved edits in the textareas by reloading the last
+        // saved copy from storage -- the fields are bound with x-model but
+        // never auto-save on their own now, only the explicit Save button
+        // does (Abhishek's feedback: editing without a visible Save felt
+        // like the edits weren't really being kept).
+        reloadPersona() {
+            this.persona = loadPersona();
         }
     };
 }
