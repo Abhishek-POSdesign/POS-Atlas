@@ -53,6 +53,15 @@ export function projectWorkspacePage(nav) {
         get logGroups() {
             return groupByDate(this.logs, l => l.entry_date);
         },
+        // Insight Pill (Phase 5 close-out polish) -- single most recent
+        // entry by created_at, shown standalone above the day-grouped list.
+        // Pure client-side derivation from already-loaded logs; the DB
+        // query itself only orders by entry_date, not created_at, so this
+        // can't just be this.logs[0].
+        get mostRecentLog() {
+            if (!this.logs.length) return null;
+            return this.logs.reduce((latest, l) => (!latest || l.created_at > latest.created_at) ? l : latest, null);
+        },
 
         // ---- Hero-header summary metrics (added for the redesigned
         // workspace 2026-07-26). Purely derived from state.tasks + project

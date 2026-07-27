@@ -1854,51 +1854,12 @@
 }
 .ws-right .ws-overflow { align-self: flex-end; }
 
-/* Goal block inside the hero. Colored 3 px left-edge accent carries
-   the "this is a goal" signal at a glance -- sage for short-term
-   (near, actionable), blue for long-term (further, strategic).
-   Weight-500 primary text on the body so it reads as important
-   without shouting. Date deliberately absent -- the countdown in
-   the metrics row already carries it (Abhishek's explicit fix
-   2026-07-26). Click opens the goal-edit modal. */
-.ws-goal {
-    background: var(--surface-1);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--accent-sage);
-    padding: 12px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
-}
-.ws-goal:hover { background: var(--surface-1-hover); border-right-color: var(--border-hover); border-top-color: var(--border-hover); border-bottom-color: var(--border-hover); }
-.ws-goal:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
-.ws-goal.long { border-left-color: var(--accent-blue); }
-
-.ws-goal-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: var(--accent-sage);
-}
-.ws-goal.long .ws-goal-label { color: var(--accent-blue); }
-
-.ws-goal-body {
-    font-size: 15px;
-    font-weight: 500;
-    color: var(--text-primary);
-    line-height: 1.5;
-    margin: 0;
-}
-.ws-goal-body.empty {
-    color: var(--text-muted);
-    font-weight: 500;
-    font-style: italic;
-    font-size: 14px;
-}
+/* Goal blocks now use the shared .insight-pill system -- see its
+   definition (PHASE 5 CLOSE-OUT -- INSIGHT PILL) further down this
+   file. Date deliberately absent from the body -- the countdown in
+   the metrics row already carries it. Click opens the goal-edit
+   modal, unchanged. Superseded the old .ws-goal colored-left-edge
+   treatment (2026-07-27, Abhishek's explicit request to replace it). */
 
 /* Work log day block inside the Work log section */
 .worklog-day + .worklog-day { margin-top: var(--pad-md); }
@@ -2462,6 +2423,55 @@
 }
 .wo-icon-btn:hover { color: var(--text-primary); background: var(--surface-1); }
 .wo-icon-btn.danger:hover { color: var(--accent-coral); background: var(--accent-coral-tint); }
+
+/* =========================================================
+   PHASE 5 CLOSE-OUT -- SHARED INSIGHT PILL (2026-07-27)
+   The generalized version of the Sleep chip / Workout session
+   pill pattern, for use outside the Health row: a small elevated
+   card (--surface-2 tint against a --surface-1 parent card,
+   rounded corners) with an icon+caption head and higher-contrast
+   body text. Unlike .health-chip / .wo-session-row, a standalone
+   insight-pill has no outer recessed "track" wrapper and no shadow
+   of its own -- it's a single highlight sitting directly on its
+   parent section, not one of several pills raised out of a shared
+   groove. Applied to: Project workspace "Running now", Project
+   workspace Short-/Long-term goal cards, Work log's single most
+   recent entry. Intentionally NOT used for the Tasks & Reminders
+   list, hero KPI/streak cards, Routine, or the Checklist Completion
+   chart -- Insight Pills mark a single current highlight, not a
+   general list treatment. */
+.insight-pill { background: var(--surface-2); border-radius: 9px; padding: 12px 14px; }
+.insight-pill.clickable { cursor: pointer; transition: background var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.insight-pill.clickable:hover { background: var(--surface-1-hover); transform: translateY(-1px); }
+.insight-pill.clickable:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+.insight-pill-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.insight-pill-icon { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); flex-shrink: 0; }
+.insight-pill-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+.insight-pill-body { font-size: 14px; font-weight: 500; color: var(--text-primary); line-height: 1.5; margin: 0; }
+.insight-pill-body.inactive { color: var(--text-muted); font-weight: 400; font-style: italic; }
+.insight-pill-note { font-size: 12px; color: var(--text-secondary); font-style: italic; margin: 4px 0 0; }
+
+/* Mini variant -- Projects list card's inline "Running: X" line (a
+   single line inside an already-surface-2 .card-nested, so the usual
+   surface-2 pill body would be invisible; uses a light accent-blue
+   tint instead, same "live now" blue .running-text already used
+   elsewhere in Atlas). Label + body sit inline, not stacked. */
+.insight-pill.insight-pill-mini {
+    background: var(--accent-blue-tint);
+    padding: 6px 10px;
+    border-radius: 7px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+.insight-pill-mini-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent-blue); flex-shrink: 0; }
+.insight-pill-mini-body { font-size: 12.5px; font-weight: 500; color: var(--text-primary); }
 
 /* Micro-heading shared by "Today's sessions" and "This week" (Workout
    panel) -- same weight as .health-trend-title so all three section

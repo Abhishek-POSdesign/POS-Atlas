@@ -1260,9 +1260,14 @@
                                             <div class="project-meta" style="margin-bottom: 8px;">
                                                 <span x-text="`${completedCount} of ${totalCount} tasks done`"></span>
                                             </div>
-                                            <p class="running-text" x-show="runningTask">
-                                                Running: <span x-text="runningTask ? runningTask.name : ''"></span>
-                                            </p>
+                                            <!-- Insight Pill, mini variant (Phase 5 close-out polish) --
+                                                 just the Running line, not the whole card. Blue tint
+                                                 (not the usual surface-2 pill body) so it's actually
+                                                 visible against this card's own surface-2 background. -->
+                                            <div class="insight-pill insight-pill-mini" x-show="runningTask">
+                                                <span class="insight-pill-mini-label">Running</span>
+                                                <span class="insight-pill-mini-body" x-text="runningTask ? runningTask.name : ''"></span>
+                                            </div>
                                             <p class="project-focus" x-show="!runningTask && nextTask">
                                                 Next: <span x-text="nextTask ? nextTask.name : ''"></span>
                                             </p>
@@ -1461,22 +1466,32 @@
                                         </template>
                                     </div>
 
-                                    <div class="ws-goal" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit short-term goal">
-                                        <div class="ws-goal-label">Short-term goal</div>
+                                    <!-- Insight Pills (Phase 5 close-out polish) -- replaces the old
+                                         colored-left-edge .ws-goal treatment. Same click/keyboard
+                                         behavior, same startEditHeader() modal; only the container
+                                         visuals changed to match the Health chip/session pills. -->
+                                    <div class="insight-pill clickable" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit short-term goal">
+                                        <div class="insight-pill-head">
+                                            <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg></span>
+                                            <span class="insight-pill-label">Short-term goal</span>
+                                        </div>
                                         <template x-if="project.short_term_goal">
-                                            <p class="ws-goal-body" x-text="project.short_term_goal"></p>
+                                            <p class="insight-pill-body" x-text="project.short_term_goal"></p>
                                         </template>
                                         <template x-if="!project.short_term_goal">
-                                            <p class="ws-goal-body empty">Not set — click to add.</p>
+                                            <p class="insight-pill-body inactive">Not set — click to add.</p>
                                         </template>
                                     </div>
-                                    <div class="ws-goal long" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit long-term goal">
-                                        <div class="ws-goal-label">Long-term goal</div>
+                                    <div class="insight-pill clickable" role="button" tabindex="0" @click="project.status !== 'completed' ? startEditHeader() : null" @keydown.enter.prevent="project.status !== 'completed' ? startEditHeader() : null" @keydown.space.prevent="project.status !== 'completed' ? startEditHeader() : null" aria-label="Edit long-term goal">
+                                        <div class="insight-pill-head">
+                                            <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+                                            <span class="insight-pill-label">Long-term goal</span>
+                                        </div>
                                         <template x-if="project.long_term_goal">
-                                            <p class="ws-goal-body" x-text="project.long_term_goal"></p>
+                                            <p class="insight-pill-body" x-text="project.long_term_goal"></p>
                                         </template>
                                         <template x-if="!project.long_term_goal">
-                                            <p class="ws-goal-body empty">Not set — click to add.</p>
+                                            <p class="insight-pill-body inactive">Not set — click to add.</p>
                                         </template>
                                     </div>
                                 </div>
@@ -1490,10 +1505,20 @@
                             <div>
 
                                 <!-- Running now (only if there is one) -->
-                                <div class="ws-section running-card" x-show="runningTask">
-                                    <div class="heading-label">Running now</div>
-                                    <div class="focus-text" x-text="runningTask ? runningTask.name : ''"></div>
-                                    <div class="system-text" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></div>
+                                <!-- Insight Pill (Phase 5 close-out polish) -- replaces the old
+                                     .running-card left-edge treatment. Same .ws-section outer
+                                     shell every other workspace section uses, with a single
+                                     Insight Pill inside -- mirrors how a Health panel (.card)
+                                     holds its chips/session pills. -->
+                                <div class="ws-section" x-show="runningTask">
+                                    <div class="insight-pill">
+                                        <div class="insight-pill-head">
+                                            <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg></span>
+                                            <span class="insight-pill-label">Running now</span>
+                                        </div>
+                                        <p class="insight-pill-body" x-text="runningTask ? runningTask.name : ''"></p>
+                                        <p class="insight-pill-note" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
+                                    </div>
                                 </div>
 
                                 <!-- Tasks section -- same trv2-row anatomy as Today.
@@ -1555,6 +1580,22 @@
                                             </div>
                                         </div>
                                     </template>
+
+                                    <!-- Insight Pill (Phase 5 close-out polish) -- just the single
+                                         most recent entry, always visible regardless of which date
+                                         group is expanded below. Also still appears normally in its
+                                         own day group -- same "highlight duplicates what's in the
+                                         full list" pattern already used by Running Now + Tasks. -->
+                                    <template x-if="mostRecentLog">
+                                        <div class="insight-pill" style="margin-bottom: var(--pad-md);">
+                                            <div class="insight-pill-head">
+                                                <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+                                                <span class="insight-pill-label">Latest update</span>
+                                            </div>
+                                            <p class="insight-pill-body" x-text="mostRecentLog.body"></p>
+                                        </div>
+                                    </template>
+
                                     <template x-for="group in logGroups" :key="group.date">
                                         <div class="worklog-day">
                                             <button class="worklog-day-head" @click="toggleDate(group.date)">

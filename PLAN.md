@@ -8,7 +8,7 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-27 (Phase 5 Health panel polish — pill depth on both panels + EXPERIMENTAL gradient tint in sage/coral, colors confirmed but tint concept itself not yet confirmed) · **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) · **Current cache version:** `atlas-offline-shell-v36` · **Latest migration:** `015_sleep_morning_note.sql`
+**Last updated:** 2026-07-27 (**Phase 5 Health + Insight Pills CLOSED** — Health row confirmed final; Insight Pill pattern extended to Project workspace/list) · **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) · **Current cache version:** `atlas-offline-shell-v37` · **Latest migration:** `015_sleep_morning_note.sql`
 
 ---
 
@@ -47,7 +47,7 @@ Everything below is deployed and confirmed on the live app. Anything Antigravity
 - **Checklist Today ring — skipped colour:** `--accent-amber` (was `--border-hover`, invisible). Matches trend chart + mini-dots.
 - **Journal pencil:** icon-button next to the Today H1, real hover/focus `.tooltip` in `--surface-2` (not `title=`), toggles the inline daily-note composer.
 - **Health row (2026-07-27 restructure):** Sleep + Workout panels sit in their own full-width row below Tasks, not squeezed into a 40% column beside it. Plain CSS grid (`display:grid; grid-template-columns:1fr 1fr`, default `align-items:stretch`) equalizes both panel heights automatically — no scroll cage, no min/max plumbing needed. Single column under 900px. Both panels have `.nodata` two-line helper when unset (names the manual + planned-AI-parse flow).
-- **EXPERIMENTAL, unconfirmed (2026-07-27):** both panels currently carry `tint-sage` (Sleep) / `tint-coral` (Workout) — a faint gradient wash (`linear-gradient(180deg, var(--accent-*-tint), var(--surface-1) 38%)`, same tint-token pattern as `.kpi-card.hero`/`.streak-card.color-*`) concentrated behind the header, fading to plain `--surface-1` before the note chips/session pills. Colors match the Sobriety (sage) / Smoke-free (coral) streak cards per Abhishek's explicit ask, confirmed via clarifying question before building (his first message used "street court" for "streak cards," ambiguous enough to check first). The header icon chips were also switched to match (sage/coral instead of lilac/blue) so each panel has one coherent accent instead of two colors in one card — a judgment call beyond the literal request, flagged in `SESSION_LOG.md`. Abhishek has not yet confirmed he likes the tint concept itself (only that sage/coral is the right color family if it stays) — it may get reverted next session. See `SESSION_LOG.md`'s matching entry for exact revert steps if asked.
+- **CONFIRMED (2026-07-27):** both panels carry `tint-sage` (Sleep) / `tint-coral` (Workout) — a faint gradient wash (`linear-gradient(180deg, var(--accent-*-tint), var(--surface-1) 38%)`, same tint-token pattern as `.kpi-card.hero`/`.streak-card.color-*`) concentrated behind the header, fading to plain `--surface-1` before the note chips/session pills. Colors match the Sobriety (sage) / Smoke-free (coral) streak cards. Header icon chips match (sage/coral). Abhishek confirmed the whole Health row "matches my intent and is closed for Phase 5" — do not revisit this without him reopening it.
 - **Routine (checklist):** always visible below the Health row. Starts fully collapsed on every mount (session-only, never persisted). Four blocks (Morning/Afternoon/Night/Sleep) with 5 px coloured left-edge. Mini-dots share colour language with the trend chart. Log popup (name + time + note). Log button muted 35% on already-marked rows.
 - **Checklist Completion trend:** 30-day stacked bar chart (sage done / amber skipped / coral missed). Legend at 11 px dots + 500-weight secondary text.
 
@@ -88,18 +88,20 @@ Everything below is deployed and confirmed on the live app. Anything Antigravity
 - **Completed cards visual state:** Uses `.project-card-completed` (lilac tint surface), replacing the initials with the native checkmark SVG, and featuring a clean `.system-text` "Completed" caption without any faked timestamps.
 - **"+ Add note" button** (Round 2 build): opens a modal composer. Notes only render below after the first save. Persistent empty Notes card removed.
 - **New Project modal (Round 2 build):** name + color + monogram + description + optional **Short-term goal + target date + Long-term goal + target date** as a labelled subsection. Create fully-formed in one step.
+- **"Running: X" mini Insight Pill (2026-07-27, Phase 5 close-out):** inside an expanded project card, if a task is `in_progress`, that line renders as `.insight-pill.insight-pill-mini` — a light `--accent-blue-tint` background (not the usual `--surface-2` pill body, since it sits inside an already-`--surface-2` `.card-nested` and would be invisible otherwise), label+body inline. Just that one line is wrapped, not the whole card — `.running-text`'s old plain-blue-text treatment is superseded here but the class itself is left defined (documented shared utility, not dead code).
 
 ### Project workspace page
 - **Back to Projects** button top-left.
 - **Hero card:** coloured project dot + 34 px serif title + status pill on the left • description below • three summary metrics • progress bar. On the right: ⋮ overflow menu (Edit goals • Mark as completed / Reopen project • Archive project • Delete project) + goals stacked.
+- **Goal cards are now Insight Pills (2026-07-27, Phase 5 close-out):** Short-term goal (flag icon) / Long-term goal (trending-up icon), each `.insight-pill.clickable` — `--surface-2` body, icon+caption head, 14px/500 body text, hover lift (`translateY(-1px)` + background brighten). Supersedes the old `.ws-goal` colored-left-edge treatment (sage/blue border, a previously "locked" decision explicitly revisited this session at Abhishek's request — see `SESSION_LOG.md`). Same `startEditHeader()` click/keyboard behavior and goal-edit modal, unchanged.
 - **Goal-edit modal:** opened by clicking either goal or the ⋮ menu's "Edit goals." Both goals editable together.
-- **Running now** section: only when a task is `in_progress`. Styled strictly with semantic `.heading-label`, `.focus-text`, and `.system-text`.
-- **Tasks section:** same `.trv2-row` anatomy as Today. Task pause/resume mechanics exist (clicking "Pause task" in the edit modal resets it to `not_started`).
+- **"Running now" is now an Insight Pill (2026-07-27, Phase 5 close-out):** the `.ws-section` shell is unchanged, but its content is now a single `.insight-pill` (play-triangle icon, "Running now" caption, task name as body, `running_note` as a smaller italic note below) instead of the old `.heading-label`/`.focus-text`/`.system-text` combo (which had been sitting on the broken `.running-card` class — see the "known pre-existing bug" note above; this pass stopped using `.running-card` entirely rather than fixing it in place).
+- **Tasks section:** same `.trv2-row` anatomy as Today. Task pause/resume mechanics exist (clicking "Pause task" in the edit modal resets it to `not_started`). **Intentionally NOT converted to Insight Pills** — Abhishek explicitly scoped this out; the full Tasks & Reminders list is planned as its own future redesign phase.
 - **Read-only state:** If a project is completed, the workspace blocks new task additions, new log additions, and goal editing. Reopening requires a non-destructive `askConfirm` and captures a reopen reason into the task log.
 - **Workspace task modal:** mirrors Today's shape — same eyebrow + name + Schedule/Assignment tiers + inline Delete. Project field auto-locked to this workspace's project.
 - **▶ Start** as a subtle inline button in the meta line for `not_started` tasks — opens the existing `askNote()` "what are you doing right now?" prompt, then transitions to `in_progress`.
 - **Two-tap done confirm** on the row's checkbox (same as Today). Completing a task auto-creates a "Completed: {name}" Work log entry.
-- **Work log section:** day-grouped, expandable. Add entry form + log lines (time · body · Edit).
+- **Work log section:** day-grouped, expandable. Add entry form + log lines (time · body · Edit). **"Latest update" Insight Pill (2026-07-27, Phase 5 close-out):** the single most recent entry (by `created_at`, computed client-side via the `mostRecentLog` getter in `project-workspace.js` — the DB query only orders by `entry_date`, not `created_at`, so it can't just be `logs[0]`) renders as a standalone `.insight-pill` above the day-grouped list, always visible regardless of which date group is expanded. It also still appears normally in its own day group below — same "highlight duplicates what's in the full list" pattern Running Now already uses against the Tasks list. Older entries stay plain `.worklog-line` rows, untinted.
 
 ### Notebook overlay
 - Header icon button toggles the overlay.
@@ -184,16 +186,17 @@ Standing "would want an answer before starting" items — these are not blocking
 
 ## Recommended next sequence
 
-If Abhishek picks the work back up without a new brief, the sequence I'd suggest:
+**Phase 5 (Health + Insight Pills) is CLOSED as of 2026-07-27, per Abhishek's explicit sign-off.** He named the next two workstreams himself, both as **new sessions**, not a continuation of this one:
 
-1. **Live-test the Round 2 build** on the deployed app once the current deploy settles. Real interaction on: fixed-height Tasks card with many tasks, universal numeric time picker on mobile, workout day-type toggle, goals-in-hero, delete-in-edit-modal, project chip contrast on both themes, checklist ring skipped colour.
-2. **Fix anything that surfaces from that live test** — treat as a small third pass on the same Round 2 scope. Standard "iterate the artifact if visual, otherwise straight-to-build" flow.
-3. **Choose the next design review round.** Options in priority order (my read):
-   - **(a) Projects list polish** — the surface hasn't had a hierarchy pass; a few Comet-observation items are still open (colored status dot unclear, "add another project" affordance).
-   - **(b) Sleep trend roll-up** — 30-day chart. Small build, high user value, unlocks the AI features later.
-   - **(c) Notebook layout pass** — from the same deferred-list bucket as Projects.
-4. **AFTER (a)–(c), consider Phase 3 (Targets `count_toward_goal`)** — the streak side is proven, the DB is ready, the workspace hero already has a metrics slot that could host progress numbers. Design-review it first; don't build.
-5. **AFTER Phase 3, consider the sleep AI stages** in the order documented in `handover-docs/SLEEP-ROADMAP.md`.
+1. **Tasks & Reminders panel redesign.** Explicitly NOT touched by the Insight Pill pass — the full Tasks list (Today + every Project workspace) is its own future phase. No design review has started on this yet; treat it as a fresh mockup-first round like Health got, not a quick patch.
+2. **AI planning.** Nothing scoped yet beyond the historical reference (`handover-docs/AI-LAYER-IMPLEMENTATION-PLAN.md`, written for the old app, not Atlas). Would need its own multi-round design review before any build starts.
+
+Older deferred items, still valid but not the stated priority — don't start these instead of (1)/(2) without Abhishek explicitly asking for them:
+- Projects list visual-hierarchy pass (colored status dot unclear, "add another project" affordance — Comet-observation items, predate this session).
+- Notebook layout pass.
+- Phase 3 Targets (`count_toward_goal`) — DB ready, streak side proven, awaits go-ahead.
+- Sleep AI stages (screenshot parsing etc.) per `handover-docs/SLEEP-ROADMAP.md` — folds into item 2 above now that AI planning is the named next step, rather than being sequenced after Phase 3.
+- The UTF-16 CSS corruption bug flagged earlier this session (see "known pre-existing bug" note above) — still unfixed, a spawned background task exists for it, unrelated to either named next step.
 
 Nothing on this list starts without Abhishek re-opening the conversation.
 
