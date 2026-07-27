@@ -63,6 +63,27 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Opus 4.6) — Atlas AI round 2: real model-pill bug + conversation-first persona rewrite
+
+**Session scope:** Abhishek retested after the first fix round and reported the model pill still didn't open, plus the much bigger issue: Atlas responded to plain greetings ("hello, how are you?") with task/checklist status reports and said "I don't have personal feelings" unprompted — the exact "data reader" behavior the whole project was meant to avoid.
+
+**What shipped (commit `04c342a`):**
+- **Found the actual model-pill bug.** `@click.outside="modelMenuOpen = false"` was bound to `.model-menu` (the dropdown popup itself), not the wrapping `.model-pill-wrap`. Since the pill button is a *sibling* of the dropdown, not a descendant, clicking the pill counted as a click "outside" the dropdown — Alpine's outside-click listener fired right after the pill's own click handler opened it, closing it again in the same tick. Moved the listener to the wrapper; added `@click.stop` on the pill's own click and the model-name input so they don't also trigger the outside-close.
+- **Persona/system-prompt rewrite** — the actual fix for the behavioral gap. Root cause: `_askModel()` in `ui/aiPanel.js` unconditionally attached the full `explain_day` Fact Package to *every* message, and the default persona's "Responsibilities" field said "open with what you observe, not a question" (lifted from the sibling app's task-only "Partner" persona, wrong fit for a broader generalist assistant). Fixed in `features/aiConfig.js`'s `buildSystemPrompt()`: a new "CONVERSATION FIRST, DATA SECOND" section is now the *first* thing the model sees (models weight early instructions heavily), anchored with a literal example transcript matching Abhishek's own "good answer" sample. The Fact Package attachment point in `aiPanel.js` was also reworded from "## CURRENT FACTS" to "## FACTS AVAILABLE IF RELEVANT (do not mention these for a greeting or small talk)" — the rule and the data now agree with each other, where before the rule said one thing and the data was framed as always-in-play. Notebook-save language softened to "offer rarely, not reflexively."
+- **Per-message provider label** — `_currentProviderLabel()` computes "Local · {model}" or "Cloud · Gemini (web)" and stores it on each assistant message (`providerLabel`), rendered muted-grey on the right of the time row (never a semantic accent color, per direct request not to use anything attention-grabbing there).
+- **Web search, client side wired, server side NOT deployed.** Added a `webSearch` config field, checkbox in both the header dropdown and Settings (kept in sync), passed through `sendToProvider`→`callVertex`→`pos-partner` as `{webSearch: true}`. Wrote the corresponding `pos-partner` Edge Function change (adds `tools:[{google_search:{}}]` to the Vertex request only when the flag is true — additive/opt-in, zero behavior change for the Task Manager and Finance apps that also call this function) but **the deploy itself was blocked by the harness's permission classifier** — modifying shared production infrastructure across 3 apps correctly needs Abhishek's explicit go-ahead, not a silent push. Flagged directly in chat; not yet approved as of this entry.
+- Scrollbars tightened further (6px→4px thumb, added `::-webkit-scrollbar-corner` fix) on `.task-list`/`.ai-messages`/`.nb-list`. The CSS was already correct (verified no conflicting/overriding rule exists later in the cascade) — pushed thinner regardless, but flagged to Abhishek that persistent chunkiness after this is more likely a Windows display-scaling/accessibility setting than something fixable in page CSS.
+- Composer hint text now states explicitly: "Voice input only, text replies · Alt+M toggles the mic" — confirming design intent rather than leaving it ambiguous.
+- Cache bump `v43` → `v44`.
+
+**What's still open:**
+- **Awaiting Abhishek's go-ahead to deploy the `pos-partner` web-search change.** The modified source is written and ready (see this entry); only the deploy step is pending explicit approval.
+- Abhishek needs to retest: model pill actually opens now, greeting behavior no longer reads as a status report, provider label shows correctly, scrollbars.
+
+**What NOT to do:** Don't deploy the `pos-partner` edge function change without Abhishek explicitly saying go — it's shared infrastructure with 2 other apps. Don't re-attach the Fact Package to every message without the "available if relevant" framing — that framing is the fix, not decoration.
+
+---
+
 ## 2026-07-29 · Claude Code (Opus 4.6) — Atlas AI live-testing fix round
 
 **Session scope:** Abhishek tested the Phase 1 build live and reported 9 items. Fixed the real bugs; answered the rest as plain explanations (no code needed).
