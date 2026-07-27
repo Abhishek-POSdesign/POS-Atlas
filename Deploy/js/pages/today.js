@@ -746,6 +746,11 @@ export function todayPage() {
         // in the line, never a fake zero/flat-carry value. Coordinate space
         // is a fixed 280x80 viewBox rendered with preserveAspectRatio="none"
         // so the SVG stretches to whatever width the panel actually has.
+        // `segments` (added in the follow-up polish pass) lets the line echo
+        // sage/coral per-night relative to the goal line, same colour
+        // language as sleepBarColor() used to give the old bar chart --
+        // rendered as individual <line> elements since a single <polyline>
+        // can only take one stroke colour.
         get sleepSparkline() {
             const days = this.sleepTrendDays.slice(-14).filter(d => d.duration != null);
             if (days.length < 2) return null;
@@ -757,12 +762,17 @@ export function todayPage() {
             const points = days.map((d, i) => {
                 const x = days.length === 1 ? 0 : Math.round((i / (days.length - 1)) * W * 10) / 10;
                 const y = Math.round((PAD + (1 - (d.duration - min) / range) * (H - PAD * 2)) * 10) / 10;
-                return { x, y, date: d.date, duration: d.duration };
+                return { x, y, date: d.date, duration: d.duration, above: d.duration >= this.sleepGoalMinutes };
             });
             const linePoints = points.map(p => `${p.x},${p.y}`).join(' ');
             const areaPoints = `0,${H} ${linePoints} ${W},${H}`;
             const goalY = Math.round((PAD + (1 - (this.sleepGoalMinutes - min) / range) * (H - PAD * 2)) * 10) / 10;
-            return { points, linePoints, areaPoints, goalY, last: points[points.length - 1], W, H };
+            const segments = [];
+            for (let i = 0; i < points.length - 1; i++) {
+                segments.push({ key: i, x1: points[i].x, y1: points[i].y, x2: points[i + 1].x, y2: points[i + 1].y, above: points[i].above });
+            }
+            const last = points[points.length - 1];
+            return { points, linePoints, areaPoints, goalY, last, segments, W, H };
         },
 
         get workoutConsistency() {

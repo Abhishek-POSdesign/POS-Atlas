@@ -459,28 +459,49 @@
                                                         <div class="metric"><span class="v" x-text="sleepEntry.hrv ?? '—'"></span><span class="l">HRV</span></div>
                                                     </div>
 
-                                                    <!-- Notes as three stacked selector-style chips (Comet review).
-                                                         Always render all three once any sleep data exists for today --
-                                                         an empty chip goes quiet/italic rather than disappearing, so the
-                                                         panel never looks broken or half-filled. -->
+                                                    <!-- Notes as three stacked selector-pill chips (Comet review +
+                                                         follow-up polish pass): shared recessed track (matches the
+                                                         Workout day-type toggle's track/pill depth system below),
+                                                         each chip rendered permanently in the toggle's "active pill"
+                                                         state since all three are always relevant at once. Always
+                                                         render all three once any sleep data exists for today -- an
+                                                         empty chip goes quiet/italic rather than disappearing. -->
                                                     <div class="health-chip-stack">
                                                         <div class="health-chip">
-                                                            <span class="health-chip-label">Tonight's summary</span>
+                                                            <div class="health-chip-head">
+                                                                <span class="health-chip-icon">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                                                                </span>
+                                                                <span class="health-chip-label">Tonight's summary</span>
+                                                            </div>
                                                             <p class="health-chip-value" x-text="sleepSummary"></p>
                                                         </div>
                                                         <div class="health-chip">
-                                                            <span class="health-chip-label">Morning reflection</span>
+                                                            <div class="health-chip-head">
+                                                                <span class="health-chip-icon">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                                                                </span>
+                                                                <span class="health-chip-label">Morning reflection</span>
+                                                            </div>
                                                             <p class="health-chip-value" :class="{ inactive: !sleepEntry.morning_note }" x-text="sleepEntry.morning_note || 'Not logged yet.'"></p>
                                                         </div>
                                                         <div class="health-chip">
-                                                            <span class="health-chip-label">Context</span>
+                                                            <div class="health-chip-head">
+                                                                <span class="health-chip-icon">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                                                </span>
+                                                                <span class="health-chip-label">Context</span>
+                                                            </div>
                                                             <p class="health-chip-value" :class="{ inactive: !sleepEntry.note }" x-text="sleepEntry.note || 'No context added.'"></p>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </template>
 
-                                            <!-- 14-day trend: bottom-anchored sparkline (Comet review, Option B) -->
+                                            <!-- 14-day trend: bottom-anchored sparkline (Comet review, Option B).
+                                                 Line segments echo sage/coral per-night relative to the goal
+                                                 line (follow-up polish pass) -- same colour language the old
+                                                 bar chart used, without going back to bars. -->
                                             <div class="health-trend">
                                                 <div class="health-trend-head">
                                                     <span class="health-trend-title">14-day trend</span>
@@ -497,8 +518,10 @@
                                                             </defs>
                                                             <line class="health-spark-goal" x1="0" :y1="sleepSparkline.goalY" :x2="sleepSparkline.W" :y2="sleepSparkline.goalY"></line>
                                                             <polygon class="health-spark-area" :points="sleepSparkline.areaPoints" fill="url(#sleepSparkGradient)"></polygon>
-                                                            <polyline class="health-spark-line" :points="sleepSparkline.linePoints"></polyline>
-                                                            <circle class="health-spark-dot" :cx="sleepSparkline.last.x" :cy="sleepSparkline.last.y" r="3.5"></circle>
+                                                            <template x-for="seg in sleepSparkline.segments" :key="seg.key">
+                                                                <line class="health-spark-line" :class="seg.above ? 'above' : 'below'" :x1="seg.x1" :y1="seg.y1" :x2="seg.x2" :y2="seg.y2"></line>
+                                                            </template>
+                                                            <circle class="health-spark-dot" :class="sleepSparkline.last.above ? 'above' : 'below'" :cx="sleepSparkline.last.x" :cy="sleepSparkline.last.y" r="3.5"></circle>
                                                         </svg>
                                                     </div>
                                                 </template>
@@ -685,26 +708,26 @@
 
                                             <!-- 4-week consistency: aggregated weekly strip (Comet review,
                                                  Option A) -- one cell per week instead of a dot per
-                                                 activity-type per week. -->
+                                                 activity-type per week. Legend right-aligned on the caption
+                                                 line (follow-up polish pass), mirroring how "Avg" sits next
+                                                 to "14-DAY TREND" on the Sleep panel. -->
                                             <div class="health-trend">
                                                 <div class="health-trend-head">
                                                     <span class="health-trend-title">4-week consistency</span>
+                                                    <div class="health-legend" x-show="workoutWeekAggregate.length > 0">
+                                                        <span><span class="d d--met"></span>Met</span>
+                                                        <span><span class="d d--partial"></span>Partial</span>
+                                                        <span><span class="d d--missed"></span>Missed</span>
+                                                    </div>
                                                 </div>
                                                 <template x-if="workoutWeekAggregate.length > 0">
-                                                    <div>
-                                                        <div class="health-weeks-strip">
-                                                            <template x-for="week in workoutWeekAggregate" :key="week.label">
-                                                                <div class="health-week-cell">
-                                                                    <div class="box" :class="'box--' + week.state"></div>
-                                                                    <span class="lbl" x-text="week.label"></span>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                        <div class="health-legend">
-                                                            <span><span class="d d--met"></span>Met</span>
-                                                            <span><span class="d d--partial"></span>Partial</span>
-                                                            <span><span class="d d--missed"></span>Missed</span>
-                                                        </div>
+                                                    <div class="health-weeks-strip">
+                                                        <template x-for="week in workoutWeekAggregate" :key="week.label">
+                                                            <div class="health-week-cell">
+                                                                <div class="box" :class="'box--' + week.state"></div>
+                                                                <span class="lbl" x-text="week.label"></span>
+                                                            </div>
+                                                        </template>
                                                     </div>
                                                 </template>
                                                 <template x-if="workoutWeekAggregate.length === 0">

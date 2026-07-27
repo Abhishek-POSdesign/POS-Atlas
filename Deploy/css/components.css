@@ -2336,25 +2336,43 @@
 }
 
 /* =========================================================
-   PHASE 5 (v3) — SLEEP NOTE CHIPS (Comet review)
-   Three stacked selector-style chips (Tonight's summary /
-   Morning reflection / Context), visually inspired by the
-   Workout day-type segmented control: --surface-2 body, no
-   colored left-edge, no per-chip border. Always render once
-   any sleep data exists for today -- an empty chip goes quiet
-   (.inactive) rather than disappearing, so the stack never
-   looks broken or half-filled.
+   PHASE 5 (v4) — SLEEP NOTE CHIPS: SELECTOR-PILL DEPTH
+   Two-layer depth system copied directly from the Workout
+   day-type toggle (.wo-daytype-group / .wo-daytype-chip):
+   an outer recessed "track" (--surface-2, 4px padding) holding
+   individually "raised" pills (--surface-1 + --shadow-card, same
+   tokens the toggle's active segment uses). Unlike the toggle,
+   all three chips are always relevant at once, so all three
+   render permanently in the elevated/pill state -- no selection
+   state, no interaction, just three tactile pills sitting in one
+   shared groove. An empty chip goes quiet (.inactive) rather
+   than disappearing, so the stack never looks broken.
    ========================================================= */
-.health-chip-stack { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-.health-chip { background: var(--surface-2); border-radius: 8px; padding: 12px 14px; }
+.health-chip-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 14px;
+    background: var(--surface-2);
+    padding: 4px;
+    border-radius: 12px;
+}
+.health-chip {
+    background: var(--surface-1);
+    border-radius: 9px;
+    padding: 12px 14px;
+    box-shadow: var(--top-edge), var(--shadow-card);
+    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
+}
+.health-chip:hover { transform: translateY(-2px); box-shadow: var(--top-edge), var(--shadow-card-hover); }
+.health-chip-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.health-chip-icon { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); flex-shrink: 0; }
 .health-chip-label {
-    display: block;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .05em;
     text-transform: uppercase;
     color: var(--text-secondary);
-    margin-bottom: 4px;
 }
 .health-chip-value { font-size: 13.5px; color: var(--text-primary); line-height: 1.5; margin: 0; }
 .health-chip-value.inactive { color: var(--text-muted); font-style: italic; }
@@ -2435,7 +2453,7 @@
    as the Checklist Completion trend and Routine mini-dots.
    ========================================================= */
 .health-trend { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
-.health-trend-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 9px; }
+.health-trend-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; row-gap: 6px; margin-bottom: 9px; }
 .health-trend-title {
     font-size: 10px;
     font-weight: 700;
@@ -2453,20 +2471,28 @@
    today.js's sleepSparkline getter from real logged nights only --
    a missing night is a gap in the line, never a fake flat value.
    Colouring goes through CSS classes (not inline var() in SVG
-   attributes) so custom-property resolution is never in question. */
+   attributes) so custom-property resolution is never in question.
+   Line/dot echo sage-above / coral-below the goal line per segment
+   (follow-up polish pass) -- the gradient fill under the line stays
+   a single soft sage wash regardless, so the colour shift reads as
+   an accent, not a second competing chart. */
 .health-spark { height: 80px; }
 .health-spark-svg { display: block; color: var(--accent-sage); }
 .health-spark-stop-a { stop-color: currentColor; stop-opacity: .28; }
 .health-spark-stop-b { stop-color: currentColor; stop-opacity: 0; }
 .health-spark-goal { stroke: var(--border-hover); stroke-width: 1; stroke-dasharray: 3 3; }
 .health-spark-line { fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.health-spark-line.above { color: var(--accent-sage); }
+.health-spark-line.below { color: var(--accent-coral); }
 .health-spark-dot { fill: currentColor; }
+.health-spark-dot.above { color: var(--accent-sage); }
+.health-spark-dot.below { color: var(--accent-coral); }
 
 /* Workout: 4-week consistency, aggregated per week (Comet review,
    Option A) -- one larger cell per week instead of a dot per
    activity-type per week. Computed in today.js's workoutWeekAggregate
    getter from the existing workoutConsistency data, no new loading. */
-.health-weeks-strip { display: flex; gap: 12px; margin-bottom: 12px; }
+.health-weeks-strip { display: flex; gap: 12px; }
 .health-week-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .health-week-cell .box { width: 38px; height: 38px; border-radius: 9px; }
 .health-week-cell .box--met { background: var(--accent-sage); }
@@ -2474,8 +2500,11 @@
 .health-week-cell .box--missed { background: var(--accent-coral); opacity: .55; }
 .health-week-cell .lbl { font-size: 10px; color: var(--text-muted); font-weight: 600; letter-spacing: .02em; }
 
-.health-legend { display: flex; gap: 16px; }
-.health-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-secondary); }
+/* Right-aligned on the "4-WEEK CONSISTENCY" caption line (follow-up
+   polish pass) instead of sitting below the cells -- saves a line of
+   vertical space, mirrors how "Avg" sits next to "14-DAY TREND". */
+.health-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+.health-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 .health-legend .d { width: 9px; height: 9px; border-radius: 3px; }
 .health-legend .d--met { background: var(--accent-sage); }
 .health-legend .d--partial { background: var(--accent-amber); }

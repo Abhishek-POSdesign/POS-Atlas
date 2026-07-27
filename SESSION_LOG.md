@@ -32,6 +32,27 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Health panel polish: selector-pill depth + creative extras
+
+**Session scope:** Abhishek said "almost satisfied, I want to complete it and ship it so I can view it — that is the only mark complete; I might revert if I don't like it." One required fix (pill-depth on the Sleep chips) plus four optional polish ideas he explicitly invited creativity on — did all five since they were small, cohesive, and low-risk.
+
+**What shipped (commit pending):**
+1. **Sleep chips get true two-layer pill depth** (the priority item): `.health-chip-stack` is now a recessed `--surface-2` track (4px padding) holding three permanently-"active" `.health-chip` pills (`--surface-1` + `var(--top-edge), var(--shadow-card)`) — literally the same tokens the Workout day-type toggle's active segment uses, just with all three always elevated instead of one-at-a-time. Gentle hover lift (`translateY(-2px)` + shadow upgrade, `--dur-base`/`--ease-out`, matching every other card-hover in the app).
+2. **Icon accents:** moon / sun / message-square SVGs (14px, `--text-secondary`) added to each chip's label row (`.health-chip-head`) — Tonight's summary, Morning reflection, Context respectively.
+3. **Sparkline color echo:** `sleepSparkline` getter (`today.js`) now returns a `segments` array with a per-segment `above` boolean (duration vs. goal). The line renders as individual `<line>` elements instead of one `<polyline>` so each segment/the end-dot can be sage (at/above goal) or coral (below) — same at-a-glance scoring the old bar chart had, without reverting to bars. Gradient area fill stays single-tone sage regardless.
+4. **Consistency legend moved inline:** "Met/Partial/Missed" now sits right-aligned on the "4-WEEK CONSISTENCY" caption line (`.health-trend-head`) instead of below the cells — mirrors how "Avg" sits next to "14-DAY TREND" on Sleep.
+5. Cache bumped `v32` → `v33`.
+
+**Files touched:** `Deploy/js/pages/today.js` (extended `sleepSparkline`, no new getters), `Deploy/index.html` (chip markup + icons, segment-based spark line, legend repositioned), `Deploy/css/components.css` (`.health-chip*` rewritten for pill depth, `.health-spark-line/.dot.above/.below`, `.health-legend` shrunk to fit inline), `Deploy/service-worker.js`.
+
+**No deviations from the request** — all 5 items (1 required + 4 optional) implemented as specified.
+
+**What was verified locally:** `node --check` clean, `<div>`/`<template>` tag counts balanced (419/419, 158/158), CSS brace count balanced (528/528), local dev server boots with zero console/server errors (login screen only, per project rule — did not sign in).
+
+**What's still open:** Abhishek needs to view it live and confirm — he was explicit that this is the actual "done" signal, not a green build. He also said he might revert this whole design pass if he doesn't like it live, so don't be surprised by a rollback request next session; if that happens, the pre-this-session state is commit `135dacb` (the previous Comet-review pass, before pill-depth/icons/color-echo/legend-reposition).
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Health panel visual refinement (post-Comet review)
 
 **Session scope:** A Comet visual review of v31 confirmed layout position/logic were fine but flagged the Sleep and Workout panel *designs* specifically. Abhishek turned that into a detailed build spec (previous turn produced a mockup artifact with recommended options A for both the sleep trend and the workout consistency strip; this turn implements those recommended options as real code). Visual-only pass — no schema, no `db.js`, no CRUD/delete-confirm/hydration changes.
