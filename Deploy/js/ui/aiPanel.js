@@ -63,6 +63,7 @@ export function atlasAi() {
         model: '',
         endpoint: 'http://localhost:11434',
         webSearch: false,
+        voiceReply: false,
 
         messages: [],
         draft: '',
@@ -92,6 +93,7 @@ export function atlasAi() {
             this.model = cfg.model;
             this.endpoint = cfg.endpoint;
             this.webSearch = !!cfg.webSearch;
+            this.voiceReply = !!cfg.voiceReply;
             this.persona = loadPersona();
             this.hasPin = pinExists();
             this.messages = loadChatHistory();
@@ -112,7 +114,27 @@ export function atlasAi() {
             this.modelMenuOpen = false;
         },
         saveProviderConfig() {
-            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch });
+            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply });
+        },
+        toggleVoiceReply() {
+            this.voiceReply = !this.voiceReply;
+            saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply });
+            if (!this.voiceReply) window.speechSynthesis.cancel();
+        },
+        _speak(text) {
+            if (!this.voiceReply || !window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            // Strip confirm-card interjection text and UI noise; speak just the prose
+            const clean = text
+                .replace(/\[System:.*?\]/g, '')
+                .replace(/⚠[^\n]*/g, '')
+                .replace(/https?:\/\/\S+/g, '')
+                .trim();
+            if (!clean) return;
+            const utt = new SpeechSynthesisUtterance(clean);
+            utt.rate = 1.05;
+            utt.pitch = 1;
+            window.speechSynthesis.speak(utt);
         },
 
         get messageGroups() {
@@ -132,6 +154,7 @@ export function atlasAi() {
         },
         _pushAssistantText(text, providerLabel) {
             this._pushMessage({ role: 'assistant', type: 'text', text, providerLabel: providerLabel || null });
+            this._speak(text);
         },
         _scrollToBottom() {
             const el = this.$refs.messagesEl;

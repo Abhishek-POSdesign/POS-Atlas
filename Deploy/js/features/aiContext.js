@@ -147,12 +147,12 @@ export const WRITE_FLOWS = {
         title: 'Draft · Log workout',
         icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 4v16M18 4v16M4 8h4M4 16h4M16 8h4M16 16h4"/></svg>',
         fields: [
-            { key: 'score', label: 'Score', type: 'number', min: 0, max: 10 },
-            { key: 'calories', label: 'Calories', type: 'number', min: 0, max: 3000 },
+            { key: 'score', label: 'Score (0-100)', type: 'number', min: 0, max: 100 },
+            { key: 'calories', label: 'Calories', type: 'number', min: 0, max: 5000 },
             { key: 'duration_minutes', label: 'Duration (min)', type: 'number', min: 0, max: 600 },
             { key: 'note', label: 'Note', type: 'text' }
         ],
-        extractionInstruction: 'CRITICAL: If Abhishek describes completing a workout (mentions a score, calories, duration, or simply "did my workout"), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll draft this for you": {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"note":string|null}}. Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object for the SINGLE intent that matches the message. Never combine two intents in one reply.',
+        extractionInstruction: 'CRITICAL: If Abhishek describes completing a workout (mentions a score, calories, duration, or simply "did my workout"), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll draft this for you": {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"note":string|null}}. Score is 0-100 (same scale as Garmin/fitness apps). Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object for the SINGLE intent that matches the message. Never combine two intents in one reply.',
         async write(fields) {
             const today = todayIsoDate();
             const patch = {};

@@ -157,6 +157,10 @@
                                             <span>🔍 Use web search</span>
                                         </label>
                                     </template>
+                                    <label class="model-menu-checkbox">
+                                        <input type="checkbox" x-model="voiceReply" @change="toggleVoiceReply()">
+                                        <span>🔊 Voice replies</span>
+                                    </label>
                                 </div>
                             </div>
                             <button class="hicon" @click="view = (view === 'notebook' ? 'chat' : 'notebook')" title="Memory Notebook">
@@ -324,6 +328,10 @@
                                         <span>🔍 Use web search (live results via Gemini)</span>
                                     </label>
                                 </template>
+                                <label class="model-menu-checkbox" style="background:var(--surface-2); border-radius:8px;">
+                                    <input type="checkbox" x-model="voiceReply" @change="toggleVoiceReply()">
+                                    <span>🔊 Voice replies (Atlas speaks its answers aloud)</span>
+                                </label>
                                 <div class="settings-row-link" @click="view = 'persona'">
                                     <span>🔒 Persona &amp; PIN</span><span>→</span>
                                 </div>

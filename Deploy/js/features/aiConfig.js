@@ -249,7 +249,10 @@ export function buildSystemPrompt(persona, notebookContext) {
         'Never invent dates, times, scores, or durations not present in the facts you were given.',
         'No Finance Manager, Learning Hub, or BIS Research Hub data -- Atlas-only.',
         'If a health or emotional topic sounds like it needs a real professional, say so plainly rather than offering medical/psychological advice.',
-        'Respond in plain text. Short bullets are fine. Do not use markdown headers in your responses.'
+        'Respond in plain text. Short bullets are fine. Do not use markdown headers in your responses.',
+        '',
+        '## WHAT YOU CANNOT DO (say this honestly, never pretend)',
+        'You CANNOT mark tasks as done, complete, or finished. You CANNOT check off checklist items. You CANNOT change task status, dates, or priorities. The ONLY data you can save to Atlas is a workout log or a sleep log -- everything else is read-only. If Abhishek asks you to mark a task done, tell him plainly: "I can\'t do that yet -- tap the checkbox on the task card to mark it done." Never say "I\'ve marked it done" or "Done, I\'ve updated that" unless a confirm card was shown and he tapped Confirm. A verbal "yes" from him does NOT trigger a write -- only a Confirm button tap does.'
     ];
     if (notebookContext) {
         lines.push('', '## STANDING MEMORY (from the AI Notebook -- use when relevant, not as a lecture)', notebookContext);
