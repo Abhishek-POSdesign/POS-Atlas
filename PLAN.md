@@ -8,7 +8,7 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-27 (Phase 5 Health panel polish — selector-pill depth + creative extras) · **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) · **Current cache version:** `atlas-offline-shell-v33` · **Latest migration:** `015_sleep_morning_note.sql`
+**Last updated:** 2026-07-27 (Phase 5 Health panel polish — pill depth now on both Sleep chips AND Workout session rows) · **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) · **Current cache version:** `atlas-offline-shell-v34` · **Latest migration:** `015_sleep_morning_note.sql`
 
 ---
 
@@ -64,6 +64,7 @@ Everything below is deployed and confirmed on the live app. Anything Antigravity
 - **Day-type chips (Round 2 build):** three chips at the top — Workout · Active recovery · Full rest. Selected chip gets accent-tinted background. Persists per day via `day_type` column (migration 013).
 - **Content reordered (2026-07-27, v3, post-Comet review):** Day-type toggle → **Today's sessions (main focus, unmoved visual style — no colored bars, no emoji)** → "This week" targets strip (`.health-targets-strip`, demoted) → 4-week consistency. Previously targets sat above sessions; Abhishek/Comet flagged that as backwards from what actually gets looked at first.
 - **Session row controls consolidated (2026-07-27, v3):** the two spaced `.btn-text` Edit/Delete links replaced with one tight icon-button group (`.wo-session-actions-v2` / `.wo-icon-btn`, pencil + trash). Same underlying `openWorkoutSessionForm()`/`deleteWorkoutSession()` calls, unchanged — `deleteWorkoutSession()`'s `askConfirm()` delete-confirm flow was not touched.
+- **Session rows get the same selector-pill depth as the Sleep chips (2026-07-27, v5):** Abhishek explicitly flagged that the pill treatment landed on Sleep but not Workout — `.wo-session-stack` (new track, `--surface-2`, 4px padding, 12px radius) now wraps the session list, and `.wo-session-row` itself is the raised pill (`--surface-1` + `var(--top-edge), var(--shadow-card)`, same hover lift as the sleep chips). Each row also gets a small muted icon (`.wo-session-icon`, `--text-secondary`, NOT colour-coded per activity type) via the new `sessionIconSvg(type)` helper in `today.js` — a fixed 5-entry lookup (strength/cardio_walk/yoga_stretch/active_play/cleaning) rendered with `x-html` (safe: `type` only ever comes from the session form's fixed `<select>`, never free text). `.wo-session-actions-v2`'s own background flipped `--surface-1`→`--surface-2` so the Edit/Delete icon cluster still reads as a distinct control now that the row underneath it is `--surface-1`. Only Today's inline session list changed — the separate "Workout Sessions" modal list keeps its own unrelated `.card.panel` row style.
 - **Weekly targets strip:** `--surface-2` recessed block, no border, "This week" micro-label above it.
 - **Active recovery state:** calm lilac walking-dot pulse + "Active recovery day / Logged — no details to enter."
 - **Full rest state:** pulsing blue moon + "Full rest day / Nothing to log. Sleep well tonight."

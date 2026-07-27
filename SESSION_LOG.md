@@ -32,6 +32,24 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Pill depth on Workout session rows too
+
+**Session scope:** Abhishek's exact words: "you did right with the sleep section... but you didn't apply it in the strength section... today's workout with the same professional [design], without the color icon of workout, walk, play — the options we have should have the same design, so yes, that is what is pending." Reading: the previous pass only put the track/pill depth treatment on Sleep's note chips; the Workout panel's "Today's sessions" rows (strength/cardio_walk/yoga_stretch/active_play/cleaning) were left as flat `--surface-2` boxes. This pass gives session rows the identical pill treatment, plus a small muted (not colour-coded) icon per activity type.
+
+**What shipped (commit pending):**
+- `Deploy/js/pages/today.js` — added `sessionIconSvg(type)`, a pure fixed-lookup helper (5 activity types → hand-picked feather-style SVG path strings: dumbbell / zigzag-motion / wind / target / check). Returned via `x-html` in the template — safe because `type` only ever comes from the session form's fixed `<select>`, never free text.
+- `Deploy/index.html` — session rows now sit inside a new `.wo-session-stack` track wrapper (only rendered when `workoutSessions.length > 0`); each `.wo-session-row` gained a `.wo-session-head` (icon + activity-type label) above the existing meta/note lines. Edit/Delete icon buttons unchanged.
+- `Deploy/css/components.css` — `.wo-session-row` restyled from a flat `--surface-2` box to the same raised-pill treatment as `.health-chip` (`--surface-1` + `var(--top-edge), var(--shadow-card)`, hover lift). New `.wo-session-stack` (track), `.wo-session-head`/`.wo-session-icon`. `.wo-session-actions-v2`'s own background flipped `--surface-1`→`--surface-2` (and its hover flipped to match) so the Edit/Delete control cluster still reads as distinct now that the row underneath it changed shade.
+- `Deploy/service-worker.js` — cache `v33` → `v34`.
+
+**Scope check:** only Today's inline session list changed. The separate "Workout Sessions" modal (opened via the session Edit button / "Log details") uses its own `.card.panel` row markup and was intentionally left alone — it's a different, already-fine surface, not mentioned in the request.
+
+**What was verified locally:** `node --check` clean, `<div>`/`<template>` tag counts balanced (420/420, 159/159), CSS brace count balanced (531/531), local dev server boots with zero console/server errors (login screen only, per project rule).
+
+**What's still open:** Abhishek to view live and confirm — same "viewing it is the only mark complete" standard as the previous entry. If this needs to be rolled back, the pre-this-session commit is `4339638`.
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Health panel polish: selector-pill depth + creative extras
 
 **Session scope:** Abhishek said "almost satisfied, I want to complete it and ship it so I can view it — that is the only mark complete; I might revert if I don't like it." One required fix (pill-depth on the Sleep chips) plus four optional polish ideas he explicitly invited creativity on — did all five since they were small, cohesive, and low-risk.

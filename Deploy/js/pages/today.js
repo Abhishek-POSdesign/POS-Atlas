@@ -607,6 +607,22 @@ export function todayPage() {
             this.showSessionForm = false;
             this.editingSessionId = null;
         },
+        // Muted per-activity-type icon for each session pill (Comet review
+        // follow-up) -- same visual language as the sleep chip icons, not
+        // colored per type (activity colour-coding was already rejected
+        // elsewhere in Atlas). `type` only ever comes from the fixed
+        // <select> in the session form, never free text, so returning raw
+        // SVG markup for x-html here is safe.
+        sessionIconSvg(type) {
+            const icons = {
+                strength: '<path d="M6 4v16M18 4v16M4 8h4M4 16h4M16 8h4M16 16h4"/>',
+                cardio_walk: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+                yoga_stretch: '<path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>',
+                active_play: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+                cleaning: '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
+            };
+            return icons[type] || icons.strength;
+        },
         async saveWorkoutSession() {
             if (!this.workoutEntry) return;
             const toInt = v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };

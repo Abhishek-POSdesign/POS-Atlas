@@ -2378,19 +2378,39 @@
 .health-chip-value.inactive { color: var(--text-muted); font-style: italic; }
 
 /* =========================================================
-   PHASE 5 — WORKOUT SESSION ROW (inline on card + modal)
+   PHASE 5 (v4) — WORKOUT SESSION ROW: SELECTOR-PILL DEPTH
+   Same two-layer track/pill system as the Sleep note chips
+   (.health-chip-stack / .health-chip) and the Workout day-type
+   toggle -- a recessed .wo-session-stack track (--surface-2)
+   holding each .wo-session-row as a raised pill (--surface-1 +
+   var(--top-edge), var(--shadow-card)). Only used on Today's
+   inline session list; the "Workout Sessions" modal list keeps
+   its own separate .card.panel rows, untouched.
    ========================================================= */
+.wo-session-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--surface-2);
+    padding: 4px;
+    border-radius: 12px;
+}
 .wo-session-row {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     padding: 10px 12px;
-    background: var(--surface-2);
-    border-radius: 6px;
-    margin-bottom: 6px;
+    background: var(--surface-1);
+    border-radius: 9px;
+    box-shadow: var(--top-edge), var(--shadow-card);
+    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
-.wo-session-row:last-child { margin-bottom: 0; }
+.wo-session-row:hover { transform: translateY(-2px); box-shadow: var(--top-edge), var(--shadow-card-hover); }
 .wo-session-info { min-width: 0; flex: 1; }
+.wo-session-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+/* Muted, not colour-coded per activity type -- same restraint as the
+   sleep chip icons and the app-wide "no colored left bars" rule. */
+.wo-session-icon { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); flex-shrink: 0; }
 .wo-session-type {
     font-size: 14px;
     font-weight: 500;
@@ -2418,14 +2438,16 @@
 /* Consolidated session control (Comet review) -- replaces the two spaced
    .btn-text Edit/Delete links with one tight icon-button group, same
    underlying actions (openWorkoutSessionForm / deleteWorkoutSession,
-   both unchanged). */
-.wo-session-actions-v2 { display: flex; gap: 4px; background: var(--surface-1); border-radius: 6px; padding: 2px; flex-shrink: 0; }
+   both unchanged). Background flipped to --surface-2 (was --surface-1)
+   now that the row itself sits on --surface-1 -- keeps the control
+   cluster reading as a distinct chip instead of blending into the pill. */
+.wo-session-actions-v2 { display: flex; gap: 4px; background: var(--surface-2); border-radius: 6px; padding: 2px; flex-shrink: 0; }
 .wo-icon-btn {
     width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
     background: none; border: 0; border-radius: 5px; color: var(--text-muted); cursor: pointer;
     transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
 }
-.wo-icon-btn:hover { color: var(--text-primary); background: var(--surface-2); }
+.wo-icon-btn:hover { color: var(--text-primary); background: var(--surface-1); }
 .wo-icon-btn.danger:hover { color: var(--accent-coral); background: var(--accent-coral-tint); }
 
 /* Micro-heading shared by "Today's sessions" and "This week" (Workout
