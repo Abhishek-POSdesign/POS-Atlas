@@ -1459,8 +1459,28 @@
 @media (max-width: 900px) { .health-row { grid-template-columns: 1fr; } }
 
 .health-panel { padding: var(--pad-lg); display: flex; flex-direction: column; }
-.health-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.health-panel-head h2 { margin: 0; font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.health-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+/* Title promoted 13px -> 17px (Comet review) -- was reading as a label,
+   not a section title. Matches the weight of Work log / Tasks headers
+   used elsewhere in Atlas (.ws-section-head h2). */
+.health-panel-head h2 { margin: 0; font-size: 17px; font-weight: 700; color: var(--text-primary); letter-spacing: -.005em; }
+.health-panel-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.health-panel-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.health-panel-icon.lilac { background: var(--accent-lilac-tint); color: var(--accent-lilac); }
+.health-panel-icon.blue { background: var(--accent-blue-tint); color: var(--accent-blue); }
+.health-panel-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+/* Shared Edit/Log pill for both Sleep and Workout panel headers -- upgraded
+   from a bare .btn-text link so it reads as a real primary action instead
+   of a stray link floating in the header (Comet review). */
+.health-edit-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 14px; border: 1px solid var(--border-hover); border-radius: 7px;
+    background: none; color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.health-edit-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
 
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .metric { display: flex; flex-direction: column; }
@@ -2221,7 +2241,7 @@
    quiet roll-up above the sessions, not a second elevated card
    stacked inside the panel (Abhishek's "card inside card" note). */
 .wo-targets-grid {
-    margin: 10px 0 14px;
+    margin: 0;
     padding: 10px 12px;
     background: var(--surface-2);
     border-radius: 8px;
@@ -2316,31 +2336,28 @@
 }
 
 /* =========================================================
-   PHASE 5 (v2) — HEALTH NOTE DISPLAY
-   Morning reflection / context on the Sleep panel. Plain
-   divider, no colored left-edge chip and no --surface-2 box --
-   the earlier "card inside card" treatment fought the metrics
-   grid above it (Abhishek's design-review feedback). Label
-   small/muted, body text normal weight so it reads as a note,
-   not a status pill.
+   PHASE 5 (v3) — SLEEP NOTE CHIPS (Comet review)
+   Three stacked selector-style chips (Tonight's summary /
+   Morning reflection / Context), visually inspired by the
+   Workout day-type segmented control: --surface-2 body, no
+   colored left-edge, no per-chip border. Always render once
+   any sleep data exists for today -- an empty chip goes quiet
+   (.inactive) rather than disappearing, so the stack never
+   looks broken or half-filled.
    ========================================================= */
-.health-note { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
-.health-note-label {
+.health-chip-stack { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.health-chip { background: var(--surface-2); border-radius: 8px; padding: 12px 14px; }
+.health-chip-label {
     display: block;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .05em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     margin-bottom: 4px;
 }
-.health-note-text {
-    font-size: 13.5px;
-    color: var(--text-primary);
-    line-height: 1.5;
-    margin: 0;
-}
-.health-note-text.muted { color: var(--text-secondary); }
+.health-chip-value { font-size: 13.5px; color: var(--text-primary); line-height: 1.5; margin: 0; }
+.health-chip-value.inactive { color: var(--text-muted); font-style: italic; }
 
 /* =========================================================
    PHASE 5 — WORKOUT SESSION ROW (inline on card + modal)
@@ -2380,81 +2397,108 @@
     flex-shrink: 0;
 }
 
+/* Consolidated session control (Comet review) -- replaces the two spaced
+   .btn-text Edit/Delete links with one tight icon-button group, same
+   underlying actions (openWorkoutSessionForm / deleteWorkoutSession,
+   both unchanged). */
+.wo-session-actions-v2 { display: flex; gap: 4px; background: var(--surface-1); border-radius: 6px; padding: 2px; flex-shrink: 0; }
+.wo-icon-btn {
+    width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;
+    background: none; border: 0; border-radius: 5px; color: var(--text-muted); cursor: pointer;
+    transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.wo-icon-btn:hover { color: var(--text-primary); background: var(--surface-2); }
+.wo-icon-btn.danger:hover { color: var(--accent-coral); background: var(--accent-coral-tint); }
+
+/* Micro-heading shared by "Today's sessions" and "This week" (Workout
+   panel) -- same weight as .health-trend-title so all three section
+   captions in a Health panel read as one consistent family. */
+.hp-microlabel {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+/* This week's targets: demoted below sessions (Comet review), quiet
+   summary strip -- reuses .wo-targets-grid/.wo-targets-row unchanged. */
+.health-targets-strip { margin-top: 16px; }
+
 /* =========================================================
-   PHASE 5 (v2) — IN-PANEL HEALTH TREND (compact)
-   Each Health panel (Sleep, Workout) now carries its own small
-   trend directly under its capture/review content instead of a
-   separate full-width "Health Trends" card at the bottom of the
-   page (Abhishek's explicit rejection of the orphaned-chart
-   layout). Reuses the same sage/amber/coral colour language as
-   the Checklist Completion trend and Routine mini-dots.
+   PHASE 5 (v3) — IN-PANEL HEALTH TREND
+   Each Health panel (Sleep, Workout) carries its own trend
+   directly under its capture/review content instead of a
+   separate full-width "Health Trends" card at the bottom of
+   the page. Reuses the same sage/amber/coral colour language
+   as the Checklist Completion trend and Routine mini-dots.
    ========================================================= */
-.health-trend { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
-.health-trend-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.health-trend { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.health-trend-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 9px; }
 .health-trend-title {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .06em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-secondary);
 }
 .health-trend-meta { font-size: 11.5px; color: var(--text-secondary); }
-.health-trend-meta strong { color: var(--text-primary); font-weight: 500; }
+.health-trend-meta strong { color: var(--text-primary); font-weight: 500; font-variant-numeric: tabular-nums; }
 .health-trend-empty { font-size: 12px; color: var(--text-muted); margin: 0; }
 
-/* Sleep: compact 14-day bar chart, no goal line/legend -- the
-   colour language (sage/amber/coral) is already established
-   elsewhere on the same page, so a repeated legend here would
-   just be clutter. */
-.ht-compact-chart { display: flex; align-items: flex-end; gap: 3px; height: 46px; }
-.ht-compact-col { flex: 1; display: flex; align-items: flex-end; height: 100%; min-width: 0; }
-.ht-compact-bar {
-    width: 100%;
-    max-width: 12px;
-    margin: 0 auto;
-    border-radius: 2px 2px 0 0;
-    min-height: 2px;
-    transition: height var(--dur-base) var(--ease-out);
-}
+/* Sleep: bottom-anchored sparkline (Comet review, Option B). Fixed
+   280x80 viewBox rendered with preserveAspectRatio="none" so it
+   stretches to the panel's real width; coordinates are computed in
+   today.js's sleepSparkline getter from real logged nights only --
+   a missing night is a gap in the line, never a fake flat value.
+   Colouring goes through CSS classes (not inline var() in SVG
+   attributes) so custom-property resolution is never in question. */
+.health-spark { height: 80px; }
+.health-spark-svg { display: block; color: var(--accent-sage); }
+.health-spark-stop-a { stop-color: currentColor; stop-opacity: .28; }
+.health-spark-stop-b { stop-color: currentColor; stop-opacity: 0; }
+.health-spark-goal { stroke: var(--border-hover); stroke-width: 1; stroke-dasharray: 3 3; }
+.health-spark-line { fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.health-spark-dot { fill: currentColor; }
 
-/* Workout: compact per-activity-type consistency row, 4 weeks */
-.ht-wo-compact { display: flex; flex-direction: column; gap: 6px; }
-.ht-wo-compact-row { display: flex; align-items: center; gap: 8px; }
-.ht-wo-compact-label {
-    flex: 1;
-    font-size: 11.5px;
-    color: var(--text-muted);
-    text-transform: capitalize;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.ht-wo-compact-dots { display: flex; gap: 4px; }
-.ht-wo-compact-dot { width: 12px; height: 12px; border-radius: 3px; }
-.ht-wo-compact-dot--met { background: var(--accent-sage); }
-.ht-wo-compact-dot--partial { background: var(--accent-amber); }
-.ht-wo-compact-dot--missed { background: var(--accent-coral); opacity: 0.6; }
+/* Workout: 4-week consistency, aggregated per week (Comet review,
+   Option A) -- one larger cell per week instead of a dot per
+   activity-type per week. Computed in today.js's workoutWeekAggregate
+   getter from the existing workoutConsistency data, no new loading. */
+.health-weeks-strip { display: flex; gap: 12px; margin-bottom: 12px; }
+.health-week-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.health-week-cell .box { width: 38px; height: 38px; border-radius: 9px; }
+.health-week-cell .box--met { background: var(--accent-sage); }
+.health-week-cell .box--partial { background: var(--accent-amber); }
+.health-week-cell .box--missed { background: var(--accent-coral); opacity: .55; }
+.health-week-cell .lbl { font-size: 10px; color: var(--text-muted); font-weight: 600; letter-spacing: .02em; }
+
+.health-legend { display: flex; gap: 16px; }
+.health-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-secondary); }
+.health-legend .d { width: 9px; height: 9px; border-radius: 3px; }
+.health-legend .d--met { background: var(--accent-sage); }
+.health-legend .d--partial { background: var(--accent-amber); }
+.health-legend .d--missed { background: var(--accent-coral); opacity: .55; }
 
 /* =========================================================
-   PHASE 5 (v2) — ATTACH-SCREENSHOT PLACEHOLDER
-   Non-functional, future-AI affordance in both Health panels.
-   Deliberately quiet: dashed border, muted text, no icon fill,
-   `disabled` so it can never be mistaken for a working control.
+   PHASE 5 (v3) — ATTACH-SCREENSHOT LINK (Comet review)
+   Shrunk from a full-width dashed bar to a small inline
+   text+icon link -- still a non-functional, future-AI
+   placeholder (`disabled`, no upload logic), just visually
+   quiet instead of dominating the bottom of the panel.
    ========================================================= */
-.health-attach-row { margin-top: auto; padding-top: 12px; }
-.health-attach-btn {
-    width: 100%;
-    display: flex;
+.health-attach-row { margin-top: auto; padding-top: 10px; }
+.health-attach-link {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 6px;
+    gap: 5px;
     background: none;
-    border: 1px dashed var(--border-hover);
-    border-radius: 6px;
-    padding: 8px 10px;
+    border: 0;
+    padding: 2px 0;
     font-family: var(--font-sans);
     font-size: 11.5px;
     color: var(--text-muted);
     cursor: default;
-    opacity: .75;
 }
+.health-attach-link .future-tag { opacity: .75; }

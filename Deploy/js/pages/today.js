@@ -741,6 +741,30 @@ export function todayPage() {
             return Math.round((this.sleepGoalMinutes / this.sleepMaxDuration) * 100) + '%';
         },
 
+        // ---- sleep sparkline (Comet review, Option B) ----
+        // Only real logged nights become points -- a missing night is a gap
+        // in the line, never a fake zero/flat-carry value. Coordinate space
+        // is a fixed 280x80 viewBox rendered with preserveAspectRatio="none"
+        // so the SVG stretches to whatever width the panel actually has.
+        get sleepSparkline() {
+            const days = this.sleepTrendDays.slice(-14).filter(d => d.duration != null);
+            if (days.length < 2) return null;
+            const values = days.map(d => d.duration);
+            const min = Math.min(...values, this.sleepGoalMinutes);
+            const max = Math.max(...values, this.sleepGoalMinutes);
+            const range = Math.max(1, max - min);
+            const W = 280, H = 80, PAD = 6;
+            const points = days.map((d, i) => {
+                const x = days.length === 1 ? 0 : Math.round((i / (days.length - 1)) * W * 10) / 10;
+                const y = Math.round((PAD + (1 - (d.duration - min) / range) * (H - PAD * 2)) * 10) / 10;
+                return { x, y, date: d.date, duration: d.duration };
+            });
+            const linePoints = points.map(p => `${p.x},${p.y}`).join(' ');
+            const areaPoints = `0,${H} ${linePoints} ${W},${H}`;
+            const goalY = Math.round((PAD + (1 - (this.sleepGoalMinutes - min) / range) * (H - PAD * 2)) * 10) / 10;
+            return { points, linePoints, areaPoints, goalY, last: points[points.length - 1], W, H };
+        },
+
         get workoutConsistency() {
             const targets = this._workoutTrendTargets || [];
             return targets.map(t => {
@@ -752,6 +776,23 @@ export function todayPage() {
                     return 'missed';
                 });
                 return { type: t.activity_type, target: t.target_days_per_week, weekDots };
+            });
+        },
+
+        // ---- 4-week consistency, aggregated per week (Comet review, Option A) ----
+        // Derived from workoutConsistency (unchanged) -- no new data loading.
+        // A week is 'met' only if every activity type hit its target that
+        // week, 'missed' only if none did, otherwise 'partial'.
+        get workoutWeekAggregate() {
+            const rows = this.workoutConsistency;
+            if (!rows.length) return [];
+            return this.workoutTrendWeeks.map((week, i) => {
+                const states = rows.map(r => r.weekDots[i]);
+                let state;
+                if (states.every(s => s === 'met')) state = 'met';
+                else if (states.every(s => s === 'missed')) state = 'missed';
+                else state = 'partial';
+                return { label: week.label, state };
             });
         },
 

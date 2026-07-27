@@ -32,6 +32,42 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5) — Health panel visual refinement (post-Comet review)
+
+**Session scope:** A Comet visual review of v31 confirmed layout position/logic were fine but flagged the Sleep and Workout panel *designs* specifically. Abhishek turned that into a detailed build spec (previous turn produced a mockup artifact with recommended options A for both the sleep trend and the workout consistency strip; this turn implements those recommended options as real code). Visual-only pass — no schema, no `db.js`, no CRUD/delete-confirm/hydration changes.
+
+**What shipped (commit pending — see below):**
+- `Deploy/js/pages/today.js` — added two new derived getters, no other logic touched:
+  - `sleepSparkline` — builds SVG polyline/gradient-area/goal-line coordinates from `sleepTrendDays` (last 14 days, real logged nights only — missing nights are gaps, never fake flat values). Returns `null` if fewer than 2 real points exist.
+  - `workoutWeekAggregate` — collapses the existing `workoutConsistency` (per-activity-type × 4-week dots) into one aggregate state per week (met/partial/missed). Pure derivation, no new data loading.
+- `Deploy/index.html` — full Sleep + Workout panel markup rewrite:
+  - Sleep: header promoted 13px→17px + lilac icon chip; morning reflection/context/"Tonight's summary" now three stacked `.health-chip` cards (always render, empty ones go `.inactive` italic instead of disappearing) instead of the morning's `.health-note` divider treatment; trend replaced with a bottom-anchored sparkline SVG (was a compact bar chart); attach button shrunk to a small inline link (was a full-width dashed bar).
+  - Workout: header gets the same icon-chip treatment; content reordered so **today's sessions sit right under the day-type toggle** (was: targets grid above sessions); session Edit/Delete consolidated from two spaced text links into one icon-button group (`.wo-session-actions-v2`); targets grid demoted below sessions under a "This week" label; 4-week consistency redesigned from a 3-4-row dot grid into one row of 4 larger aggregated cells + a single shared legend; attach button shrunk to the same small inline link as Sleep.
+- `Deploy/css/components.css` — replaced `.health-note*`/`.ht-compact-*`/`.ht-wo-compact-*`/`.health-attach-btn` with `.health-chip*`, `.health-spark*`, `.health-weeks-strip`/`.health-week-cell`/`.health-legend`, `.health-attach-link`, `.wo-session-actions-v2`/`.wo-icon-btn`, `.hp-microlabel`, `.health-targets-strip`, `.health-panel-title`/`.health-panel-icon`/`.health-edit-btn`. Caption labels (`.health-chip-label`, `.health-trend-title`, `.hp-microlabel`) bumped from `--text-muted` to `--text-secondary` for contrast, per spec — done by reusing an existing token, not touching `tokens.css`.
+- `Deploy/service-worker.js` — `CACHE_NAME` bumped `v31` → `v32`.
+- `PLAN.md` — Sleep/Workout panel sections rewritten to match.
+
+**Deviation from spec:** the spec offered session-row consolidation as "kebab menu OR grouped icon buttons" — went with **grouped icon buttons** (pencil + trash, shared container), not a kebab dropdown. Reason: a kebab needs new per-row open/close state, click-outside handling, and positioning — real new interactive surface for a visual-only pass, and the spec explicitly allowed either. Both `openWorkoutSessionForm()`/`deleteWorkoutSession()` calls are byte-identical to before.
+
+**Found in passing, NOT fixed (flagged as a separate spawned task):** `components.css` has a small UTF-16-encoded region (~524 NUL bytes) around the `.project-card-completed`/`.running-card`/`.running-note`/`.trv2-pause-reason` rules — likely means `.running-card`/`.running-note`/`.trv2-pause-reason` render unstyled in production right now (a NUL byte in CSS becomes U+FFFD, breaking those selectors). Confirmed via `node -e` byte inspection. Out of scope for this Health-only pass; a background task was spawned for it. Don't accidentally "fix" this while touching components.css again without reading the spawned task's notes first — it needs byte-level surgery, not a normal text edit.
+
+**What was verified locally (not live):**
+- `node --check` clean on `today.js`.
+- `<div>`/`<template>` tag counts balanced (417/417, 157/157) and CSS brace count balanced (521/521) after all edits.
+- Grepped `index.html` for every removed class name (`health-note`, `ht-compact`, `ht-wo-compact`, `health-attach-btn`) — zero stale references.
+- Local dev server boots, login screen renders, zero console/server errors. Did not sign in locally (project rule — shared prod DB).
+
+**What's still open:**
+- Abhishek needs to live-test against the 5-point checklist: Sleep shows 3 chips + full-height sparkline; Workout header has exactly 2 actions; each session row has one consolidated control; 4-week consistency is one row of 4 cells + legend; both attach links are small/unobtrusive in both themes.
+- The UTF-16 CSS corruption (see above) is a real, separate bug — spawned but not yet actioned.
+
+**What NOT to do:**
+- Don't reintroduce the full-width dashed attach button or the per-activity-type dot-grid consistency view — both were explicitly replaced this session per Comet's review.
+- Don't move targets back above sessions in the Workout panel.
+- Don't use `grep`/Grep on `components.css` and trust an empty/binary result as "nothing there" — the file has a real null-byte region partway through that makes ripgrep report it as binary; use `Read` with offsets instead until the spawned cleanup task lands.
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5)
 
 **Session scope:** Phase 5 Health — layout restructure. Abhishek rejected the previous layout (Health cramped into a 60/40 row beside Tasks, dead blank space, orphaned "Health Trends" card at the very bottom) and asked for a real redesign, not another patch.
