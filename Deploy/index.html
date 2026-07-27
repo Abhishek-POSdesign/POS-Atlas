@@ -329,9 +329,8 @@
                                     </template>
                                 </div>
 
-                                <!-- Tasks & Reminders (60%) | Sleep + Workout (40%) -->
-                                <div class="split-60-40">
-                                    <div class="card panel">
+                                <!-- Tasks & Reminders: full width, its own band -->
+                                <div class="card panel">
                                         <div class="panel-head">
                                             <h2 style="margin:0;">Tasks &amp; Reminders</h2>
                                             <button class="add-btn" @click="openTaskModal()">+ Add task</button>
@@ -426,12 +425,13 @@
                                                 </div>
                                             </template>
                                         </div>
-                                    </div>
+                                </div>
 
-                                    <div class="vitals-stack">
-                                        <div class="card vital-card">
-                                            <div class="panel-head" style="margin-bottom: 8px;">
-                                                <h2 style="margin:0; font-size: 13px;">Sleep</h2>
+                                <!-- Health row: Sleep | Workout, equal height via grid stretch -->
+                                <div class="health-row">
+                                        <div class="card health-panel">
+                                            <div class="health-panel-head">
+                                                <h2>Sleep</h2>
                                                 <button class="btn-text" @click="openSleepModal()" x-text="sleepEntry ? 'Edit' : 'Log sleep'"></button>
                                             </div>
                                             <template x-if="!hasSleepData">
@@ -454,23 +454,49 @@
                                                         <div class="metric"><span class="v" x-text="sleepEntry.hrv ?? '—'"></span><span class="l">HRV</span></div>
                                                     </div>
                                                     <template x-if="sleepEntry.morning_note">
-                                                        <div class="sleep-card-note morning">
-                                                            <span class="sleep-card-note-label">Morning reflection</span>
-                                                            <span class="sleep-card-note-text" x-text="sleepEntry.morning_note"></span>
+                                                        <div class="health-note">
+                                                            <span class="health-note-label">Morning reflection</span>
+                                                            <p class="health-note-text" x-text="sleepEntry.morning_note"></p>
                                                         </div>
                                                     </template>
                                                     <template x-if="sleepEntry.note">
-                                                        <div class="sleep-card-note context">
-                                                            <span class="sleep-card-note-label">Context</span>
-                                                            <span class="sleep-card-note-text" x-text="sleepEntry.note"></span>
+                                                        <div class="health-note">
+                                                            <span class="health-note-label">Context</span>
+                                                            <p class="health-note-text muted" x-text="sleepEntry.note"></p>
                                                         </div>
                                                     </template>
                                                 </div>
                                             </template>
+
+                                            <div class="health-trend">
+                                                <div class="health-trend-head">
+                                                    <span class="health-trend-title">14-day trend</span>
+                                                    <span class="health-trend-meta" x-show="sleepAvg7 != null">Avg <span x-text="sleepAvg7 != null ? (Math.floor(sleepAvg7/60) + 'h ' + (sleepAvg7%60) + 'm') : ''"></span></span>
+                                                </div>
+                                                <template x-if="sleepTrendDays.length > 0">
+                                                    <div class="ht-compact-chart">
+                                                        <template x-for="d in sleepTrendDays.slice(-14)" :key="d.date">
+                                                            <div class="ht-compact-col" :title="d.date + (d.duration != null ? (' — ' + Math.floor(d.duration/60) + 'h ' + (d.duration%60) + 'm') : ' — no data')">
+                                                                <div class="ht-compact-bar" :style="'height:' + sleepBarHeight(d) + '; background:' + sleepBarColor(d)"></div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="sleepTrendDays.length === 0">
+                                                    <p class="health-trend-empty">Log a few nights to see your trend here.</p>
+                                                </template>
+                                            </div>
+
+                                            <div class="health-attach-row">
+                                                <button type="button" class="health-attach-btn" disabled title="Coming soon — AI screenshot parsing is planned">
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                                    Attach sleep screenshot (future AI)
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div class="card vital-card">
-                                            <div class="panel-head" style="margin-bottom: 8px;">
-                                                <h2 style="margin:0; font-size: 13px;">Workout</h2>
+                                        <div class="card health-panel">
+                                            <div class="health-panel-head">
+                                                <h2>Workout</h2>
                                                 <div style="display:flex; gap:8px; align-items:center;">
                                                     <button class="btn-icon-sm" @click="openTargetsEditor()" title="Edit weekly targets" x-show="workoutTargets.length > 0">
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -615,8 +641,37 @@
                                                     <div class="wo-state-sub">Nothing to log. Sleep well tonight.</div>
                                                 </div>
                                             </template>
+
+                                            <div class="health-trend">
+                                                <div class="health-trend-head">
+                                                    <span class="health-trend-title">4-week consistency</span>
+                                                </div>
+                                                <template x-if="workoutConsistency.length > 0">
+                                                    <div class="ht-wo-compact">
+                                                        <template x-for="row in workoutConsistency" :key="row.type">
+                                                            <div class="ht-wo-compact-row">
+                                                                <span class="ht-wo-compact-label" x-text="row.type.replace('_', ' ')"></span>
+                                                                <span class="ht-wo-compact-dots">
+                                                                    <template x-for="(dot, i) in row.weekDots" :key="i">
+                                                                        <span class="ht-wo-compact-dot" :class="'ht-wo-compact-dot--' + dot"></span>
+                                                                    </template>
+                                                                </span>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="workoutConsistency.length === 0">
+                                                    <p class="health-trend-empty">Set weekly targets to track consistency.</p>
+                                                </template>
+                                            </div>
+
+                                            <div class="health-attach-row">
+                                                <button type="button" class="health-attach-btn" disabled title="Coming soon — AI screenshot parsing is planned">
+                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                                    Attach workout screenshot (future AI)
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
                                 </div>
 
                                 <!-- Routine: checklist only -->
@@ -775,89 +830,6 @@
                                             </div>
                                         </template>
                                     </div>
-                                </div>
-
-                                <!-- Health Trends -->
-                                <div class="card workspace-section">
-                                    <div class="panel-head" style="margin-bottom: 12px;">
-                                        <h2 style="margin:0;">Health Trends</h2>
-                                        <div class="ht-tabs">
-                                            <button class="ht-tab" :class="{ active: healthTrendTab === 'sleep' }" @click="healthTrendTab = 'sleep'">Sleep</button>
-                                            <button class="ht-tab" :class="{ active: healthTrendTab === 'workout' }" @click="healthTrendTab = 'workout'">Workout</button>
-                                        </div>
-                                    </div>
-
-                                    <!-- Sleep trend: 30-day bar chart -->
-                                    <template x-if="healthTrendTab === 'sleep'">
-                                        <div>
-                                            <template x-if="healthTrendLoading">
-                                                <div class="nodata"><span class="h">Loading...</span></div>
-                                            </template>
-                                            <template x-if="!healthTrendLoading && sleepTrendDays.length > 0">
-                                                <div>
-                                                    <div class="ht-sleep-summary">
-                                                        <span x-show="sleepAvg7 != null">7-day avg: <strong x-text="Math.floor(sleepAvg7/60) + 'h ' + (sleepAvg7%60) + 'm'"></strong></span>
-                                                        <span>Goal: <strong x-text="Math.floor(sleepGoalMinutes/60) + 'h ' + (sleepGoalMinutes%60) + 'm'"></strong></span>
-                                                    </div>
-                                                    <div class="ht-sleep-chart">
-                                                        <div class="ht-sleep-goal-line" :style="'bottom: ' + sleepGoalPct"></div>
-                                                        <template x-for="d in sleepTrendDays" :key="d.date">
-                                                            <div class="ht-sleep-col" :title="d.date + (d.duration != null ? (' — ' + Math.floor(d.duration/60) + 'h ' + (d.duration%60) + 'm') : ' — no data')">
-                                                                <div class="ht-sleep-bar" :style="'height:' + sleepBarHeight(d) + '; background:' + sleepBarColor(d)"></div>
-                                                                <span class="trend-label" x-text="d.label"></span>
-                                                            </div>
-                                                        </template>
-                                                    </div>
-                                                    <div class="trend-legend" style="margin-top: 8px;">
-                                                        <span><span class="trend-dot" style="background:var(--accent-sage)"></span>≥ Goal</span>
-                                                        <span><span class="trend-dot" style="background:var(--accent-amber)"></span>85%+</span>
-                                                        <span><span class="trend-dot" style="background:var(--accent-coral)"></span>&lt; 85%</span>
-                                                        <span><span class="trend-dot" style="background:var(--border-hover); border:1px solid var(--text-muted);"></span>No data</span>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                            <template x-if="!healthTrendLoading && sleepTrendDays.length === 0">
-                                                <div class="nodata"><span class="h">No sleep data yet</span><span class="p">Log sleep to see your 30-day trend here.</span></div>
-                                            </template>
-                                        </div>
-                                    </template>
-
-                                    <!-- Workout trend: 4-week consistency grid -->
-                                    <template x-if="healthTrendTab === 'workout'">
-                                        <div>
-                                            <template x-if="healthTrendLoading">
-                                                <div class="nodata"><span class="h">Loading...</span></div>
-                                            </template>
-                                            <template x-if="!healthTrendLoading && workoutConsistency.length > 0">
-                                                <div>
-                                                    <div class="ht-wo-grid">
-                                                        <div class="ht-wo-header-row">
-                                                            <span class="ht-wo-label"></span>
-                                                            <template x-for="week in workoutTrendWeeks" :key="week.label">
-                                                                <span class="ht-wo-week-label" x-text="week.label"></span>
-                                                            </template>
-                                                        </div>
-                                                        <template x-for="row in workoutConsistency" :key="row.type">
-                                                            <div class="ht-wo-row">
-                                                                <span class="ht-wo-label" x-text="row.type.replace('_', ' ')"></span>
-                                                                <template x-for="(dot, i) in row.weekDots" :key="i">
-                                                                    <span class="ht-wo-dot" :class="'ht-wo-dot--' + dot"></span>
-                                                                </template>
-                                                            </div>
-                                                        </template>
-                                                    </div>
-                                                    <div class="trend-legend" style="margin-top: 8px;">
-                                                        <span><span class="trend-dot" style="background:var(--accent-sage)"></span>Met target</span>
-                                                        <span><span class="trend-dot" style="background:var(--accent-amber)"></span>Partial</span>
-                                                        <span><span class="trend-dot" style="background:var(--accent-coral)"></span>Missed</span>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                            <template x-if="!healthTrendLoading && workoutConsistency.length === 0">
-                                                <div class="nodata"><span class="h">No workout targets set</span><span class="p">Set weekly targets via the gear icon to track consistency.</span></div>
-                                            </template>
-                                        </div>
-                                    </template>
                                 </div>
 
                             </div>

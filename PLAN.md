@@ -8,7 +8,7 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-26 (end of Design Review Round 2 build) · **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) · **Current cache version:** `atlas-offline-shell-v19` · **Latest migration:** `013_atlas_workout_add_day_type.sql`
+**Last updated:** 2026-07-27 (Phase 5 Health layout restructure) · **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) · **Current cache version:** `atlas-offline-shell-v31` · **Latest migration:** `015_sleep_morning_note.sql`
 
 ---
 
@@ -24,7 +24,8 @@ Everything below is deployed and confirmed on the live app. Anything Antigravity
 - Header actions: Notebook overlay button, Restore overlay button, user name, theme switcher, sign-out.
 
 ### Today page — Tasks & Reminders card
-- **Fixed-height with internal scroll.** Grid-stretch matches the Sleep + Workout column exactly; task list scrolls inside when it overflows. Card outer height never grows with task count.
+- **Full-width band of its own (2026-07-27 Health restructure).** No longer sharing a row with Sleep/Workout — the old 60/40 split put Health inside Tasks' shadow and produced dead space beside the shorter column. Tasks now gets the full page width; Sleep + Workout moved to their own row below (see "Health row").
+- Card height follows its own content (no explicit max-height/scroll-cage currently in `.task-list` CSS — note this is a pre-existing gap from before the restructure, not something this pass introduced or removed).
 - **Row anatomy (v2):** round done-checkbox on the left · task name + kind/project chip metadata stacked in the middle · right-aligned time column with OVERDUE tag underneath if past-due · **no delete X on the row** (delete lives inside Edit).
 - **Project chip fix:** tinted `--surface-2` background with hairline border, primary text weight-600, coloured identity dot. Reads clearly on both themes.
 - **Overdue state:** past-scheduled tasks/reminders show coral time + "OVERDUE" tag. `isOverdue()` narrowly defined (past date OR today+past time, never done).
@@ -45,22 +46,29 @@ Everything below is deployed and confirmed on the live app. Anything Antigravity
 - **KPI cards:** 40 px big number + denominator span for Tasks (`recentlyCompleted/tasksTodayTotal`); 40 px count + colour chip list for Active projects; 128 px ring for Checklist with sage/amber/hollow segments.
 - **Checklist Today ring — skipped colour:** `--accent-amber` (was `--border-hover`, invisible). Matches trend chart + mini-dots.
 - **Journal pencil:** icon-button next to the Today H1, real hover/focus `.tooltip` in `--surface-2` (not `title=`), toggles the inline daily-note composer.
-- **Sleep + Workout column:** two vital-cards, both with `.nodata` two-line helper when unset (names the manual + planned-AI-parse flow).
-- **Routine (checklist):** always visible below the 60/40 row. Starts fully collapsed on every mount (session-only, never persisted). Four blocks (Morning/Afternoon/Night/Sleep) with 5 px coloured left-edge. Mini-dots share colour language with the trend chart. Log popup (name + time + note). Log button muted 35% on already-marked rows.
+- **Health row (2026-07-27 restructure):** Sleep + Workout panels sit in their own full-width row below Tasks, not squeezed into a 40% column beside it. Plain CSS grid (`display:grid; grid-template-columns:1fr 1fr`, default `align-items:stretch`) equalizes both panel heights automatically — no scroll cage, no min/max plumbing needed. Single column under 900px. Both panels have `.nodata` two-line helper when unset (names the manual + planned-AI-parse flow).
+- **Routine (checklist):** always visible below the Health row. Starts fully collapsed on every mount (session-only, never persisted). Four blocks (Morning/Afternoon/Night/Sleep) with 5 px coloured left-edge. Mini-dots share colour language with the trend chart. Log popup (name + time + note). Log button muted 35% on already-marked rows.
 - **Checklist Completion trend:** 30-day stacked bar chart (sage done / amber skipped / coral missed). Legend at 11 px dots + 500-weight secondary text.
 
-### Today page — Sleep (manual entry only)
+### Today page — Sleep panel (manual entry, lives in the Health row)
 - One row per day in `atlas_sleep_logs`, keyed on `entry_date UNIQUE` (midnight, not 6am-shifted).
-- Fields: duration_minutes, sleep_score, deep_minutes, rem_minutes, resting_hr, hrv, note.
-- Modal for logging (three field rows + note).
-- No trend chart yet — see PLANNED below.
+- Fields: duration_minutes, sleep_score, deep_minutes, rem_minutes, resting_hr, hrv, note, morning_note.
+- Modal for logging (two-step: metrics, then morning reflection).
+- **Notes redesigned (2026-07-27):** morning reflection + context now render as `.health-note` — small muted label, plain-weight body text, divider line. Replaces the old `.sleep-card-note` colored-left-edge chip on a `--surface-2` box, which read as a second card fighting the metrics grid above it.
+- **Inline 14-day trend (2026-07-27):** compact bar chart (`.ht-compact-chart`) directly under the notes, reusing `sleepTrendDays`/`sleepBarHeight()`/`sleepBarColor()` already loaded by `loadHealthTrend()`. No goal dashed-line or legend in the compact view (the sage/amber/coral language is already established elsewhere on the page). "Avg" meta line shows the 7-day average.
+- **"Attach sleep screenshot (future AI)" placeholder (2026-07-27):** non-functional `disabled` button at the bottom of the panel, dashed border, muted text. No upload logic, no Supabase field — a marked spot for the planned screenshot-parse AI phase.
 
-### Today page — Workout (manual entry + day-type toggle)
+### Today page — Workout panel (manual entry + day-type toggle, lives in the Health row)
 - **Day-type chips (Round 2 build):** three chips at the top — Workout · Active recovery · Full rest. Selected chip gets accent-tinted background. Persists per day via `day_type` column (migration 013).
-- **Workout state:** metric grid (score / type / minutes / calories / VO2 max) + Edit button surfaces the logging modal.
+- **Weekly targets grid (2026-07-27 restyle):** background changed from `--surface-1` + border (looked like a nested elevated card) to a plain `--surface-2` recessed block with no border — reads as a summary roll-up, not "card inside card."
+- **Workout state:** multi-session rows (`.wo-session-row`, Edit/Delete per row) + gear icon opens the targets editor + "Log details"/"Edit" opens the session modal. Two buttons total in the panel head — no further reduction was needed, this was already the minimal set.
 - **Active recovery state:** calm lilac walking-dot pulse + "Active recovery day / Logged — no details to enter."
 - **Full rest state:** pulsing blue moon + "Full rest day / Nothing to log. Sleep well tonight."
+- **Inline 4-week consistency trend (2026-07-27):** compact per-activity-type dot rows (`.ht-wo-compact`) under the day-type states, reusing the `workoutConsistency` getter already computed from `loadHealthTrend()`. No separate legend (same shared colour language as above).
+- **"Attach workout screenshot (future AI)" placeholder (2026-07-27):** same non-functional treatment as Sleep's.
 - All animations respect `prefers-reduced-motion`.
+
+**Removed 2026-07-27:** the standalone full-width "Health Trends" card that used to sit at the very bottom of Today (below the Checklist Completion trend), with its own Sleep/Workout tab toggle. Abhishek explicitly rejected it as an orphaned chart nobody scrolls down to see — both trends now live inline in their respective panel. The `healthTrendTab` Alpine property and `.ht-tabs`/`.ht-tab`/`.ht-sleep-*`/`.ht-wo-grid` CSS were removed as dead code along with it. `loadHealthTrend()` and all its data (`sleepTrendDays`, `workoutConsistency`, `sleepAvg7`, `sleepBarHeight()`, `sleepBarColor()`) are unchanged — only where the template reads them moved.
 
 ### Today page — Daily journal
 - Hidden by default. Small pencil-icon button next to the H1 toggles `journalOpen`.
@@ -131,11 +139,10 @@ Every migration applied. Current tables (all `atlas_` prefix, all RLS enabled):
 
 Nothing in this list is on the current sprint. Each is a candidate for the next design review round when Abhishek re-opens it.
 
-### Sleep — trend chart + AI features
-Full plan in [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md). Summary:
-1. **Trend roll-up chart** — last 30 days of sleep score + duration, same shape as the Checklist Completion bar chart. No schema change; reads `atlas_sleep_logs` directly. Placement TBD (dedicated History overlay recommended).
-2. **Screenshot parser** — upload ring/app screenshot → Vertex AI (existing `VERTEX_API_KEY_POS`) → review-before-save modal. Same plumbing serves workout screenshots.
-3. **Pattern-of-life insights** — weekly correlations (e.g. "sleep score dropped 8 pts on the four nights you logged a workout after 10pm"). Requires 30+ days of data, so depends on the trend roll-up.
+### Sleep/Workout — AI screenshot parsing
+Full sleep-side plan in [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md). The trend roll-up chart itself shipped 2026-07-27 (inline compact trend in each Health panel — see "Removed 2026-07-27" note above); what's left:
+1. **Screenshot parser** — upload ring/workout-app screenshot → Vertex AI (existing `VERTEX_API_KEY_POS`) → review-before-save modal. Both panels already have a non-functional "Attach screenshot (future AI)" placeholder button (`.health-attach-btn`, `disabled`, no upload logic, no schema change) marking where this wires in.
+2. **Pattern-of-life insights** — weekly correlations (e.g. "sleep score dropped 8 pts on the four nights you logged a workout after 10pm"). Requires 30+ days of data, now available from the trend data already being collected.
 
 ### Workout day-type toggle — weekly pattern setter
 Round 2 built the per-day toggle. A follow-up would let Abhishek set default patterns (e.g. "Sundays are always Full Rest by default"). Deferred; ships only if he asks.
@@ -159,11 +166,10 @@ The old app has a full AI-layer plan (`handover-docs/AI-LAYER-IMPLEMENTATION-PLA
 
 ## Open questions / decisions pending
 
-**None active as of 2026-07-26.** Round 4 shipped cleanly; Abhishek confirmed the project lifecycle direction and token refreshes.
+**None active as of 2026-07-27.** Round 4 shipped cleanly; Abhishek confirmed the project lifecycle direction and token refreshes. Sleep trend placement (below) was resolved this session — inline in-panel, not a shared overlay.
 
 Standing "would want an answer before starting" items — these are not blocking anything now, but they'd need addressing before their respective phase begins:
 - **Completed project card design:** The Phase 4 card design works technically and adheres to Atlas styling, but is visually unsatisfying / washed out. This is a known, accepted pending state. It should be treated as a future project-section polish item, not as an active bug to be fixed immediately.
-- **Sleep trend UI placement** — inline under Sleep card, dedicated Sleep tab, or a shared History overlay (recommended: shared overlay so workout inherits it too).
 - **Weekly-pattern setter for workout day-types** — is this worth building, or does the per-day toggle cover the real use case well enough?
 - **Phase 3 Targets** — does Abhishek still want `count_toward_goal` targets, or is the streak side (which already ships) enough for now?
 

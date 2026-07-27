@@ -643,7 +643,6 @@ export function todayPage() {
         },
 
         // ---- health trends ----
-        healthTrendTab: 'sleep',
         sleepTrendDays: [],
         sleepGoalMinutes: 420,
         workoutTrendWeeks: [],

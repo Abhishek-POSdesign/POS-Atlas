@@ -32,6 +32,37 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-27 · Claude Code (Opus 4.6/Sonnet 5)
+
+**Session scope:** Phase 5 Health — layout restructure. Abhishek rejected the previous layout (Health cramped into a 60/40 row beside Tasks, dead blank space, orphaned "Health Trends" card at the very bottom) and asked for a real redesign, not another patch.
+
+**What shipped (commit pending — see below):**
+- `Deploy/index.html` — removed `.split-60-40` (Tasks 60% / vitals-stack 40%). Tasks & Reminders is now a full-width card. Added a new full-width `.health-row` below it containing Sleep and Workout as `.health-panel` siblings (plain CSS grid, `align-items:stretch` equalizes both panel heights automatically — no scroll cage needed).
+- Sleep panel: unchanged metrics grid + modal; notes redesigned from a colored-left-edge `--surface-2` chip (`.sleep-card-note`) to a plain-divider `.health-note` (muted label, normal-weight body) per Abhishek's "no noisy boxes fighting the metrics" note; added an inline compact 14-day trend bar chart (`.ht-compact-chart`, reuses existing `sleepTrendDays`/`sleepBarHeight()`/`sleepBarColor()`).
+- Workout panel: day-type chips, targets grid, sessions, and day-type states unchanged in markup/logic; targets grid background changed from `--surface-1`+border to plain `--surface-2` (no border) so it reads as a summary roll-up, not a nested card; added an inline compact 4-week consistency trend (`.ht-wo-compact`, reuses existing `workoutConsistency` getter).
+- Removed the standalone full-width "Health Trends" card (Sleep/Workout tab toggle, `.ht-tabs`) that used to sit below the Checklist Completion trend — both trends now live inside their own panel. Removed the now-dead `healthTrendTab` Alpine property and associated `.ht-tabs`/`.ht-tab`/`.ht-sleep-*`/`.ht-wo-grid`/`.ht-wo-row` CSS.
+- Added non-functional "Attach sleep/workout screenshot (future AI)" placeholder buttons (`.health-attach-btn`, `disabled`, dashed border, muted) at the bottom of each panel — no upload logic, no schema/db.js change, just a marked spot for the planned screenshot-parse AI phase.
+- `Deploy/js/pages/today.js` — removed unused `healthTrendTab` property. No other JS changes; all health trend data-loading (`loadHealthTrend()`) untouched.
+- `Deploy/service-worker.js` — `CACHE_NAME` bumped `v30` → `v31`.
+- `PLAN.md` — updated Today-page sections to reflect the new Health row layout; resolved the "Sleep trend UI placement" open question (now: inline in-panel).
+
+**What was verified locally (not live — see project rule on local dev sharing prod DB):**
+- `node --check` clean on `today.js`.
+- `<div>` tag count balanced (409/409) and `{`/`}` brace count balanced (497/497) in the touched files.
+- Local dev server boots, login screen renders, zero console errors. Did not sign in locally per this project's explicit "don't click around on local dev" rule — real verification is on the live deployed app.
+
+**What's still open:**
+- Abhishek needs to live-test the new Today layout: Tasks full-width with no dead space, Sleep+Workout as an equal-height row, both trends rendering with real data, targets grid reads as a quiet summary not a nested card, attach-screenshot buttons visibly inert, dark + light theme.
+- Session-row visual style (multi-session cards) was deliberately left unchanged — it already met the "calm, no colored left bar, no emoji" bar from the earlier Bundle A pass; only the layout around it moved.
+- AI screenshot parsing itself is still not built — only the placeholder buttons exist.
+
+**What NOT to do:**
+- Don't reintroduce the 60/40 Tasks/Health split or the bottom-of-page "Health Trends" card — both were explicitly rejected this session.
+- Don't add colored left-edge bars or emoji to the workout session rows.
+- Don't wire up the attach-screenshot buttons without a real AI-layer plan (they're intentionally `disabled` placeholders).
+
+---
+
 ## 2026-07-27 · Claude Code (Opus 4.6)
 
 **Session scope:** Phase 5 Health — Bundle A fixes (blockers) + Bundle B (Health Trends chart).

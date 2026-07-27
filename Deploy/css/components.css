@@ -1237,14 +1237,6 @@
 .kpi-ring-num .n { font-family: var(--font-serif); font-size: 28px; line-height: 1; color: var(--accent-sage); font-variant-numeric: tabular-nums; }
 .kpi-ring-num .d { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
 
-/* 60/40 row, equal height via grid stretch. The vitals column's natural
-   height dictates; the tasks card matches and internally scrolls when its
-   content overflows -- the tasks card itself NEVER grows with task count
-   (2026-07-26 polish, redesign round). Removed the old min/max range that
-   let the tasks card silently outgrow the vitals column with 6+ tall v2
-   rows; the max is still there as a belt-and-suspenders ceiling. */
-.split-60-40 { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--pad-md); margin-bottom: var(--pad-md); align-items: start; }
-@media (max-width: 900px) { .split-60-40 { grid-template-columns: 1fr; } }
 .task-list { margin: 0 -6px; padding: 0 6px; }
 .task-list-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: var(--pad-md) 0 4px; padding: 0 6px; }
 
@@ -1456,15 +1448,19 @@
 }
 .trv2-delete:hover { color: var(--accent-coral); background: var(--accent-coral-tint); }
 
-.vitals-stack { display: flex; flex-direction: column; gap: var(--pad-md); }
-.vital-card {
-    padding: var(--pad-lg); flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px;
-    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
-}
-.vital-card:hover { transform: translateY(-3px); box-shadow: var(--top-edge), var(--shadow-card-hover); }
-.vital-head { margin-bottom: 2px; }
-.vital-stat .num { font-family: var(--font-serif); font-size: 20px; color: var(--text-primary); }
-.ai-note { font-size: 10.5px; color: var(--text-muted); font-style: italic; margin-top: 4px; }
+/* =========================================================
+   HEALTH ROW -- Sleep | Workout, full-width sibling of the
+   Tasks card (Phase 5 restructure). Plain CSS grid with
+   default align-items:stretch equalizes both panel heights
+   to the taller one automatically -- no min/max/scroll-cage
+   plumbing needed, no dead space beside the shorter panel.
+   ========================================================= */
+.health-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--pad-md); margin-bottom: var(--pad-md); }
+@media (max-width: 900px) { .health-row { grid-template-columns: 1fr; } }
+
+.health-panel { padding: var(--pad-lg); display: flex; flex-direction: column; }
+.health-panel-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.health-panel-head h2 { margin: 0; font-size: 13px; font-weight: 700; color: var(--text-primary); }
 
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .metric { display: flex; flex-direction: column; }
@@ -2221,11 +2217,13 @@
 /* =========================================================
    PHASE 5 — WEEKLY WORKOUT TARGETS DOT GRID
    ========================================================= */
+/* Recessed --surface-2 summary block, no border -- reads as a
+   quiet roll-up above the sessions, not a second elevated card
+   stacked inside the panel (Abhishek's "card inside card" note). */
 .wo-targets-grid {
-    margin: 10px 0;
-    padding: 12px 14px;
-    background: var(--surface-1);
-    border: 1px solid var(--border);
+    margin: 10px 0 14px;
+    padding: 10px 12px;
+    background: var(--surface-2);
     border-radius: 8px;
 }
 .wo-targets-row {
@@ -2318,32 +2316,31 @@
 }
 
 /* =========================================================
-   PHASE 5 — SLEEP CARD NOTE DISPLAY
-   Shows morning reflection and context note on the Sleep
-   card after save, so the user sees them without re-opening.
+   PHASE 5 (v2) — HEALTH NOTE DISPLAY
+   Morning reflection / context on the Sleep panel. Plain
+   divider, no colored left-edge chip and no --surface-2 box --
+   the earlier "card inside card" treatment fought the metrics
+   grid above it (Abhishek's design-review feedback). Label
+   small/muted, body text normal weight so it reads as a note,
+   not a status pill.
    ========================================================= */
-.sleep-card-note {
-    margin-top: 10px;
-    padding: 8px 10px;
-    background: var(--surface-2);
-    border-radius: 6px;
-    border-left: 3px solid var(--accent-lilac);
-}
-.sleep-card-note.context { border-left-color: var(--border-hover); margin-top: 6px; }
-.sleep-card-note-label {
+.health-note { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.health-note-label {
     display: block;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: .05em;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 3px;
+    margin-bottom: 4px;
 }
-.sleep-card-note-text {
-    font-size: 13px;
+.health-note-text {
+    font-size: 13.5px;
     color: var(--text-primary);
-    line-height: 1.45;
+    line-height: 1.5;
+    margin: 0;
 }
+.health-note-text.muted { color: var(--text-secondary); }
 
 /* =========================================================
    PHASE 5 — WORKOUT SESSION ROW (inline on card + modal)
@@ -2384,113 +2381,80 @@
 }
 
 /* =========================================================
-   PHASE 5 — HEALTH TRENDS (Sleep + Workout tabs)
-   Reuses .trend-legend, .trend-dot, .trend-label from
-   the Checklist Completion chart above.
+   PHASE 5 (v2) — IN-PANEL HEALTH TREND (compact)
+   Each Health panel (Sleep, Workout) now carries its own small
+   trend directly under its capture/review content instead of a
+   separate full-width "Health Trends" card at the bottom of the
+   page (Abhishek's explicit rejection of the orphaned-chart
+   layout). Reuses the same sage/amber/coral colour language as
+   the Checklist Completion trend and Routine mini-dots.
    ========================================================= */
-.ht-tabs {
-    display: flex;
-    gap: 2px;
-    background: var(--surface-2);
-    border-radius: 6px;
-    padding: 3px;
+.health-trend { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.health-trend-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.health-trend-title {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
 }
-.ht-tab {
-    background: none;
-    border: 0;
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-secondary);
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-.ht-tab:hover { color: var(--text-primary); }
-.ht-tab.active {
-    background: var(--surface-1);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-card);
-}
+.health-trend-meta { font-size: 11.5px; color: var(--text-secondary); }
+.health-trend-meta strong { color: var(--text-primary); font-weight: 500; }
+.health-trend-empty { font-size: 12px; color: var(--text-muted); margin: 0; }
 
-/* Sleep trend: 30-day bar chart */
-.ht-sleep-summary {
-    display: flex;
-    gap: 16px;
-    font-size: 12px;
-    color: var(--text-secondary);
-    margin-bottom: 10px;
-}
-.ht-sleep-summary strong { color: var(--text-primary); font-weight: 500; }
-
-.ht-sleep-chart {
-    display: flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 100px;
-    position: relative;
-    padding-bottom: 18px;
-}
-.ht-sleep-goal-line {
-    position: absolute;
-    left: 0;
-    right: 0;
-    border-top: 1.5px dashed var(--text-muted);
-    opacity: 0.5;
-    pointer-events: none;
-}
-.ht-sleep-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    height: 100%;
-    justify-content: flex-end;
-    min-width: 0;
-}
-.ht-sleep-bar {
+/* Sleep: compact 14-day bar chart, no goal line/legend -- the
+   colour language (sage/amber/coral) is already established
+   elsewhere on the same page, so a repeated legend here would
+   just be clutter. */
+.ht-compact-chart { display: flex; align-items: flex-end; gap: 3px; height: 46px; }
+.ht-compact-col { flex: 1; display: flex; align-items: flex-end; height: 100%; min-width: 0; }
+.ht-compact-bar {
     width: 100%;
-    max-width: 14px;
+    max-width: 12px;
+    margin: 0 auto;
     border-radius: 2px 2px 0 0;
     min-height: 2px;
     transition: height var(--dur-base) var(--ease-out);
 }
 
-/* Workout trend: 4-week consistency grid */
-.ht-wo-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.ht-wo-header-row, .ht-wo-row {
-    display: grid;
-    grid-template-columns: 90px repeat(4, 1fr);
-    align-items: center;
-    gap: 8px;
-}
-.ht-wo-label {
-    font-size: 12px;
+/* Workout: compact per-activity-type consistency row, 4 weeks */
+.ht-wo-compact { display: flex; flex-direction: column; gap: 6px; }
+.ht-wo-compact-row { display: flex; align-items: center; gap: 8px; }
+.ht-wo-compact-label {
+    flex: 1;
+    font-size: 11.5px;
     color: var(--text-muted);
     text-transform: capitalize;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.ht-wo-week-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: .05em;
-    text-transform: uppercase;
+.ht-wo-compact-dots { display: flex; gap: 4px; }
+.ht-wo-compact-dot { width: 12px; height: 12px; border-radius: 3px; }
+.ht-wo-compact-dot--met { background: var(--accent-sage); }
+.ht-wo-compact-dot--partial { background: var(--accent-amber); }
+.ht-wo-compact-dot--missed { background: var(--accent-coral); opacity: 0.6; }
+
+/* =========================================================
+   PHASE 5 (v2) — ATTACH-SCREENSHOT PLACEHOLDER
+   Non-functional, future-AI affordance in both Health panels.
+   Deliberately quiet: dashed border, muted text, no icon fill,
+   `disabled` so it can never be mistaken for a working control.
+   ========================================================= */
+.health-attach-row { margin-top: auto; padding-top: 12px; }
+.health-attach-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: none;
+    border: 1px dashed var(--border-hover);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-family: var(--font-sans);
+    font-size: 11.5px;
     color: var(--text-muted);
-    text-align: center;
+    cursor: default;
+    opacity: .75;
 }
-.ht-wo-dot {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    justify-self: center;
-}
-.ht-wo-dot--met { background: var(--accent-sage); }
-.ht-wo-dot--partial { background: var(--accent-amber); }
-.ht-wo-dot--missed { background: var(--accent-coral); opacity: 0.6; }
