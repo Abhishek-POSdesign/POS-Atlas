@@ -32,6 +32,29 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Sonnet 5) — Today Tasks split into Active/Completed cards + empty-state illustration
+
+**Session scope:** Abhishek wanted to use the horizontal space on Today's Tasks & Reminders card better and reduce its vertical height. Mockup-first (per this project's own rule for real layout weight): built two Artifact options — single card with a collapsed "Recently completed" section, vs. split into two cards (Active 65% / Completed today 35%). He picked the split, plus asked for a proper illustrated empty state on the Completed card (referencing Microsoft To Do screenshots) instead of dead space, recolored into Atlas' own palette — "not a cheap emoji."
+
+**What shipped (commit pending):**
+- **`.tasks-row` grid (65fr/35fr)** — same grid-with-gap/stretch pattern `.health-row` already uses for Sleep/Workout below it, just a different ratio. Stacks to one column under 900px.
+- **Left card (Active):** unchanged header (View more, +Add task); `.task-list` max-height tightened `480px` → `260px` (~4 rows before scroll, no min-height so 1–2 tasks just shrinks the card). Empty-state condition simplified to `upcomingTasks.length === 0` only — used to also gate on `recentlyCompleted.length === 0`, which stopped making sense once completed items got their own card.
+- **Right card (Completed today):** reuses the existing `recentlyCompleted` getter, zero new queries. New lighter row style, `.mini-task-row` (16px filled sage check, muted strikethrough name, time — no chip, no kind label, ~34px vs. `.trv2-row`'s ~62px) so it reads as a glance, not a second task list.
+- **Custom empty-state illustration** (`.completed-empty` / `.completed-empty-art`), shown only when `recentlyCompleted.length === 0` (1+ items always shows the real mini-list, even just one row — a single real row isn't "dead space" the way zero is; flagged this interpretation in case Abhishek meant something else by "just has one task"). Built as an inline SVG: a slightly-rotated checklist sheet (`--surface-2` fill, `--border-hover` stroke) with two filled `--accent-sage` "done" dots + one hollow pending dot, and two small sage sparkle accents, centred above a headline + helper line styled like every other empty state in the app (`.h`/`.p`, matching `.nodata`/`.empty-tasks`). Single accent color throughout (sage — Atlas' own locked "done/positive" meaning, already used for the KPI ring, trend charts, Health chips) — no new tokens, no emoji, recolored entirely away from the bright pastel/multicolor reference screenshots into Atlas' existing muted palette. This is a genuinely new custom visual asset (not a reuse of an existing icon), so it's the one piece of this pass most worth Abhishek's own eyes on before calling it settled.
+- Deleted the now-dead `.task-list-divider` CSS rule (confirmed zero remaining HTML references before removing) — the old "Recently completed" divider-inside-the-main-list treatment is fully gone, replaced by the Completed card.
+- `Deploy/service-worker.js` — cache `v40` → `v41`.
+- `PLAN.md` — Today Tasks & Reminders section rewritten for the new two-card structure.
+
+**No JS changes this pass** — everything reuses existing getters/methods (`upcomingTasks`, `recentlyCompleted`, `futureTasks`, `openTaskEditModal`, `handleCompleteClick`, `formatTaskDateTime`, `formatTime12h`). `today.js` untouched.
+
+**What was verified locally:** `<div>`/`<template>`/`<svg>` tag counts balanced (433/433, 165/165, 39/39), CSS brace count balanced (561/561), dev server boots with zero console/server errors (login screen only, per project rule — the split layout and the illustration are only visible signed in on Today, so this checks module-load health, not the actual visual result).
+
+**What's still open:** Abhishek needs to see the actual illustration live — it's a custom SVG built from a design description, not verified pixel-by-pixel locally (can't sign in per the shared-prod-DB rule). Also worth a live check on mobile width specifically, since two cards side-by-side is the tightest this layout gets.
+
+**What NOT to do:** Don't add a project chip or kind label back to the Completed-today mini-rows — the whole point of `.mini-task-row` being lighter than `.trv2-row` is that this card is a glance, not a task list. Don't show the empty-state illustration when there are 1+ completed items, even just one — only render it at exactly zero.
+
+---
+
 ## 2026-07-28 · Claude Code (Sonnet 5) — Phase 6 truly closed: Tasks polish + service-worker reload bug
 
 **Session scope:** Abhishek confirmed the previous Phase 6 close-out live (console clean, sparkline fixed, Upcoming modal working, hooks gone), then asked for a final polish pass before calling Phase 6 done: move "View more" into the card header, keep the Upcoming modal open through the edit/cancel/save/done flow instead of jumping back to Today, restyle the scrollbar, lighten the checkbox, and fix a real bug where normal reloads sometimes served an old cached version of the app.

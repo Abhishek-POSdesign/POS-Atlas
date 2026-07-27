@@ -1255,7 +1255,6 @@
 .task-list::-webkit-scrollbar-track { background: transparent; }
 .task-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 3px; }
 .task-list::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-.task-list-divider { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin: var(--pad-md) 0 4px; padding: 0 6px; }
 /* =========================================================
    TASK ROW V2 -- the "design review approved" two-tier row.
    Used on both the Today Tasks & Reminders card and every
@@ -1473,6 +1472,41 @@
    ========================================================= */
 .health-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--pad-md); margin-bottom: var(--pad-md); }
 @media (max-width: 900px) { .health-row { grid-template-columns: 1fr; } }
+
+/* =========================================================
+   TASKS ROW -- Active | Completed today (2026-07-29, Option 2).
+   Same grid-with-gap/stretch pattern as .health-row above, just
+   a 65/35 ratio instead of 50/50 -- completed items get their
+   own quiet card instead of sharing scroll space with the
+   active list. Stacks to one column under 900px, same
+   breakpoint the Health row already uses.
+   ========================================================= */
+.tasks-row { display: grid; grid-template-columns: 65fr 35fr; gap: var(--pad-md); margin-bottom: var(--pad-md); }
+@media (max-width: 900px) { .tasks-row { grid-template-columns: 1fr; } }
+.completed-today-card { display: flex; flex-direction: column; }
+
+/* Lighter row than .trv2-row on purpose -- these are settled, not
+   actionable, so no 24px check ring, no project chip, no kind label.
+   Keeps the "Completed today" card reading as a glance, not a second
+   task list. */
+.mini-task-list { display: flex; flex-direction: column; }
+.mini-task-row { display: flex; align-items: center; gap: 9px; padding: 7px 4px; }
+.mini-task-row + .mini-task-row { border-top: 1px solid var(--border); }
+.mini-task-check { width: 16px; height: 16px; border-radius: 50%; background: var(--accent-sage); color: var(--surface-0); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mini-task-name { flex: 1; min-width: 0; font-size: 13px; color: var(--text-muted); text-decoration: line-through; text-decoration-color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-task-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+/* Premium empty state for "Completed today" (2026-07-29) -- fills
+   the card instead of leaving dead space on a day with nothing
+   checked off yet. Custom illustration, single accent (sage, Atlas'
+   locked "done/positive" colour everywhere else), no new tokens, no
+   emoji. Centred, fills the card's own natural height (no min-height
+   forced -- it just sits centred in whatever the row's shared
+   stretch-height ends up being, same as the mini-list would). */
+.completed-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: var(--pad-md) 0; }
+.completed-empty-art { margin-bottom: 4px; }
+.completed-empty .h { color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.completed-empty .p { color: var(--text-muted); font-size: 12px; max-width: 22ch; }
 
 .health-panel { padding: var(--pad-lg); display: flex; flex-direction: column; }
 /* Experimental (2026-07-27, "just a little bit" ask) -- same gradient-tint
