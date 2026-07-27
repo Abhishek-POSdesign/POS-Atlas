@@ -152,7 +152,7 @@ export const WRITE_FLOWS = {
             { key: 'duration_minutes', label: 'Duration (min)', type: 'number', min: 0, max: 600 },
             { key: 'note', label: 'Note', type: 'text' }
         ],
-        extractionInstruction: 'CRITICAL: If Abhishek describes completing a workout (mentions a score, calories, duration, or simply "did my workout"), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll draft this for you": {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"note":string|null}}. Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved no matter what you say. This overrides the conversation-first rule for this specific case.',
+        extractionInstruction: 'CRITICAL: If Abhishek describes completing a workout (mentions a score, calories, duration, or simply "did my workout"), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll draft this for you": {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"note":string|null}}. Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object for the SINGLE intent that matches the message. Never combine two intents in one reply.',
         async write(fields) {
             const today = todayIsoDate();
             const patch = {};
@@ -169,15 +169,23 @@ export const WRITE_FLOWS = {
         icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
         fields: [
             { key: 'duration_minutes', label: 'Duration (min)', type: 'number', min: 0, max: 1440 },
-            { key: 'sleep_score', label: 'Score', type: 'number', min: 0, max: 100 },
+            { key: 'sleep_score', label: 'Score (0-100)', type: 'number', min: 0, max: 100 },
+            { key: 'deep_minutes', label: 'Deep sleep (min)', type: 'number', min: 0, max: 720 },
+            { key: 'rem_minutes', label: 'REM sleep (min)', type: 'number', min: 0, max: 720 },
+            { key: 'resting_hr', label: 'Resting HR (bpm)', type: 'number', min: 20, max: 200 },
+            { key: 'hrv', label: 'HRV (ms)', type: 'number', min: 0, max: 300 },
             { key: 'morning_note', label: 'Morning reflection', type: 'text' }
         ],
-        extractionInstruction: 'CRITICAL: If Abhishek describes last night\'s sleep (a duration like "6 hours" or "6 and a half hours", a score, or how he feels this morning), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll log this for you": {"intent":"log_sleep","fields":{"duration_minutes":number|null,"sleep_score":number|null,"morning_note":string|null}}. Convert spoken durations to total minutes (e.g. "6 and a half hours" = 390). Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved no matter what you say. This overrides the conversation-first rule for this specific case.',
+        extractionInstruction: 'CRITICAL: If Abhishek describes last night\'s sleep, you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll log this for you": {"intent":"log_sleep","fields":{"duration_minutes":number|null,"sleep_score":number|null,"deep_minutes":number|null,"rem_minutes":number|null,"resting_hr":number|null,"hrv":number|null,"morning_note":string|null}}. Map each piece of data to the RIGHT field: total sleep duration goes in duration_minutes (convert hours to minutes, e.g. "8 hours" = 480). A score or quality rating goes in sleep_score. Deep sleep duration goes in deep_minutes. REM sleep duration goes in rem_minutes. Resting heart rate goes in resting_hr. HRV goes in hrv. How he feels or any qualitative comment goes in morning_note. Do NOT dump multiple data points into morning_note -- each has its own field. Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object for the SINGLE intent that matches the message. Never combine two intents in one reply.',
         async write(fields) {
             const today = todayIsoDate();
             const patch = {};
             if (fields.duration_minutes != null) patch.duration_minutes = fields.duration_minutes;
             if (fields.sleep_score != null) patch.sleep_score = fields.sleep_score;
+            if (fields.deep_minutes != null) patch.deep_minutes = fields.deep_minutes;
+            if (fields.rem_minutes != null) patch.rem_minutes = fields.rem_minutes;
+            if (fields.resting_hr != null) patch.resting_hr = fields.resting_hr;
+            if (fields.hrv != null) patch.hrv = fields.hrv;
             if (fields.morning_note) patch.morning_note = fields.morning_note;
             return DB.Sleep.save(today, patch);
         }

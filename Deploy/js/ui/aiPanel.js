@@ -228,12 +228,30 @@ export function atlasAi() {
             return 'Local · ' + (this.model || 'unknown');
         },
 
+        _extractFirstJson(str) {
+            const start = str.indexOf('{');
+            if (start === -1) return null;
+            let depth = 0; let inStr = false; let esc = false;
+            for (let i = start; i < str.length; i++) {
+                const ch = str[i];
+                if (esc) { esc = false; continue; }
+                if (ch === '\\') { esc = true; continue; }
+                if (ch === '"') { inStr = !inStr; continue; }
+                if (inStr) continue;
+                if (ch === '{') depth++;
+                else if (ch === '}') { depth--; if (depth === 0) { try { return JSON.parse(str.slice(start, i + 1)); } catch (e) { return null; } } }
+            }
+            return null;
+        },
+
         _handleModelReply(reply, providerLabel) {
             let parsed = null;
             let jsonStr = reply.trim();
             const fenceMatch = jsonStr.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
             if (fenceMatch) jsonStr = fenceMatch[1].trim();
-            try { parsed = JSON.parse(jsonStr); } catch (e) { /* not a draft -- plain prose reply */ }
+            try { parsed = JSON.parse(jsonStr); } catch (e) {
+                parsed = this._extractFirstJson(jsonStr);
+            }
 
             if (parsed && parsed.intent && WRITE_FLOWS[parsed.intent]) {
                 const flow = WRITE_FLOWS[parsed.intent];
