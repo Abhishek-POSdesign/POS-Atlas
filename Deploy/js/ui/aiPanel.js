@@ -230,7 +230,10 @@ export function atlasAi() {
 
         _handleModelReply(reply, providerLabel) {
             let parsed = null;
-            try { parsed = JSON.parse(reply.trim()); } catch (e) { /* not a draft -- plain prose reply */ }
+            let jsonStr = reply.trim();
+            const fenceMatch = jsonStr.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+            if (fenceMatch) jsonStr = fenceMatch[1].trim();
+            try { parsed = JSON.parse(jsonStr); } catch (e) { /* not a draft -- plain prose reply */ }
 
             if (parsed && parsed.intent && WRITE_FLOWS[parsed.intent]) {
                 const flow = WRITE_FLOWS[parsed.intent];
