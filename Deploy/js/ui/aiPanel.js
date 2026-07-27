@@ -254,6 +254,9 @@ export function atlasAi() {
                 return;
             }
             this._pushAssistantText(reply, providerLabel);
+            if (/\b(log(ged|ging)?|sav(ed|ing)|record(ed|ing)|draft(ed)?)\b/i.test(reply) && /\b(sleep|workout|exercise|duration|hours?\s+(of\s+)?sleep)\b/i.test(reply)) {
+                this._pushAssistantText('⚠ Note: nothing was actually saved to Atlas. To log data, try again with the details (e.g. "slept 7 hours, score 80") and I\'ll show a confirm card you can tap to save.', null);
+            }
         },
 
         async confirmDraft(msg) {

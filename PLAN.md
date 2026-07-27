@@ -229,6 +229,7 @@ Not started yet, deliberately deferred per the approved plan:
 - The `atlas-ai` Supabase Edge Function itself (Cloud provider needs this + a real Vertex/Gemini secret before it stops showing "unavailable").
 - The remaining three voice-write flows: task completion, checklist marking, journal reflections.
 - Per-view Fact Package binding (a context badge showing "About: Project X" etc. -- cut from the Phase 1 UI to de-clutter the header; every message currently carries `explain_day` as ambient context regardless of which page the panel was opened from).
+- **Voice output mode (text-to-speech):** currently Atlas only supports voice *input* (speech-to-text via Web Speech API). Abhishek requested voice *output* -- Atlas reading its replies aloud -- as a convenience feature, with a clear way to toggle between voice mode and text-only mode. Would use the Web Speech Synthesis API (`speechSynthesis.speak()`), needs a voice picker (Indian English voice preferred) and a visible toggle in the AI panel header or composer. Not started.
 - Chapter 21 Stage 2+ (Vertex Teacher Mode, Logic Card versioning, Learning Records, Evaluation Packs) -- not attempted anywhere yet, including the sibling app; a distinct future initiative, not a Phase 1 gap.
 
 ---

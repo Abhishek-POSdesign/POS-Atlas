@@ -152,7 +152,7 @@ export const WRITE_FLOWS = {
             { key: 'duration_minutes', label: 'Duration (min)', type: 'number', min: 0, max: 600 },
             { key: 'note', label: 'Note', type: 'text' }
         ],
-        extractionInstruction: 'If Abhishek describes completing a workout (mentions a score, calories, duration, or simply "did my workout"), respond ONLY with a JSON object, no other text: {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"note":string|null}}. Use null for any field not mentioned. Do not invent numbers.',
+        extractionInstruction: 'CRITICAL: If Abhishek describes completing a workout (mentions a score, calories, duration, or simply "did my workout"), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll draft this for you": {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"note":string|null}}. Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved no matter what you say. This overrides the conversation-first rule for this specific case.',
         async write(fields) {
             const today = todayIsoDate();
             const patch = {};
@@ -172,7 +172,7 @@ export const WRITE_FLOWS = {
             { key: 'sleep_score', label: 'Score', type: 'number', min: 0, max: 100 },
             { key: 'morning_note', label: 'Morning reflection', type: 'text' }
         ],
-        extractionInstruction: 'If Abhishek describes last night\'s sleep (a duration like "6 hours" or "6 and a half hours", a score, or how he feels this morning), respond ONLY with a JSON object, no other text: {"intent":"log_sleep","fields":{"duration_minutes":number|null,"sleep_score":number|null,"morning_note":string|null}}. Convert spoken durations to total minutes (e.g. "6 and a half hours" = 390). Use null for any field not mentioned. Do not invent numbers.',
+        extractionInstruction: 'CRITICAL: If Abhishek describes last night\'s sleep (a duration like "6 hours" or "6 and a half hours", a score, or how he feels this morning), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll log this for you": {"intent":"log_sleep","fields":{"duration_minutes":number|null,"sleep_score":number|null,"morning_note":string|null}}. Convert spoken durations to total minutes (e.g. "6 and a half hours" = 390). Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved no matter what you say. This overrides the conversation-first rule for this specific case.',
         async write(fields) {
             const today = todayIsoDate();
             const patch = {};

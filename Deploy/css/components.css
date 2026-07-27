@@ -1571,26 +1571,10 @@
 .nodata .h { color: var(--text-primary); font-size: 14px; font-weight: 500; }
 .nodata .p { color: var(--text-muted); font-size: 12px; }
 
-/* Subtle Sleep Cue */
-.empty-cue-sleep {
-    position: relative; width: 32px; height: 32px; margin-bottom: 2px;
-    color: var(--accent-lilac); font-family: var(--font-mono); font-weight: 500; font-style: italic;
-}
-.empty-cue-sleep span {
-    position: absolute; bottom: 0; left: 0;
-    opacity: 0; font-size: 16px;
-    animation: atlas-z-drift 4s linear infinite;
-}
-.empty-cue-sleep .z1 { left: 0; bottom: 0; animation-delay: 0s; }
-.empty-cue-sleep .z2 { left: 10px; bottom: 6px; animation-delay: 1.3s; font-size: 18px; }
-.empty-cue-sleep .z3 { left: 20px; bottom: 12px; animation-delay: 2.6s; font-size: 20px; }
-
-@keyframes atlas-z-drift {
-    0% { opacity: 0; transform: translate(0, 2px); }
-    20% { opacity: 0.6; }
-    80% { opacity: 0.6; }
-    100% { opacity: 0; transform: translate(4px, -6px); }
-}
+.sleep-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; padding: var(--pad-md) 0; }
+.sleep-empty-art { margin-bottom: 4px; }
+.sleep-empty .h { color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.sleep-empty .p { color: var(--text-muted); font-size: 12px; max-width: 24ch; }
 
 /* Subtle Workout Cue */
 .empty-cue-workout { color: var(--accent-coral); margin-bottom: 4px; opacity: 0.8; transform: scale(1.15); transform-origin: left bottom; }
@@ -2582,7 +2566,7 @@
    the page. Reuses the same sage/amber/coral colour language
    as the Checklist Completion trend and Routine mini-dots.
    ========================================================= */
-.health-trend { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.health-trend { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
 .health-trend-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; row-gap: 6px; margin-bottom: 9px; }
 .health-trend-title {
     font-size: 10px;
