@@ -2597,7 +2597,7 @@
    (follow-up polish pass) -- the gradient fill under the line stays
    a single soft sage wash regardless, so the colour shift reads as
    an accent, not a second competing chart. */
-.health-spark { height: 80px; }
+.health-spark { height: 80px; position: relative; }
 .health-spark-svg { display: block; color: var(--accent-sage); }
 .health-spark-stop-a { stop-color: currentColor; stop-opacity: .28; }
 .health-spark-stop-b { stop-color: currentColor; stop-opacity: 0; }
@@ -2614,7 +2614,7 @@
    activity-type per week. Computed in today.js's workoutWeekAggregate
    getter from the existing workoutConsistency data, no new loading. */
 .health-weeks-strip { display: flex; gap: 12px; }
-.health-week-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.health-week-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
 .health-week-cell .box { width: 38px; height: 38px; border-radius: 9px; }
 .health-week-cell .box--met { background: var(--accent-sage); }
 .health-week-cell .box--partial { background: var(--accent-amber); }
@@ -2949,5 +2949,6 @@ body:has(.ai-panel-open) .content-area {
 }
 .health-spark-hitbox {
     flex: 1;
+    position: relative;
 }
 

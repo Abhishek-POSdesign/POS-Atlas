@@ -732,7 +732,6 @@ export function todayPage() {
 
         // ---- health trends ----
         sleepTrendDays: [],
-        sleepSparklineDays: 14,
         sleepGoalMinutes: 420,
         workoutTrendWeeks: [],
         _workoutTrendTargets: [],
@@ -852,8 +851,7 @@ export function todayPage() {
         // before, same colour language sleepBarColor() used to give the
         // old bar chart -- only how the markup reaches the DOM changed.
         get sleepSparkline() {
-            const daysCount = parseInt(this.sleepSparklineDays) || 14;
-            const days = this.sleepTrendDays.slice(-daysCount).filter(d => d.duration != null);
+            const days = this.sleepTrendDays.slice(-14).filter(d => d.duration != null);
             if (days.length < 2) return null;
             const values = days.map(d => d.duration);
             const min = Math.min(...values, this.sleepGoalMinutes);

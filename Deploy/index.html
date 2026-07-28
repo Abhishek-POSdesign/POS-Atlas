@@ -843,10 +843,7 @@
                                                  bar chart used, without going back to bars. -->
                                             <div class="health-trend">
                                                 <div class="health-trend-head">
-                                                    <select x-model="sleepSparklineDays" class="health-trend-title" style="background: transparent; border: none; padding: 0; outline: none; cursor: pointer; color: var(--text-secondary); font-family: inherit;">
-                                                        <option :value="14">14-day trend</option>
-                                                        <option :value="30">30-day trend</option>
-                                                    </select>
+                                                    <span class="health-trend-title">14-day trend</span>
                                                     <span class="health-trend-meta" x-show="sleepAvg7 != null">Avg <strong x-text="sleepAvg7 != null ? (Math.floor(sleepAvg7/60) + 'h ' + (sleepAvg7%60) + 'm') : ''"></strong></span>
                                                 </div>
                                                 <template x-if="sleepSparkline">

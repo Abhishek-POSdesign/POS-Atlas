@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v56';
+const CACHE_NAME = 'atlas-offline-shell-v57';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -76,7 +76,7 @@ self.addEventListener('fetch', (event) => {
     // deploy-worthy bump (old cache deleted in 'activate' above).
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            fetch(event.request).catch(() => caches.match(event.request).then((r) => r || caches.match('/index.html')))
+            fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request).then((r) => r || caches.match('/index.html')))
         );
         return;
     }

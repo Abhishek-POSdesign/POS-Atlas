@@ -32,6 +32,32 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Sonnet 5) — Today Health row: fixed Sleep hover + Workout tooltip, removed dead dropdown, hardened SW cache
+
+**Session scope:** Real live bugs reported on Today's Health row: Sleep sparkline hover/tooltip did nothing; the 14/30-day dropdown looked decorative; Workout's 4-week consistency tooltips were inconsistent across reloads, sometimes showing odd labels. Also asked to explain and harden the service-worker/cache setup, since the last session's `v55`→`v56` bump ("Fix split-brain cache") didn't seem to fully fix reload inconsistency. Diagnosed first (no code), presented findings + a plan, got explicit approval, then implemented exactly what was approved. No AI write-flow files or Supabase schema touched.
+
+**Root causes found by reading the code (not guessed):**
+- **Sleep hover:** `.health-spark-hitboxes`/`.health-spark-hitbox` (`position:absolute`, meant to sit over the sparkline SVG) had no positioned ancestor anywhere up the DOM — `.health-spark`, `.health-trend`, `.health-panel`, `.card` all lacked `position:relative`. With no positioned ancestor, the invisible hitbox layer anchors to the page's root box instead of the chart, so hovering the visible sparkline never touched it.
+- **Workout tooltip:** identical bug, different element — `.health-tooltip` inside `.health-week-cell` had no positioned ancestor either. This explains the "sometimes right, sometimes wrong" pattern: with no anchor, the tooltip's position depends on scroll offset/page height at that moment, so it coincidentally lines up sometimes and doesn't others.
+- **14/30-day dropdown:** wiring (`x-model`, the `sleepSparkline` getter reading `sleepSparklineDays` reactively) looked structurally correct — no code bug found. Only one `<select>` existed in source (grepped, no stale duplicate).
+- **"unidentified session" label:** grepped the entire `Deploy/` tree, case-insensitive — that string does not exist anywhere in current source. The current tooltip logic already produces a clean "N session(s)" string with no placeholder branch. Concluded this was a stale cached JS bundle being served during one of the "sometimes" reloads, not a present code defect — ties back to the SW gap below.
+- **SW "split-brain" cache:** the documented network-first navigation fix (`fetch(event.request)` on `event.request.mode === 'navigate'`) was structurally correct, but the fetch call had no cache option — so that "network-first" fetch could still be silently satisfied by the **browser's own HTTP cache** (separate from the SW's Cache API) rather than a real network round-trip. The prior session's `v55`→`v56` commit only bumped the cache name, it didn't touch this gap.
+
+**What shipped (commit pending):**
+- `Deploy/css/components.css` — added `position: relative` to `.health-spark`, `.health-spark-hitbox`, and `.health-week-cell` (3 one-line additions, no new classes/tokens).
+- `Deploy/index.html` — Sleep's `<select x-model="sleepSparklineDays">` (14/30-day options) replaced with a plain static `<span class="health-trend-title">14-day trend</span>`, matching Workout's static caption pattern.
+- `Deploy/js/pages/today.js` — removed the now-dead `sleepSparklineDays` state property; `sleepSparkline` getter hardcoded to a 14-day window instead of `parseInt(this.sleepSparklineDays) || 14`.
+- `Deploy/service-worker.js` — navigation fetch changed to `fetch(event.request, { cache: 'no-store' })` so "network-first" is a real network hit every time, not something the browser's HTTP cache can quietly intercept. `CACHE_NAME` bumped `v56` → `v57`.
+- `PLAN.md` — Sleep/Workout Health-row sections and the Sync + reliability section updated with the fixes above; header cache-version line updated to `v57`.
+
+**What was verified locally:** `node --check` clean on `today.js` and `service-worker.js`. `index.html` tag balance confirmed via grep counts (`<div>` 513/513, `<template>` 197/197, `<select>` 13/13 — down from 14 after removing the dropdown's own tags, still balanced). CSS brace balance 713/713. Dev server booted with zero console/server errors on the login screen (per this project's local-dev rule — shared prod DB, no sign-in-and-click-around).
+
+**What's still open:** Abhishek needs to confirm live on `atlas.abhisheksikka.com`: (1) Sleep sparkline hover now shows the tooltip (date, duration, above/below goal) and the active-point highlight tracks the mouse; (2) Workout 4-week consistency hover shows the correct week range/session count/Met-Partial-Missed state consistently, not just sometimes; (3) the Sleep trend header now reads a static "14-day trend" label with no dropdown; (4) several normal reloads and at least one hard reload in a row all show the same, current version of the Health row — no flip-flopping, no "unidentified session" text, no dropdown reappearing.
+
+**What NOT to do:** Don't add `position` back off `.health-spark`/`.health-spark-hitbox`/`.health-week-cell` — that's the actual fix, not incidental. Don't reintroduce the 14/30-day Sleep dropdown without a fresh explicit ask — it was removed as a deliberate simplification, not an oversight. Don't revert the navigation fetch's `{ cache: 'no-store' }` option — without it, "network-first" isn't guaranteed to actually hit the network.
+
+---
+
 ## 2026-07-28 · Claude Code (Sonnet 4.6) — Documentation only: AI action layer marked failed and deferred
 
 **Session scope:** No code changes. Record the final failure verdict on the Atlas AI write-flow (action) layer so no future agent mistakes it for a working or stable feature.
