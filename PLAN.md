@@ -8,7 +8,7 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-29 (**Health row hover fix + SW cache hardening** — Sleep sparkline hover and Workout 4-week tooltip both had a missing `position:relative` root cause, now fixed; Sleep's 14/30-day dropdown removed, locked to 14 days; service worker navigation fetch now forces a real network hit instead of trusting the browser's own HTTP cache — see SESSION_LOG.md 2026-07-29 entry) -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v57` -- **Latest migration:** `016_ai_notebook.sql`
+**Last updated:** 2026-07-29 (**Google Cloud TTS fixed and live** — `atlas-tts-proxy` was 500ing on every request due to a hardcoded language-code mismatch plus a fragile npm auth SDK in the Deno Edge runtime; rebuilt the Google auth step on native Web Crypto, fixed the voice/language mapping, redeployed as function version 3 — see SESSION_LOG.md 2026-07-29 entry) -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v62` -- **Latest migration:** `016_ai_notebook.sql`
 
 ---
 
@@ -39,9 +39,21 @@ Abhishek is switching to a different Claude account (his wife's) for future sess
 - **Scrollbar visuals** — AI panel, Notebook list, and Tasks & Reminders card scrollbars were tightened twice (6px → 4px thumb, hidden button-arrows) but Abhishek reported them still looking chunky after the first pass; this may be a Windows display-scaling/accessibility setting outside what page CSS can control, not a code bug — worth a fresh look with screenshots from his actual device before assuming it's fixable in CSS.
 - **Persona tone / "data reader" avoidance** — the conversation-first system-prompt rewrite (this session) is the real fix attempt, but was not live-tested by Claude before this handover (Abhishek confirmed verbally it's "replying perfectly" after the rewrite, but no side-by-side transcript was captured). Worth a deliberate test pass early next session: try "hello", "how are you", "can we just chat" and confirm the tone lands before building anything further on top.
 - **[FAILED / DEFERRED — final verdict 2026-07-28] All AI write flows remain unreliable.** Code exists for 6 flows across multiple implementation rounds (two-call extraction architecture, Track A Memory, pendingUseCase expiry) but real-use testing still showed failures. Workout logging showed a confirm card but was missing VO2 max field and VO2 max was not saved. Task-related flows were confusing and potentially unsafe (task number interpretation led to unexpected task selection). Abhishek's final decision: "I will not test this again. I will use manual editing." This is not a fixable-in-one-more-round issue — it requires a deliberate full architectural rewrite. **Do not touch this layer without a fresh plan and explicit re-approval.**
-- **[BUG] Voice quality is inconsistent -- browser SpeechSynthesis is not good enough (confirmed 2026-07-28).** Abhishek has a soundbar and wants a real, natural-sounding voice. A Google Cloud TTS handover doc has been received (service account `pos-tts-proxy` created, key generated) — integration deferred to post-trial Phase 2. Do not integrate until the real-usage trial is complete.
+- **[FIXED 2026-07-29] Google Cloud TTS is live.** Real Neural2 voices replace browser `SpeechSynthesis` for the two cloud voice options. See "Atlas AI voice output — Google Cloud TTS (live 2026-07-29)" below for the full build.
 - **[FIXED 2026-07-28] No delete option for sleep/workout log entries** — shipped in the pre-trial bundle (`932a403`). Workout delete resurrection bug then fixed in `e5b603f`.
 - **Per-view Fact Package binding** — every chat message still carries `explain_day` as ambient context regardless of which page the panel was opened from (the context badge that would have shown this binding was cut from the UI early on to de-clutter the header). A future session could reintroduce a lighter version of this if it turns out to matter in practice.
+
+---
+
+## Atlas AI voice output — Google Cloud TTS (live 2026-07-29)
+
+Real cloud voices, replacing browser `SpeechSynthesis` for the two "Atlas" voice options. Frontend UI (Settings voice picker, Play/Stop/spinner on assistant messages, 900-char sentence-boundary truncation with a "✂ voice plays only the first part" hint) was built by Gemini across commits `e878665`/`467af06`/`3e8de45`/`60b5dd2` and was already correct — no frontend changes were needed this pass. What was broken and fixed this session was entirely server-side, in `supabase/functions/atlas-tts-proxy/index.ts`:
+- **Root cause #1 (confirmed):** the Google TTS request hardcoded `languageCode: 'en-US'` for every voice, but `atlas_calm` maps to an `en-IN-*` voice — a locale mismatch Google's API rejects. Fixed with a proper `{name, languageCode}` map per voice profile.
+- **Root cause #2 (high-confidence fix, not provable without stderr access):** every single invocation was returning 500 regardless of voice (confirmed via live Supabase edge-function logs — 100% failure rate before this fix), pointing to a shared failure point common to both voices, not just the mismatched one. The function used the `npm:google-auth-library` SDK for Google Cloud auth — a heavy, Node-oriented dependency chain known to be fragile in Supabase's Deno Edge runtime. Replaced with a hand-rolled signed-JWT → OAuth2 token exchange using only Deno's native Web Crypto API and `fetch`, removing the dependency entirely. This is the standard working pattern for this exact scenario and is strictly safer regardless of whether it was literally the prior failure.
+- **Voices:** `atlas_calm` → `en-IN-Neural2-B` (male, Indian English) with `languageCode: 'en-IN'`. `atlas_clear` → `en-US-Neural2-D` (male, global English, swapped from the previous `en-US-Journey-D` — Journey is a newer preview-tier voice family with narrower availability; Neural2 is Google's standard broadly-available tier).
+- Hard 1,000-char server-side limit (400 if exceeded) unchanged — the client already caps at 900 chars cut at a sentence boundary, so this stays a safety net, not the normal path.
+- Deployed via the Supabase MCP tools directly (`atlas-tts-proxy`, version 3, `verify_jwt: false` preserved — the function does its own custom JWT check inside the handler, so gateway-level verification staying off is intentional, not an oversight).
+- `Deploy/service-worker.js` cache bumped to `v62`.
 
 ---
 
@@ -293,7 +305,7 @@ Standing "would want an answer before starting" items — these are not blocking
 
 After the freeze:
 1. **Screenshot parsing (Garmin/ring app)** -- upload a screenshot from the Garmin app, Atlas reads the image and fills the confirm card automatically. Gemini 2.5 Flash is multimodal, the Edge Function just needs an image payload added. The placeholder "Attach screenshot" buttons are already in both health panels. Medium build. **Abhishek's stated next priority.**
-2. **Real TTS API for voice** -- replace browser `SpeechSynthesis` with ElevenLabs or Google Cloud Neural2 TTS. Quality is not good enough for a soundbar. Needs API key management. Medium build.
+2. **[SHIPPED 2026-07-29] Real TTS API for voice** -- Google Cloud TTS is live, see "Atlas AI voice output — Google Cloud TTS" above.
 3. **Real priority system + real drag-and-drop:** design pass needed before building either.
 4. **History/Calendar page:** its own future phase; the Upcoming modal is the interim stand-in.
 

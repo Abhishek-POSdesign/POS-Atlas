@@ -32,6 +32,31 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Sonnet 5) — Took over Google Cloud TTS from Gemini: fixed atlas-tts-proxy, TTS now live
+
+**Session scope:** Abhishek reported Cloud TTS (Atlas Calm/Clear) showing a spinner then "Voice failed to load" toast, while browser voices still worked. Gemini had already built the full frontend (Settings voice picker, Play/Stop/spinner, 900-char sentence-boundary truncation + hint, error toast with no fallback) and a first version of the `atlas-tts-proxy` Edge Function across commits `e878665`/`467af06`/`3e8de45`/`60b5dd2`, but never logged any of it in this file or `PLAN.md` — this session's first job was figuring out what was actually already there before touching anything. Diagnosed via the Supabase MCP tools directly (not guessed), reported findings, got explicit approval, then implemented.
+
+**Diagnosis (via Supabase MCP, not local file reading alone):**
+- Pulled the actual deployed function source (`get_edge_function`) and confirmed it matched the repo byte-for-byte — ruled out a stale-deploy theory.
+- Pulled live invocation logs (`get_logs`, service=edge-function) and found **every single POST to `atlas-tts-proxy` in the last 24h returned 500**, for both voices, every time. OPTIONS preflight was 200, so CORS/routing was fine — the failure was inside the handler.
+- **Root cause #1 (certain):** the Google TTS request body hardcoded `languageCode: 'en-US'` for every voice, but `atlas_calm` mapped to `en-IN-Neural2-B` — a locale mismatch Google's API rejects.
+- **Root cause #2 (high-confidence, not provable without stderr access):** the 100%-failure-regardless-of-voice pattern pointed to a shared failure point common to both paths — the Google Cloud auth step, using the `npm:google-auth-library` SDK. This is a heavy, Node-oriented dependency chain (gaxios/gcp-metadata) known to be fragile in Supabase's Deno Edge runtime. Couldn't confirm the exact exception text (the log tool only returns HTTP status lines, not console output, and the function's catch-all swallows errors into a generic message), so this was presented to Abhishek as high-confidence, not certain, before implementing.
+- Frontend (`aiPanel.js`) was read end-to-end and found already correct: proper JSON payload, real session JWT, 900-char sentence-boundary truncation, `voiceTruncated` hint already wired, error toast with no SpeechSynthesis fallback, and the Settings dropdown already rendering "Atlas Calm (Indian English)" / "Atlas Clear (Global English)" exactly as later requested. Zero frontend changes made this session.
+
+**What shipped (commit pending):**
+- `supabase/functions/atlas-tts-proxy/index.ts` — removed `npm:google-auth-library`; added a native Web Crypto signed-JWT → `oauth2.googleapis.com/token` exchange (`getGoogleAccessToken()`, `base64url()`, `pemToArrayBuffer()` helpers) using only Deno's built-in Web Crypto API and `fetch`. Voice mapping changed from a single `voiceName` string to a `VOICE_MAP` of `{name, languageCode}` pairs: `atlas_calm` → `en-IN-Neural2-B`/`en-IN` (male, Indian English), `atlas_clear` → `en-US-Neural2-D`/`en-US` (male, global English — swapped from `en-US-Journey-D`, a newer preview-tier voice family, to the standard broadly-available Neural2 tier). 1,000-char hard limit and 401/400 validation logic unchanged.
+- Deployed directly via the Supabase MCP `deploy_edge_function` tool (not the CLI) — `atlas-tts-proxy` is now version 3, `verify_jwt: false` preserved (the function does its own custom Supabase JWT check inside the handler, so leaving gateway-level verification off is intentional, matching how Abhishek originally deployed it).
+- `Deploy/service-worker.js` — `CACHE_NAME` bumped `v61` → `v62`.
+- `PLAN.md` — new "Atlas AI voice output — Google Cloud TTS (live 2026-07-29)" section under the AI account-handover block documenting the fix; stale "deferred to post-trial Phase 2" and "medium build" TTS references updated to reflect it's shipped; header cache-version line updated to `v62`.
+
+**What was verified locally:** Read back the deployed function source post-deploy via `get_edge_function` to confirm it matches what was written. Did not run `node --check` (this is a Deno/TypeScript file, not Node-executable) — TypeScript syntax was hand-verified by re-reading the full file before deploy.
+
+**What's still open:** Abhishek needs to test live: Atlas Calm actually speaks in a male Indian English voice, Atlas Clear speaks in global English, both play without error, a long reply gets cut at a sentence boundary with the "✂" hint visible, and — the real test for root cause #2 — the fix actually resolves the uniform-500 pattern (if it doesn't, the next step is asking Abhishek to check the `GCP_SERVICE_ACCOUNT_KEY` secret's exact JSON formatting in the Supabase dashboard, since that's the one variable neither of us could directly verify from here).
+
+**What NOT to do:** Don't reintroduce `npm:google-auth-library` or any other heavy Google SDK in this function — the native Web Crypto JWT signing is the fix, not incidental. Don't hardcode a single `languageCode` for all voices again — it must stay paired per-voice in `VOICE_MAP`. Don't touch the AI action layer (write flows remain FAILED/DEFERRED) or Sleep/Workout Health-row logic — both explicitly out of scope this session and untouched.
+
+---
+
 ## 2026-07-29 · Claude Code (Sonnet 5) — Today Health row: fixed Sleep hover + Workout tooltip, removed dead dropdown, hardened SW cache
 
 **Session scope:** Real live bugs reported on Today's Health row: Sleep sparkline hover/tooltip did nothing; the 14/30-day dropdown looked decorative; Workout's 4-week consistency tooltips were inconsistent across reloads, sometimes showing odd labels. Also asked to explain and harden the service-worker/cache setup, since the last session's `v55`→`v56` bump ("Fix split-brain cache") didn't seem to fully fix reload inconsistency. Diagnosed first (no code), presented findings + a plan, got explicit approval, then implemented exactly what was approved. No AI write-flow files or Supabase schema touched.
