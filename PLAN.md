@@ -8,7 +8,7 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-29 (Atlas AI Phase 1 shipped and live-testing-fixed across two rounds: overlay, persona+PIN, hybrid routing, memory notebook, log-workout/log-sleep voice-write flows, conversation-first persona rewrite, web-search opt-in on the shared `pos-partner` Edge Function; header made sticky) -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v44` -- **Latest migration:** `016_ai_notebook.sql`
+**Last updated:** 2026-07-28 (final pre-trial bundle: sleep/workout whole-day delete, task completion voice-write flow, checklist marking voice-write flow, journal reflection voice-write flow, fake-AI-notebook save block -- all shipped this session as the final batch before 4-7 day real-life trial freeze) -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v52` -- **Latest migration:** `016_ai_notebook.sql`
 
 ---
 
@@ -165,7 +165,9 @@ Full architecture plan lives in the session's approved plan doc (see SESSION_LOG
 - **AI Memory Notebook**: new `atlas_ai_notebook` table (migration 016, single-row `entries jsonb`, RLS `authenticated`-only) + `localStorage` fast-read path, last-write-wins on `updated_at`. Pin / Save Session / Compact all implemented, each tries a real model summarization call first and falls back to a plain-text truncation if the provider is unreachable (never a hard failure).
 - **Voice-write flows — two shipped**: Log workout, Log sleep. Dictation (Web Speech API, same proven pattern as Partner) → the model is asked (via a fixed extraction instruction in `features/aiContext.js`) to respond with strict JSON if it recognizes either intent → the app validates/clamps every field (`sanitizeDraftFields()`, never trusts the model's raw values) → a confirm card renders inline in the chat stream → **only Confirm calls the real write** (`DB.Workout.save()` / `DB.Sleep.save()`) → Cancel discards, nothing written either way.
 - **Fact Package**: `features/aiContext.js`'s `buildFactPackage()` covers `explain_day`, `explain_task`, `explain_health`, `log_workout`, `log_sleep` — every one reads through existing `DB.*` methods only, no new queries invented. Every ordinary chat message currently carries `explain_day` as ambient context (the per-view context-badge binding was cut from this round's UI, so there's no separate "About: Project X" Fact Package variant live yet — `explain_task`/`explain_health` are reachable via the quick-action chips, which build their own package on demand).
-- **What's NOT done yet**: the `atlas-ai` Edge Function itself (Cloud provider will show "unavailable" until this is deployed with a real secret); the remaining three voice-write flows (task completion, checklist marking, journal reflections) — Phase 1 deliberately shipped only the two Abhishek's own examples named, per the approved plan's phased approach; per-view Fact Package binding (badge was cut, so it's always `explain_day` right now).
+- **Five total voice-write flows now shipped (as of 2026-07-28 final bundle):** Log workout, Log sleep (Phase 1), plus task completion (`complete_task`), checklist/routine marking (`mark_checklist`), and daily journal reflection (`journal_reflection`). All five use the same propose-confirm-write loop. `complete_task` and `mark_checklist` resolve names/numbers client-side (conservative exact-match only) before showing the confirm card; any ambiguous/unresolvable input shows a prose clarification with the numbered list, never a partial write.
+- **Health panel delete (as of 2026-07-28):** both Sleep and Workout panels now have a trash icon in the header (`deleteWorkoutEntry()` / `deleteSleepEntry()` in `today.js`), `askConfirm()` + 8s undo toast with restore callback. Visible only when an entry exists for today.
+- **What's NOT done yet**: the `atlas-ai` Edge Function itself (Cloud provider will show "unavailable" until this is deployed with a real secret); per-view Fact Package binding (badge was cut, so it's always `explain_day` right now).
 
 ### Universal time picker (Round 2 build)
 - Shared Alpine `timePicker12h` component + `.tp-numeric` markup: two 2-digit numeric HH/MM inputs + AM/PM segmented control.
@@ -258,13 +260,13 @@ Standing "would want an answer before starting" items — these are not blocking
 
 ### Next workstreams (priority order as of 2026-07-28)
 
-1. **[BUG FIX] Fake notebook save block** -- add notebook to the CANNOT-DO system prompt list. 5-minute fix, do at start of next session before anything else. See bug entry above.
-2. **[MISSING] Delete sleep/workout entries** -- two-step confirm + undo toast in the health panels. Needed before real daily data starts. Small build (~1 session).
-3. **Screenshot parsing (Garmin/ring app)** -- upload a screenshot of your sleep or workout summary from the Garmin app, Atlas reads the image and fills the confirm card automatically. Gemini 2.5 Flash is multimodal, the Edge Function just needs an image payload added. The placeholder "Attach screenshot" buttons are already in both health panels. Medium build (~1 session). **Abhishek's stated next priority.**
-4. **Real TTS API for voice** -- replace browser `SpeechSynthesis` with ElevenLabs or Google Cloud Neural2 TTS. Quality is not good enough for a soundbar. Needs API key management. Medium build.
-5. **Remaining 3 voice-write flows** -- task completion, checklist marking, journal reflection -- once screenshot parsing and delete are done.
-6. **Real priority system + real drag-and-drop:** design pass needed before building either.
-7. **History/Calendar page:** its own future phase; the Upcoming modal is the interim stand-in.
+**TRIAL FREEZE in effect: 4-7 days of real use starting 2026-07-28.** Only genuine blockers/data-loss/security fixes permitted during the freeze.
+
+After the freeze:
+1. **Screenshot parsing (Garmin/ring app)** -- upload a screenshot from the Garmin app, Atlas reads the image and fills the confirm card automatically. Gemini 2.5 Flash is multimodal, the Edge Function just needs an image payload added. The placeholder "Attach screenshot" buttons are already in both health panels. Medium build. **Abhishek's stated next priority.**
+2. **Real TTS API for voice** -- replace browser `SpeechSynthesis` with ElevenLabs or Google Cloud Neural2 TTS. Quality is not good enough for a soundbar. Needs API key management. Medium build.
+3. **Real priority system + real drag-and-drop:** design pass needed before building either.
+4. **History/Calendar page:** its own future phase; the Upcoming modal is the interim stand-in.
 
 Older deferred items, still valid but not the stated priority:
 - Projects list visual-hierarchy pass.

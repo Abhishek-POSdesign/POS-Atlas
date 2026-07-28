@@ -51,7 +51,7 @@ async function buildExplainDay() {
         return `${t.name} [${t.kind || 'task'}; ${bucket}; priority: ${t.priority || 'normal'}; status: ${t.status}${t.running_note ? '; note: ' + t.running_note : ''}]`;
     });
 
-    return basePackage('explain_day', {
+    const pkg = basePackage('explain_day', {
         currentDate: new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
         taskSituation: `${overdue.length} carried/overdue, ${upcoming.length - overdue.length} due today or undated, ${doneToday.length} completed today.`,
         pendingTasks: taskList,
@@ -61,6 +61,11 @@ async function buildExplainDay() {
             return `${s.name}: ${days} days`;
         })
     }, ['explain', 'suggest']);
+    // Private arrays for client-side resolution -- NOT in pkg.facts, never sent to model
+    pkg._taskList = upcoming.slice(0, 20);
+    pkg._checklistItems = todaysItems;
+    pkg._checklistDate = checklistDate;
+    return pkg;
 }
 
 async function buildExplainTask(taskId) {
@@ -188,6 +193,49 @@ export const WRITE_FLOWS = {
             if (fields.hrv != null) patch.hrv = fields.hrv;
             if (fields.morning_note) patch.morning_note = fields.morning_note;
             return DB.Sleep.save(today, patch);
+        }
+    },
+    complete_task: {
+        title: 'Draft · Complete task',
+        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+        fields: [
+            { key: 'task_name', label: 'Task', type: 'text' }
+        ],
+        // Dynamic context (numbered task list) is prepended by _askModel() before this string
+        extractionInstruction: 'CRITICAL: If Abhishek says a specific task is done, finished, or completed, you MUST respond with ONLY this JSON object and nothing else -- no prose, no explanation: {"intent":"complete_task","fields":{"task_number":number|null,"task_name":string|null}}. task_number is the 1-based number from the task list above (use if he said "task 4", "number 3", "#2", etc.). task_name is the exact name if he named the task instead -- use it verbatim, do not paraphrase or abbreviate. Set one; set the other to null. If neither a clear number nor an exact task name is present, reply in prose asking which task. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        async write(fields) {
+            if (!fields.task_id) throw new Error('Task not identified -- confirm card should have supplied the ID');
+            return DB.Tasks.complete(fields.task_id, null);
+        }
+    },
+    mark_checklist: {
+        title: 'Draft · Mark routine items',
+        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><polyline points="4 6 5 7 7 5"/><polyline points="4 12 5 13 7 11"/><polyline points="4 18 5 19 7 17"/></svg>',
+        fields: [], // confirm card built manually in _handleChecklistMarking(), not via sanitizeDraftFields
+        // Dynamic context (today's item names) is prepended by _askModel() before this string
+        extractionInstruction: 'CRITICAL: If Abhishek says he did or skipped specific routine/checklist items, you MUST respond with ONLY this JSON object and nothing else: {"intent":"mark_checklist","fields":{"items":[{"name":"exact item name from the list above","status":"done or skipped"}]}}. Use the item name EXACTLY as it appears in the checklist list above -- no paraphrasing. Only include items he explicitly mentioned. Use "done" if he did it, "skipped" if he deliberately skipped it. If none of the items he named appear in the checklist list, reply in prose instead. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        async write(fields) {
+            if (!fields.resolved || !fields.resolved.length) throw new Error('No items to mark');
+            for (const item of fields.resolved) {
+                await DB.Checklist.setStatus(item.id, fields.date, item.status, {});
+            }
+        }
+    },
+    journal_reflection: {
+        title: 'Draft · Daily journal',
+        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+        fields: [
+            { key: 'body', label: 'Reflection', type: 'text' }
+        ],
+        extractionInstruction: 'CRITICAL: If Abhishek shares a personal feeling, reflection, emotion, or what today was like for him (gratitude, frustration, pride, a realisation, a mood), you MUST respond with ONLY this JSON object and nothing else: {"intent":"journal_reflection","fields":{"body":"his reflection in his own words"}}. Do NOT trigger this for task/health/routine questions, greetings, or factual questions -- only for genuine reflective or emotional content. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        async write(fields) {
+            if (!fields.body) throw new Error('No reflection text');
+            const today = todayIsoDate();
+            const existing = await DB.Notebook.getByDate(today);
+            if (existing) {
+                return DB.Notebook.update(existing.id, { body: existing.body + '\n\n' + fields.body });
+            }
+            return DB.Notebook.create({ entry_date: today, body: fields.body });
         }
     }
 };

@@ -691,6 +691,38 @@ export function todayPage() {
             }
         },
 
+        async deleteSleepEntry() {
+            const entry = this.sleepEntry;
+            if (!entry) return;
+            const confirmed = await askConfirm('Delete today\'s sleep log?');
+            if (!confirmed) return;
+            try {
+                await DB.Sleep.softDelete(entry.id);
+                this.sleepEntry = null;
+                showUndoToast('Sleep log deleted', async () => {
+                    this.sleepEntry = await DB.Sleep.restoreFromTrash(entry.id);
+                });
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+
+        async deleteWorkoutEntry() {
+            const entry = this.workoutEntry;
+            if (!entry) return;
+            const confirmed = await askConfirm('Delete today\'s workout log?');
+            if (!confirmed) return;
+            try {
+                await DB.Workout.softDelete(entry.id);
+                this.workoutEntry = null;
+                showUndoToast('Workout log deleted', async () => {
+                    this.workoutEntry = await DB.Workout.restoreFromTrash(entry.id);
+                });
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+
         // ---- health trends ----
         sleepTrendDays: [],
         sleepGoalMinutes: 420,

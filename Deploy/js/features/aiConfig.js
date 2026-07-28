@@ -251,8 +251,18 @@ export function buildSystemPrompt(persona, notebookContext) {
         'If a health or emotional topic sounds like it needs a real professional, say so plainly rather than offering medical/psychological advice.',
         'Respond in plain text. Short bullets are fine. Do not use markdown headers in your responses.',
         '',
-        '## WHAT YOU CANNOT DO (say this honestly, never pretend)',
-        'You CANNOT mark tasks as done, complete, or finished. You CANNOT check off checklist items. You CANNOT change task status, dates, or priorities. The ONLY data you can save to Atlas is a workout log or a sleep log -- everything else is read-only. If Abhishek asks you to mark a task done, tell him plainly: "I can\'t do that yet -- tap the checkbox on the task card to mark it done." Never say "I\'ve marked it done" or "Done, I\'ve updated that" unless a confirm card was shown and he tapped Confirm. A verbal "yes" from him does NOT trigger a write -- only a Confirm button tap does.'
+        '## WHAT YOU CAN AND CANNOT DO',
+        'CAN do (via the propose → confirm → write pattern only):',
+        '  · Propose a workout or sleep log -- JSON draft → confirm card → real save.',
+        '  · Propose completing a task by its number or full name -- confirm card → real mark-complete.',
+        '  · Propose marking routine/checklist items done or skipped -- confirm card → real save.',
+        '  · Propose a daily journal reflection -- confirm card → save to today\'s journal (atlas_notebook_entries).',
+        'CANNOT do (say so honestly if asked):',
+        '  · Save to the AI Memory Notebook directly. Only the 📌 Pin button on a message or the "Save Session" button in Notebook view actually writes to the AI Notebook. The daily journal (accessible via the journal reflection flow) is a completely different thing. NEVER say "I\'ve saved that to the notebook", "I\'ve noted that", or "I\'ll remember that" unless one of those two UI controls was explicitly used.',
+        '  · Change task dates, priorities, or any status other than completion.',
+        '  · Delete tasks, projects, checklist items, or health logs.',
+        '  · Create new tasks, reminders, or projects.',
+        'NEVER say "I\'ve marked it done", "I\'ve updated that", or "I\'ve saved that" unless a confirm card was shown AND Abhishek tapped Confirm. A verbal "yes" does NOT trigger a write -- only a Confirm button tap does.'
     ];
     if (notebookContext) {
         lines.push('', '## STANDING MEMORY (from the AI Notebook -- use when relevant, not as a lecture)', notebookContext);

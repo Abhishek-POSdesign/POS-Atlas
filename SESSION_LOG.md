@@ -32,6 +32,31 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-28 · Claude Code (Sonnet 4.6) — Final pre-trial bundle: Group A (voice-write flows) + Group B (health delete)
+
+**Session scope:** Ship the final development bundle before a 4-7 day real-life trial freeze. Group A = three new AI voice-write flows (task completion, checklist marking, journal reflection). Group B = sleep/workout whole-day delete. Also includes the fake-AI-notebook save block (pre-work from last session's bug list).
+
+**What shipped:**
+- `aiConfig.js` -- `buildSystemPrompt()` CANNOT-DO section fully rewritten: documents 4 CAN-do write flows (workout, sleep, task completion, checklist marking, journal reflection), explicitly blocks AI Notebook direct save, forbids any "I've saved/marked/noted" claim unless Confirm was tapped.
+- `aiContext.js` -- `buildExplainDay()` augmented to attach `_taskList`, `_checklistItems`, `_checklistDate` as private properties on the returned package (NOT sent to model, used client-side for resolution). Three new WRITE_FLOWS entries: `complete_task` (resolves by number or exact name, `DB.Tasks.complete()`), `mark_checklist` (resolves all items client-side, `DB.Checklist.setStatus()` per item), `journal_reflection` (generic path, create-or-append to `atlas_notebook_entries`).
+- `aiPanel.js` -- module-level `_taskCache`/`_checklistCache`/`_checklistDate` caches (non-reactive, like `speechRecognition`). `_askModel()` populates caches from each `explain_day` package and builds dynamic extraction context (numbered task list for `complete_task`, item name list for `mark_checklist`). `_detectIntent()` extended with 3 new intent patterns. `_handleModelReply()` routes `complete_task` → `_handleTaskCompletion()` and `mark_checklist` → `_handleChecklistMarking()` before the generic path. Both dedicated handlers enforce: exact normalized name match only (no substrings); any single unresolvable item blocks the entire checklist confirm card; ambiguous input → prose clarification with numbered list, no confirm card.
+- `today.js` -- `deleteSleepEntry()` and `deleteWorkoutEntry()` methods (ask-confirm + soft-delete + undo toast with restore callback).
+- `index.html` -- Sleep panel header: `.health-panel-actions` wrapper added; coral trash button (`x-show="sleepEntry"`). Workout panel header: coral trash button added to existing `.health-panel-actions` (`x-show="workoutEntry && workoutDayType === 'workout'"`).
+- `service-worker.js` -- cache bumped `v51` -> `v52`.
+
+**Syntax checks:** `node --check` passed on all three modified JS files (aiContext.js, aiPanel.js, today.js).
+
+**Trial freeze:** App enters 4-7 day real-use trial after this commit. Only fix genuine blockers/data-loss/security during freeze. No new features.
+
+**What's still open:**
+- Live testing of all five write flows and the delete buttons (first time running against real data).
+- The `atlas-ai` Edge Function (Cloud provider shows "unavailable" until deployed with Vertex/Gemini secret -- not related to anything in this bundle).
+- After trial: screenshot parsing (Garmin), real TTS API, then further features.
+
+**What NOT to do:** Don't start new features during the trial freeze. If a write flow fails on first real use, read `aiPanel.js`'s handler methods and `aiContext.js`'s resolution logic before changing anything -- the conservative exact-match rules are intentional.
+
+---
+
 ## 2026-07-28 · Claude Code (Sonnet 4.6) — Atlas AI end-of-session: voice fix + doc update
 
 **Session scope:** Late-session fixes and documentation update after Abhishek's final testing round before sleep.

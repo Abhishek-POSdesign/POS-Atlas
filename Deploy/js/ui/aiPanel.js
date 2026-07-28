@@ -52,6 +52,9 @@ function dayLabel(dateStr) {
 }
 
 let speechRecognition = null; // module-level, not reactive -- avoids Alpine proxy issues with a browser API object
+let _taskCache = null;        // populated from each explain_day package; used for complete_task resolution
+let _checklistCache = null;   // populated from each explain_day package; used for mark_checklist resolution
+let _checklistDate = null;    // todayKey() value matching _checklistCache; used as entry_date for setStatus()
 
 export function atlasAi() {
     return {
@@ -238,6 +241,11 @@ export function atlasAi() {
             this.thinking = true;
             try {
                 const pkg = await buildFactPackage(factUseCase, entityId);
+                // Cache task/checklist arrays from explain_day packages for client-side resolution
+                if (pkg._taskList) _taskCache = pkg._taskList;
+                if (pkg._checklistItems) _checklistCache = pkg._checklistItems;
+                if (pkg._checklistDate != null) _checklistDate = pkg._checklistDate;
+
                 const notebookCtx = getNotebookContext();
                 let systemPrompt = buildSystemPrompt(this.persona, notebookCtx);
                 systemPrompt += '\n\n## FACTS AVAILABLE IF RELEVANT (do not mention these for a greeting or small talk)\n' + JSON.stringify(pkg.facts, null, 1);
@@ -252,7 +260,17 @@ export function atlasAi() {
                 const detectedIntent = this._detectIntent(userText);
                 if (detectedIntent) {
                     systemPrompt += '\n\n## DATA LOGGING (apply ONLY because this message matches "' + detectedIntent + '")\n';
-                    systemPrompt += WRITE_FLOWS[detectedIntent].extractionInstruction;
+                    // For complete_task and mark_checklist, prepend the current list
+                    // so the model knows exactly what names/numbers to extract
+                    let dynamicCtx = '';
+                    if (detectedIntent === 'complete_task' && _taskCache && _taskCache.length) {
+                        dynamicCtx = 'Current pending task list (use these 1-based numbers only):\n' +
+                            _taskCache.map((t, i) => `${i + 1}. ${t.name}`).join('\n') + '\n';
+                    } else if (detectedIntent === 'mark_checklist' && _checklistCache && _checklistCache.length) {
+                        dynamicCtx = "Today's routine checklist items (use these exact names only):\n" +
+                            _checklistCache.map(c => `· ${c.name}`).join('\n') + '\n';
+                    }
+                    systemPrompt += dynamicCtx + WRITE_FLOWS[detectedIntent].extractionInstruction;
                 }
 
                 // Build conversation history for the model. Exclude the
@@ -328,6 +346,15 @@ export function atlasAi() {
             const s = /\b(sle(ep|pt)|nap(ped)?|sleep\s*score|deep\s*sleep|rem\b|resting\s*(heart\s*rate|hr)|hrv|heart\s*rate\s*variability|woke\s*up|bed\s*time|hours?\s+(of\s+)?sleep)\b/.test(t);
             if (w && !s) return 'log_workout';
             if (s && !w) return 'log_sleep';
+            // Task completion: requires "task" word + a clear completion verb
+            if (/\btask\b/.test(t) && /\b(done|finish(ed)?|complet(e|ed)?|mark(ed)?(\s+done)?)\b/.test(t)) return 'complete_task';
+            // Checklist marking: "skipped" or "I did/completed" without task context (workout/sleep already excluded above)
+            if (/\bskipped?\b/.test(t) && !w && !s) return 'mark_checklist';
+            if (/\bi\s+(did|completed|finished)\b/.test(t) && !/\btask\b/.test(t) && !w && !s) return 'mark_checklist';
+            // Journal: emotional/reflective language
+            if (/\b(felt|feeling|i\s+feel)\b/.test(t)) return 'journal_reflection';
+            if (/\btoday\s+was\b/.test(t)) return 'journal_reflection';
+            if (/\bi'?m\s+(proud|grateful|anxious|tired|happy|sad|frustrated|excited|worried|stressed|calm|confident|overwhelmed|relieved|energised?|drained)\b/.test(t)) return 'journal_reflection';
             return null;
         },
 
@@ -341,6 +368,16 @@ export function atlasAi() {
             }
 
             if (parsed && parsed.intent && WRITE_FLOWS[parsed.intent]) {
+                // Dedicated handlers for flows that need client-side resolution before the confirm card
+                if (parsed.intent === 'complete_task') {
+                    this._handleTaskCompletion(parsed.fields || {}, providerLabel);
+                    return;
+                }
+                if (parsed.intent === 'mark_checklist') {
+                    this._handleChecklistMarking(parsed.fields || {}, providerLabel);
+                    return;
+                }
+                // Generic WRITE_FLOWS path (log_workout, log_sleep, journal_reflection)
                 const flow = WRITE_FLOWS[parsed.intent];
                 const fields = sanitizeDraftFields(parsed.intent, parsed.fields);
                 if (!fields || Object.keys(fields).length === 0) {
@@ -362,6 +399,97 @@ export function atlasAi() {
             if (/\b(log(ged|ging)?|sav(ed|ing)|record(ed|ing)|draft(ed)?)\b/i.test(reply) && /\b(sleep|workout|exercise|duration|hours?\s+(of\s+)?sleep)\b/i.test(reply)) {
                 this._pushAssistantText('⚠ Note: nothing was actually saved to Atlas. To log data, try again with the details (e.g. "slept 7 hours, score 80") and I\'ll show a confirm card you can tap to save.', null);
             }
+        },
+
+        // Resolves a task-completion intent against the cached task list.
+        // Conservative: number = 1-based index only; name = exact normalized match only.
+        // Ambiguous or unresolvable → prose clarification, no confirm card.
+        _handleTaskCompletion(fields, providerLabel) {
+            if (!_taskCache || !_taskCache.length) {
+                this._pushAssistantText("I don't have the task list loaded yet -- try sending your message again.", providerLabel);
+                return;
+            }
+            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+            let task = null;
+            if (fields.task_number != null) {
+                const idx = Math.round(Number(fields.task_number)) - 1;
+                if (idx >= 0 && idx < _taskCache.length) task = _taskCache[idx];
+            }
+            if (!task && fields.task_name) {
+                const needle = normalize(String(fields.task_name));
+                const matches = _taskCache.filter(t => normalize(t.name) === needle);
+                if (matches.length === 1) task = matches[0];
+            }
+            if (!task) {
+                const list = _taskCache.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
+                this._pushAssistantText(
+                    "I couldn't identify which task you meant. Say the task number or its exact name. Your pending tasks:\n" + list,
+                    providerLabel
+                );
+                return;
+            }
+            this._pushMessage({
+                role: 'assistant',
+                type: 'confirm',
+                draft: {
+                    title: 'Draft · Complete task',
+                    icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+                    fields: [{ k: 'Task', v: task.name }],
+                    flowKey: 'complete_task',
+                    rawFields: { task_id: task.id, task_name: task.name }
+                },
+                decided: null
+            });
+        },
+
+        // Resolves a checklist-marking intent against today's cached items.
+        // Any single unresolved item blocks the ENTIRE confirm card -- no partial writes.
+        _handleChecklistMarking(fields, providerLabel) {
+            if (!_checklistCache || !_checklistCache.length) {
+                this._pushAssistantText("I don't have today's routine items loaded -- try sending your message again.", providerLabel);
+                return;
+            }
+            if (!fields.items || !fields.items.length) {
+                this._pushAssistantText("I couldn't identify which routine items you meant. Try naming them exactly as they appear in your checklist.", providerLabel);
+                return;
+            }
+            const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+            const resolved = [];
+            const unresolved = [];
+            for (const item of fields.items) {
+                const needle = normalize(item.name || '');
+                const match = _checklistCache.find(c => normalize(c.name) === needle);
+                if (match) {
+                    resolved.push({ id: match.id, name: match.name, status: item.status === 'skipped' ? 'skipped' : 'done' });
+                } else {
+                    unresolved.push(item.name || '?');
+                }
+            }
+            if (unresolved.length > 0) {
+                const available = _checklistCache.map(c => `· ${c.name}`).join('\n');
+                this._pushAssistantText(
+                    `I couldn't match: ${unresolved.map(n => '"' + n + '"').join(', ')}. Nothing was marked.\n\nYour routine items today:\n${available}\n\nTry again using the names exactly as listed.`,
+                    providerLabel
+                );
+                return;
+            }
+            const doneItems = resolved.filter(r => r.status === 'done');
+            const skippedItems = resolved.filter(r => r.status === 'skipped');
+            const fieldRows = [];
+            if (doneItems.length) fieldRows.push({ k: 'Done', v: doneItems.map(r => r.name).join(' · ') });
+            if (skippedItems.length) fieldRows.push({ k: 'Skipped', v: skippedItems.map(r => r.name).join(' · ') });
+            this._pushMessage({
+                role: 'assistant',
+                type: 'confirm',
+                draft: {
+                    title: 'Draft · Mark routine items',
+                    icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><polyline points="4 6 5 7 7 5"/><polyline points="4 12 5 13 7 11"/><polyline points="4 18 5 19 7 17"/></svg>',
+                    fields: fieldRows,
+                    flowKey: 'mark_checklist',
+                    rawFields: { resolved, date: _checklistDate }
+                },
+                decided: null
+            });
         },
 
         async confirmDraft(msg) {
