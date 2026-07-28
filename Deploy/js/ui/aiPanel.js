@@ -26,9 +26,9 @@ import { askConfirm } from '../components/confirm-dialog.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import {
     loadConfig, saveConfig, loadPersona, savePersona,
-    pinExists, hashPin, setPin, checkPin, clearPin,
+    hasPin as pinExists, setPin, checkPin, clearPin,
     loadChatHistory, saveChatHistory, clearChatHistory,
-    loadNotebookLocal, pushNotebook, pullNotebook,
+    loadNotebookLocal, saveNotebookLocal, pushNotebook, pullNotebook,
     sendToProvider, buildSystemPrompt, getNotebookContext
 } from '../features/aiConfig.js';
 import { buildFactPackage, WRITE_FLOWS, sanitizeDraftFields } from '../features/aiContext.js';
