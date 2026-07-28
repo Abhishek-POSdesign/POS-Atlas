@@ -2,6 +2,7 @@ import { DB } from '../db.js';
 import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
+import { consumePendingTask } from '../features/pendingNav.js';
 
 function minutesToHM(mins) {
     if (mins === null || mins === undefined) return '';
@@ -80,6 +81,12 @@ export function todayPage() {
             await this.load();
             // Refresh when AI panel confirms a write (workout, sleep, task, checklist)
             window.addEventListener('atlas:data-changed', () => { this.load().catch(console.error); });
+            // Calendar's Tasks & Reminders drill-down hands off a task here
+            // (standalone tasks only -- project-linked ones go to the
+            // Project workspace instead) so it opens Today's own real task
+            // edit modal rather than a duplicate.
+            const pending = consumePendingTask();
+            if (pending) this.openTaskEditModal(pending);
         },
         async load() {
             this.loading = true;

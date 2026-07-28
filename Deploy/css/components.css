@@ -2965,3 +2965,103 @@ body:has(.ai-panel-open) .content-area {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* ============================================================
+   Calendar (full-page, past + future) -- mockup-approved 2026-07-29,
+   "Balanced" density. Every color below is an existing token from
+   tokens.css; no new hex/gradients. Day Detail sits below the grid
+   (never a right-side drawer -- the AI panel already owns that side)
+   and updates in place as a different date is selected.
+   ============================================================ */
+.calendar-page { padding: var(--pad-lg); }
+
+/* Category filter bar -- toggles distinguished by surface + text
+   contrast, not an accent fill (CLAUDE.md: "selection is not a status"). */
+.filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.filter-chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 8px;
+    border-radius: 20px; border: 1px solid var(--border); background: none;
+    color: var(--text-muted); font-size: 11.5px; font-family: inherit; cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.filter-chip svg { flex-shrink: 0; }
+.filter-chip.on { background: var(--surface-2); border-color: var(--border-hover); color: var(--text-primary); }
+
+/* Range presets -- a hint row for the AI summary range, not a live query
+   yet. Blue used as UI chrome for "selected," same non-semantic use as
+   the today/selected cell border below -- not a new accent meaning. */
+.range-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.range-label { font-size: 11px; color: var(--text-muted); margin-right: 2px; }
+.range-chip { padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: none; color: var(--text-secondary); font-size: 11.5px; font-family: inherit; cursor: pointer; }
+.range-chip.on { background: var(--accent-blue-tint); border-color: var(--accent-blue); color: var(--text-primary); }
+.range-note { font-size: 10.5px; color: var(--text-muted); font-style: italic; margin-left: 4px; }
+
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.cal-title-group { display: flex; align-items: center; gap: 10px; }
+.cal-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.cal-year-select { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; padding: 3px 6px; font-size: 12px; font-family: inherit; }
+.cal-nav { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-secondary); }
+.cal-nav button { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; width: 24px; height: 24px; font-size: 13px; cursor: pointer; }
+.cal-nav button:hover { background: var(--surface-1-hover); border-color: var(--border-hover); }
+.cal-today-btn { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary); border-radius: 6px; padding: 4px 9px; font-size: 11.5px; font-family: inherit; cursor: pointer; }
+.cal-today-btn:hover { background: var(--surface-1-hover); border-color: var(--border-hover); }
+
+.cal-weekdays { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; margin-bottom: 6px; }
+.cal-weekdays span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; }
+.cal-cell {
+    border-radius: 8px; border: 1px solid var(--border); background: var(--surface-1);
+    padding: 7px 8px; display: flex; flex-direction: column; min-height: 106px; cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.cal-cell:hover { background: var(--surface-1-hover); border-color: var(--border-hover); }
+.cal-cell.out { opacity: .35; }
+.cal-cell.today { border-color: var(--accent-blue); box-shadow: inset 0 0 0 1px var(--accent-blue); }
+.cal-cell.selected { background: var(--accent-blue-tint); border-color: var(--accent-blue); }
+.cal-cell-num { font-size: 12px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.cal-cell-lines { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
+.cal-line { display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--text-secondary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cal-line:first-child { color: var(--text-primary); font-weight: 500; }
+.cal-line svg { flex-shrink: 0; color: inherit; }
+.cal-line.coral { color: var(--accent-coral) !important; }
+.cal-more { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+/* ---- Day Detail: full-width, below the grid ---- */
+.day-detail-region { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+.dd-date { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.dd-sub { font-size: 11.5px; color: var(--text-muted); margin-bottom: 16px; }
+.dd-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+.dd-sections { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.dd-section { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; }
+.dd-section-head { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 9px; }
+.dd-section-head svg { color: var(--accent-blue); flex-shrink: 0; }
+.dd-section-meta { margin-left: auto; text-transform: none; letter-spacing: normal; font-weight: 500; color: var(--text-muted); }
+.dd-sub-label { font-size: 11px; font-weight: 600; color: var(--text-muted); margin: 8px 0 4px; }
+.dd-sub-label:first-child { margin-top: 0; }
+.dd-fact-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-secondary); padding: 2px 0; }
+.dd-fact-row .v { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.dd-note { font-size: 12px; color: var(--text-secondary); font-style: italic; margin-top: 6px; }
+.dd-add-btn { padding: 0; }
+.dd-row {
+    display: flex; align-items: center; gap: 7px; padding: 6px; margin: 0 -6px; border-radius: 6px;
+    cursor: pointer; font-size: 12.5px; color: var(--text-secondary);
+    transition: background-color var(--dur-fast) var(--ease-out);
+}
+.dd-row:hover { background: var(--surface-1-hover); }
+.dd-row svg { flex-shrink: 0; color: var(--text-muted); }
+.dd-row .name { flex: 1; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-row .time { color: var(--text-muted); font-size: 11px; flex-shrink: 0; }
+.dd-chip { font-size: 10px; padding: 2px 7px; border-radius: 20px; background: var(--surface-1); border: 1px solid var(--border); color: var(--text-muted); flex-shrink: 0; }
+.dd-chip.done { color: var(--accent-sage); border-color: var(--accent-sage); }
+.dd-chip.skipped { color: var(--accent-amber); border-color: var(--accent-amber); }
+.dd-chip.overdue { color: var(--accent-coral); border-color: var(--accent-coral); }
+.dd-project-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-blue); flex-shrink: 0; }
+.dd-chevron { color: var(--text-muted); flex-shrink: 0; }
+.dd-editor { background: var(--surface-1); border-radius: 8px; padding: 10px 12px; margin-top: 4px; display: flex; flex-direction: column; gap: 10px; }
+.dd-editor-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.dd-editor-row .field { flex: 1; min-width: 90px; }
+
+@media (max-width: 720px) {
+    .dd-sections { grid-template-columns: 1fr; }
+    .cal-cell { min-height: 84px; }
+}

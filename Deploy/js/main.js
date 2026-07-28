@@ -12,6 +12,7 @@ import { projectWorkspacePage } from './pages/project-workspace.js';
 import { notebookPage } from './pages/notebook.js';
 import { restorePage } from './pages/restore.js';
 import { checklistPage } from './pages/checklist.js';
+import { calendarPage } from './pages/calendar.js';
 import { atlasAi } from './ui/aiPanel.js';
 
 window.formatTime12h = function(timeStr) {
@@ -137,6 +138,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('notebookPage', notebookPage);
     Alpine.data('restorePage', restorePage);
     Alpine.data('checklistPage', checklistPage);
+    Alpine.data('calendarPage', calendarPage);
     Alpine.data('atlasAi', atlasAi);
 
     Alpine.data('app', () => ({

@@ -3,6 +3,7 @@ import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
 import { askNote } from '../components/note-prompt.js';
 import { groupByDate } from '../date-groups.js';
+import { consumePendingTask } from '../features/pendingNav.js';
 
 export function projectWorkspacePage(nav) {
     return {
@@ -28,6 +29,11 @@ export function projectWorkspacePage(nav) {
         async open(id) {
             this.projectId = id;
             await this.load();
+            // Calendar's Tasks & Reminders drill-down hands off a
+            // project-linked task here so it opens the workspace's own real
+            // task edit modal rather than a duplicate.
+            const pending = consumePendingTask();
+            if (pending && pending.project_id === id) this.openEditTaskModal(pending);
         },
         async load() {
             if (!this.projectId) return;
