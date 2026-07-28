@@ -640,6 +640,7 @@ export function todayPage() {
                 this.workoutSessionForm = { type: 'strength', duration: '', intensity: '', programTag: '', note: '' };
             }
             this.showSessionForm = true;
+            this.workoutModalOpen = true;
         },
         closeWorkoutSessionForm() {
             this.showSessionForm = false;
@@ -860,7 +861,12 @@ export function todayPage() {
             const points = days.map((d, i) => {
                 const x = days.length === 1 ? 0 : Math.round((i / (days.length - 1)) * W * 10) / 10;
                 const y = Math.round((PAD + (1 - (d.duration - min) / range) * (H - PAD * 2)) * 10) / 10;
-                return { x, y, date: d.date, duration: d.duration, above: d.duration >= this.sleepGoalMinutes };
+                
+                const dateObj = new Date(d.date + 'T00:00:00');
+                const fmtDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                const fmtDur = `${Math.floor(d.duration / 60)}h ${d.duration % 60}m`;
+                
+                return { x, y, date: d.date, duration: d.duration, above: d.duration >= this.sleepGoalMinutes, fmtDate, fmtDur };
             });
             const linePoints = points.map(p => `${p.x},${p.y}`).join(' ');
             const areaPoints = `0,${H} ${linePoints} ${W},${H}`;
@@ -901,7 +907,14 @@ export function todayPage() {
                 if (states.every(s => s === 'met')) state = 'met';
                 else if (states.every(s => s === 'missed')) state = 'missed';
                 else state = 'partial';
-                return { label: week.label, state };
+                
+                const s = new Date(week.start + 'T00:00:00');
+                const e = new Date(week.end + 'T00:00:00');
+                const sMon = s.toLocaleString('en-US', { month: 'short' });
+                const eMon = e.toLocaleString('en-US', { month: 'short' });
+                const range = sMon === eMon ? `${sMon} ${s.getDate()}–${e.getDate()}` : `${sMon} ${s.getDate()}–${eMon} ${e.getDate()}`;
+                
+                return { label: week.label, state, range, sessionCount: week.sessions.length };
             });
         },
 

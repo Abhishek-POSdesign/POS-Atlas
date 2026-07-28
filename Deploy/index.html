@@ -847,7 +847,7 @@
                                                     <span class="health-trend-meta" x-show="sleepAvg7 != null">Avg <strong x-text="sleepAvg7 != null ? (Math.floor(sleepAvg7/60) + 'h ' + (sleepAvg7%60) + 'm') : ''"></strong></span>
                                                 </div>
                                                 <template x-if="sleepSparkline">
-                                                    <div class="health-spark">
+                                                    <div class="health-spark" x-data="{ activeSleepPoint: null }">
                                                         <svg class="health-spark-svg" viewBox="0 0 280 80" preserveAspectRatio="none" width="100%" height="80" role="img" aria-label="14-day sleep duration trend">
                                                             <defs>
                                                                 <linearGradient id="sleepSparkGradient" x1="0" y1="0" x2="0" y2="1">
@@ -866,6 +866,20 @@
                                                             <g x-html="sleepSparkline.segmentsSvg"></g>
                                                             <circle class="health-spark-dot" :class="sleepSparkline.last.above ? 'above' : 'below'" :cx="sleepSparkline.last.x" :cy="sleepSparkline.last.y" r="3.5"></circle>
                                                         </svg>
+                                                        <div class="health-spark-hitboxes">
+                                                            <template x-for="p in sleepSparkline.points" :key="p.date">
+                                                                <div class="health-spark-hitbox" @mouseenter="activeSleepPoint = p" @mouseleave="activeSleepPoint = null" @touchstart.passive="activeSleepPoint = p" @touchend.passive="setTimeout(() => { if (activeSleepPoint === p) activeSleepPoint = null }, 2000)">
+                                                                    <div class="health-hover-dot" :class="{ 'is-active': activeSleepPoint === p, 'above': p.above, 'below': !p.above }" :style="`left: ${(p.x / sleepSparkline.W) * 100}%; top: ${(p.y / sleepSparkline.H) * 100}%;`"></div>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                        <template x-if="activeSleepPoint">
+                                                            <div class="health-tooltip" :style="`left: ${(activeSleepPoint.x / sleepSparkline.W) * 100}%;`">
+                                                                <span class="tooltip-title" x-text="activeSleepPoint.fmtDate"></span>
+                                                                <span class="tooltip-val" x-text="activeSleepPoint.fmtDur"></span>
+                                                                <span class="tooltip-stat" :class="activeSleepPoint.above ? 'stat-above' : 'stat-below'" x-text="activeSleepPoint.above ? 'Above goal' : 'Below goal'"></span>
+                                                            </div>
+                                                        </template>
                                                     </div>
                                                 </template>
                                                 <template x-if="!sleepSparkline">
@@ -1074,17 +1088,25 @@
                                                 <div class="health-trend-head">
                                                     <span class="health-trend-title">4-week consistency</span>
                                                     <div class="health-legend" x-show="workoutWeekAggregate.length > 0">
-                                                        <span><span class="d d--met"></span>Met</span>
-                                                        <span><span class="d d--partial"></span>Partial</span>
-                                                        <span><span class="d d--missed"></span>Missed</span>
+                                                        <span><span class="d d--met"></span>Sage = met all targets</span>
+                                                        <span><span class="d d--partial"></span>Amber = some targets</span>
+                                                        <span><span class="d d--missed"></span>Coral = no targets</span>
                                                     </div>
                                                 </div>
                                                 <template x-if="workoutWeekAggregate.length > 0">
-                                                    <div class="health-weeks-strip">
+                                                    <div class="health-weeks-strip" x-data="{ activeWorkoutWeek: null }">
                                                         <template x-for="week in workoutWeekAggregate" :key="week.label">
-                                                            <div class="health-week-cell">
+                                                            <div class="health-week-cell" @mouseenter="activeWorkoutWeek = week" @mouseleave="activeWorkoutWeek = null" @touchstart.passive="activeWorkoutWeek = week" @touchend.passive="setTimeout(() => { if (activeWorkoutWeek === week) activeWorkoutWeek = null }, 2000)" :class="{ 'is-active': activeWorkoutWeek === week }">
                                                                 <div class="box" :class="'box--' + week.state"></div>
                                                                 <span class="lbl" x-text="week.label"></span>
+                                                                
+                                                                <template x-if="activeWorkoutWeek === week">
+                                                                    <div class="health-tooltip health-tooltip--center">
+                                                                        <span class="tooltip-title" x-text="week.range"></span>
+                                                                        <span class="tooltip-val" x-text="week.sessionCount + (week.sessionCount === 1 ? ' session' : ' sessions')"></span>
+                                                                        <span class="tooltip-stat" :class="'stat-' + week.state" x-text="week.state === 'met' ? 'Met targets' : (week.state === 'missed' ? 'Missed targets' : 'Partial targets')"></span>
+                                                                    </div>
+                                                                </template>
                                                             </div>
                                                         </template>
                                                     </div>
