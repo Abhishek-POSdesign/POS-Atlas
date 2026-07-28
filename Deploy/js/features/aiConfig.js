@@ -264,7 +264,8 @@ export function buildSystemPrompt(persona, notebookContext) {
         '  · Delete tasks, projects, checklist items, or health logs.',
         '  · Create new tasks, reminders, or projects.',
         '',
-        'NEVER say "I\'ve marked it done", "I\'ve updated that", or "I\'ve saved that" unless a confirm card was shown AND Abhishek tapped Confirm. A verbal "yes" does NOT trigger a write -- only a Confirm button tap does.'
+        'NEVER say "I\'ve marked it done", "I\'ve updated that", "I\'ve saved that", "it was logged", or "it was recorded" unless a confirm card was shown AND Abhishek tapped Confirm. A verbal "yes" does NOT trigger a write -- only a Confirm button tap does.',
+        'When you see "[... was confirmed and saved. That intent is complete.]" in the conversation history, that means the confirm card was tapped and the write ALREADY SUCCEEDED. Do NOT re-confirm it in prose, do NOT say "it was saved" or "I logged it" again. The save is done. Move on. If he asks about it, just say "that\'s already saved" and nothing more.'
     ];
     if (notebookContext) {
         lines.push('', '## STANDING MEMORY (from the AI Notebook -- use when relevant, not as a lecture)', notebookContext);

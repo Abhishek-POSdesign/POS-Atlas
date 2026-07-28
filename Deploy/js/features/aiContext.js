@@ -155,15 +155,19 @@ export const WRITE_FLOWS = {
             { key: 'score', label: 'Score (0-100)', type: 'number', min: 0, max: 100 },
             { key: 'calories', label: 'Calories', type: 'number', min: 0, max: 5000 },
             { key: 'duration_minutes', label: 'Duration (min)', type: 'number', min: 0, max: 600 },
+            { key: 'vo2_max', label: 'VO2 Max', type: 'number', min: 0, max: 100 },
+            { key: 'workout_type', label: 'Workout type', type: 'text' },
             { key: 'note', label: 'Note', type: 'text' }
         ],
-        extractionInstruction: 'CRITICAL: If Abhishek describes completing a workout (mentions a score, calories, duration, or simply "did my workout"), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll draft this for you": {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"note":string|null}}. Score is 0-100 (same scale as Garmin/fitness apps). Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object for the SINGLE intent that matches the message. Never combine two intents in one reply.',
+        extractionInstruction: 'CRITICAL: If Abhishek describes completing a workout (mentions a score, calories, duration, VO2 max, workout type, or simply "did my workout"), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll draft this for you": {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"vo2_max":number|null,"workout_type":string|null,"note":string|null}}. Score is 0-100 (same scale as Garmin/fitness apps). vo2_max is the VO2 Max reading (a decimal number like 48.8). workout_type is the category of workout (e.g. "strength", "cardio", "yoga", "hiit"). note is for any additional qualitative detail that does not fit into the other fields. Map each data point to the RIGHT field -- do NOT cram workout_type or vo2_max into the note field. Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object for the SINGLE intent that matches the message. Never combine two intents in one reply.',
         async write(fields) {
             const today = todayIsoDate();
             const patch = {};
             if (fields.score != null) patch.workout_score = fields.score;
             if (fields.calories != null) patch.calories = fields.calories;
             if (fields.duration_minutes != null) patch.duration_minutes = fields.duration_minutes;
+            if (fields.vo2_max != null) patch.vo2_max = fields.vo2_max;
+            if (fields.workout_type) patch.workout_type = fields.workout_type;
             if (fields.note) patch.note = fields.note;
             patch.day_type = 'workout';
             return DB.Workout.save(today, patch);

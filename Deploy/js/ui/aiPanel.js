@@ -423,8 +423,16 @@ export function atlasAi() {
                 return;
             }
             this._pushAssistantText(reply, providerLabel);
+            // False-save warning: fires when the model claims to have saved
+            // workout/sleep data in prose (no confirm card). But suppress it
+            // if a confirm card for that intent already exists and was
+            // confirmed earlier in this session — that means the save DID
+            // happen; the model is just (annoyingly) re-confirming it.
             if (/\b(log(ged|ging)?|sav(ed|ing)|record(ed|ing)|draft(ed)?)\b/i.test(reply) && /\b(sleep|workout|exercise|duration|hours?\s+(of\s+)?sleep)\b/i.test(reply)) {
-                this._pushAssistantText('⚠ Note: nothing was actually saved to Atlas. To log data, try again with the details (e.g. "slept 7 hours, score 80") and I\'ll show a confirm card you can tap to save.', null);
+                const alreadySaved = this.messages.some(m => m.type === 'confirm' && m.decided === 'saved' && (m.draft.flowKey === 'log_workout' || m.draft.flowKey === 'log_sleep'));
+                if (!alreadySaved) {
+                    this._pushAssistantText('⚠ Note: nothing was actually saved to Atlas. To log data, try again with the details (e.g. "slept 7 hours, score 80") and I\'ll show a confirm card you can tap to save.', null);
+                }
             }
         },
 
