@@ -766,6 +766,13 @@
     align-items: center;
     gap: 10px;
 }
+.ck-num {
+    font-size: 11px;
+    color: var(--text-muted);
+    min-width: 14px;
+    text-align: right;
+    flex-shrink: 0;
+}
 
 .ck-icon {
     width: 32px;

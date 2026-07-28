@@ -1132,10 +1132,11 @@
                                                         </div>
 
                                                         <div class="cl-block-body">
-                                                            <template x-for="item in itemsForBlock(block.key)" :key="item.id">
+                                                            <template x-for="(item, idx) in itemsForBlock(block.key)" :key="item.id">
                                                                 <div class="ck-row" :class="statusFor(item)==='done' ? 'is-done' : (statusFor(item)==='skipped' ? 'is-skipped' : '')">
                                                                     <template x-if="editingItemId !== item.id">
                                                                         <div class="ck-row-main">
+                                                                            <span class="ck-num" x-text="idx + 1"></span>
                                                                             <div class="ck-icon" x-text="item.icon || '📋'"></div>
                                                                             <div class="ck-info"><div class="ck-title" x-text="item.name"></div></div>
                                                                             <template x-if="!managing">

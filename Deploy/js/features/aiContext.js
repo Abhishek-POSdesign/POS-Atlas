@@ -213,12 +213,26 @@ export const WRITE_FLOWS = {
         icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><polyline points="4 6 5 7 7 5"/><polyline points="4 12 5 13 7 11"/><polyline points="4 18 5 19 7 17"/></svg>',
         fields: [], // confirm card built manually in _handleChecklistMarking(), not via sanitizeDraftFields
         // Dynamic context (today's item names) is prepended by _askModel() before this string
-        extractionInstruction: 'CRITICAL: If Abhishek says he did or skipped specific routine/checklist items, you MUST respond with ONLY this JSON object and nothing else: {"intent":"mark_checklist","fields":{"items":[{"name":"exact item name from the list above","status":"done or skipped"}]}}. Use the item name EXACTLY as it appears in the checklist list above -- no paraphrasing. Only include items he explicitly mentioned. Use "done" if he did it, "skipped" if he deliberately skipped it. If none of the items he named appear in the checklist list, reply in prose instead. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        extractionInstruction: 'CRITICAL: If Abhishek says he did or skipped specific routine/checklist items, you MUST respond with ONLY this JSON object and nothing else: {"intent":"mark_checklist","fields":{"items":[{"block":"morning|afternoon|night|sleep","number":1,"name":"exact item name OR null if using number","status":"done or skipped","note":"optional note text or null"}]}}. RESOLUTION PRIORITY: Use block+number when he says things like "morning 2 and 3" or "afternoon item 1". Use exact name when he names the item. The "block" field is the block name (morning/afternoon/night/sleep) and "number" is the 1-based position within that block from the list above. If he says just a number without a block name, use the flat position across all items. "note" captures any extra detail he mentions about that specific item (e.g. "I did mouthwash, used a new brand" → note: "used a new brand"). Only include items he explicitly mentioned. Use "done" if he did it, "skipped" if he deliberately skipped it. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
         async write(fields) {
             if (!fields.resolved || !fields.resolved.length) throw new Error('No items to mark');
             for (const item of fields.resolved) {
-                await DB.Checklist.setStatus(item.id, fields.date, item.status, {});
+                const extra = {};
+                if (item.note) extra.note = item.note;
+                await DB.Checklist.setStatus(item.id, fields.date, item.status, extra);
             }
+        }
+    },
+    save_ai_memory: {
+        title: 'Draft · Save to AI Memory',
+        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+        fields: [
+            { key: 'summary', label: 'Memory note', type: 'text' }
+        ],
+        extractionInstruction: 'CRITICAL: If Abhishek asks you to save something to memory, remember something, note something for future reference, or store something in the notebook, you MUST respond with ONLY this JSON object and nothing else: {"intent":"save_ai_memory","fields":{"summary":"a concise 1-3 sentence summary of what he wants remembered"}}. Distill the key fact or instruction into a concise note -- do not parrot back his exact words if they can be tightened. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        async write(fields) {
+            // Handled specially in confirmDraft() since _addNotebookEntry lives on the Alpine component
+            throw new Error('save_ai_memory.write() should not be called directly');
         }
     },
     journal_reflection: {

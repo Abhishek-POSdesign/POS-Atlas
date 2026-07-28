@@ -120,7 +120,11 @@ export function atlasAi() {
         },
 
         openPanel() { this.panelOpen = true; this.$nextTick(() => this._scrollToBottom()); },
-        closePanel() { this.panelOpen = false; this.modelMenuOpen = false; },
+        closePanel() {
+            this.panelOpen = false;
+            this.modelMenuOpen = false;
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+        },
 
         setProvider(p) {
             this.provider = p;
@@ -207,6 +211,7 @@ export function atlasAi() {
         async sendMessage() {
             const text = this.draft.trim();
             if (!text || this.thinking) return;
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
             this._pushMessage({ role: 'user', type: 'text', text });
             this.draft = '';
             this.errorMsg = '';
@@ -267,8 +272,24 @@ export function atlasAi() {
                         dynamicCtx = 'Current pending task list (use these 1-based numbers only):\n' +
                             _taskCache.map((t, i) => `${i + 1}. ${t.name}`).join('\n') + '\n';
                     } else if (detectedIntent === 'mark_checklist' && _checklistCache && _checklistCache.length) {
-                        dynamicCtx = "Today's routine checklist items (use these exact names only):\n" +
-                            _checklistCache.map(c => `· ${c.name}`).join('\n') + '\n';
+                        const blockOrder = ['morning', 'afternoon', 'night', 'sleep'];
+                        const grouped = {};
+                        for (const c of _checklistCache) {
+                            const bk = c.block || 'other';
+                            if (!grouped[bk]) grouped[bk] = [];
+                            grouped[bk].push(c);
+                        }
+                        let lines = "Today's routine checklist items (grouped by block with per-block numbers):\n";
+                        for (const bk of blockOrder) {
+                            if (!grouped[bk] || !grouped[bk].length) continue;
+                            lines += bk.charAt(0).toUpperCase() + bk.slice(1) + ':\n';
+                            grouped[bk].forEach((c, i) => { lines += `  ${i + 1}. ${c.name}\n`; });
+                        }
+                        if (grouped['other'] && grouped['other'].length) {
+                            lines += 'Other:\n';
+                            grouped['other'].forEach((c, i) => { lines += `  ${i + 1}. ${c.name}\n`; });
+                        }
+                        dynamicCtx = lines;
                     }
                     systemPrompt += dynamicCtx + WRITE_FLOWS[detectedIntent].extractionInstruction;
                 }
@@ -348,13 +369,18 @@ export function atlasAi() {
             if (s && !w) return 'log_sleep';
             // Task completion: requires "task" word + a clear completion verb
             if (/\btask\b/.test(t) && /\b(done|finish(ed)?|complet(e|ed)?|mark(ed)?(\s+done)?)\b/.test(t)) return 'complete_task';
-            // Checklist marking: "skipped" or "I did/completed" without task context (workout/sleep already excluded above)
+            // AI Memory save: explicit "save/remember this to memory/notebook"
+            if (/\b(save|remember|store|note)\b/.test(t) && /\b(memory|notebook|your memory)\b/.test(t)) return 'save_ai_memory';
+            if (/\bremember\s+this\b/.test(t)) return 'save_ai_memory';
+            // Checklist marking: "mark checklist/routine/morning/afternoon/night items" or "skipped" or "I did"
+            if (/\bmark\b/.test(t) && /\b(checklist|routine|morning|afternoon|night|items?)\b/.test(t)) return 'mark_checklist';
             if (/\bskipped?\b/.test(t) && !w && !s) return 'mark_checklist';
             if (/\bi\s+(did|completed|finished)\b/.test(t) && !/\btask\b/.test(t) && !w && !s) return 'mark_checklist';
             // Journal: emotional/reflective language
             if (/\b(felt|feeling|i\s+feel)\b/.test(t)) return 'journal_reflection';
             if (/\btoday\s+was\b/.test(t)) return 'journal_reflection';
-            if (/\bi'?m\s+(proud|grateful|anxious|tired|happy|sad|frustrated|excited|worried|stressed|calm|confident|overwhelmed|relieved|energised?|drained)\b/.test(t)) return 'journal_reflection';
+            if (/\b(mark|write|log)\s+(my\s+)?journal\b/.test(t)) return 'journal_reflection';
+            if (/\bi(?:'m|\s+am)\s+(proud|grateful|anxious|tired|happy|sad|frustrated|excited|worried|stressed|calm|confident|overwhelmed|relieved|energised?|drained|exhausted|burnt\s*out|motivated|depressed|lonely|content|hopeful|irritated)\b/.test(t)) return 'journal_reflection';
             return null;
         },
 
@@ -393,6 +419,7 @@ export function atlasAi() {
                     draft: { title: flow.title, icon: flow.icon, fields: fieldRows, flowKey: parsed.intent, rawFields: fields },
                     decided: null
                 });
+                this._speak('Got it. I\'ve drafted that for you — tap Confirm to save.');
                 return;
             }
             this._pushAssistantText(reply, providerLabel);
@@ -440,9 +467,11 @@ export function atlasAi() {
                 },
                 decided: null
             });
+            this._speak('Found it — ' + task.name + '. Tap Confirm to mark it done.');
         },
 
         // Resolves a checklist-marking intent against today's cached items.
+        // Resolution priority: block+number > flat number > exact name match.
         // Any single unresolved item blocks the ENTIRE confirm card -- no partial writes.
         _handleChecklistMarking(fields, providerLabel) {
             if (!_checklistCache || !_checklistCache.length) {
@@ -454,21 +483,53 @@ export function atlasAi() {
                 return;
             }
             const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+            // Build block-grouped index for number resolution
+            const blockOrder = ['morning', 'afternoon', 'night', 'sleep'];
+            const byBlock = {};
+            for (const c of _checklistCache) {
+                const bk = c.block || 'other';
+                if (!byBlock[bk]) byBlock[bk] = [];
+                byBlock[bk].push(c);
+            }
             const resolved = [];
             const unresolved = [];
             for (const item of fields.items) {
-                const needle = normalize(item.name || '');
-                const match = _checklistCache.find(c => normalize(c.name) === needle);
+                let match = null;
+                // Try block+number first
+                if (item.block && item.number != null) {
+                    const bk = item.block.toLowerCase();
+                    const idx = Math.round(Number(item.number)) - 1;
+                    if (byBlock[bk] && idx >= 0 && idx < byBlock[bk].length) {
+                        match = byBlock[bk][idx];
+                    }
+                }
+                // Try flat number (1-based across all items)
+                if (!match && item.number != null && !item.block) {
+                    const idx = Math.round(Number(item.number)) - 1;
+                    if (idx >= 0 && idx < _checklistCache.length) {
+                        match = _checklistCache[idx];
+                    }
+                }
+                // Try exact name match
+                if (!match && item.name) {
+                    const needle = normalize(item.name);
+                    match = _checklistCache.find(c => normalize(c.name) === needle);
+                }
                 if (match) {
-                    resolved.push({ id: match.id, name: match.name, status: item.status === 'skipped' ? 'skipped' : 'done' });
+                    resolved.push({ id: match.id, name: match.name, status: item.status === 'skipped' ? 'skipped' : 'done', note: item.note || null });
                 } else {
-                    unresolved.push(item.name || '?');
+                    unresolved.push(item.name || (item.block ? item.block + ' #' + item.number : '#' + item.number) || '?');
                 }
             }
             if (unresolved.length > 0) {
-                const available = _checklistCache.map(c => `· ${c.name}`).join('\n');
+                const blockLines = [];
+                for (const bk of blockOrder) {
+                    if (!byBlock[bk] || !byBlock[bk].length) continue;
+                    blockLines.push(bk.charAt(0).toUpperCase() + bk.slice(1) + ':');
+                    byBlock[bk].forEach((c, i) => blockLines.push(`  ${i + 1}. ${c.name}`));
+                }
                 this._pushAssistantText(
-                    `I couldn't match: ${unresolved.map(n => '"' + n + '"').join(', ')}. Nothing was marked.\n\nYour routine items today:\n${available}\n\nTry again using the names exactly as listed.`,
+                    `I couldn't match: ${unresolved.map(n => '"' + n + '"').join(', ')}. Nothing was marked.\n\nYour routine items today:\n${blockLines.join('\n')}\n\nTry again using block + number (e.g. "morning 2") or exact names.`,
                     providerLabel
                 );
                 return;
@@ -490,14 +551,22 @@ export function atlasAi() {
                 },
                 decided: null
             });
+            const count = resolved.length;
+            this._speak(count + ' item' + (count > 1 ? 's' : '') + ' ready. Tap Confirm to save.');
         },
 
         async confirmDraft(msg) {
-            const flow = WRITE_FLOWS[msg.draft.flowKey];
-            if (!flow) return;
+            const flowKey = msg.draft.flowKey;
+            const flow = WRITE_FLOWS[flowKey];
+            if (!flow && flowKey !== 'save_ai_memory') return;
             try {
-                await flow.write(msg.draft.rawFields);
+                if (flowKey === 'save_ai_memory') {
+                    this._addNotebookEntry('memory', msg.draft.rawFields.summary);
+                } else {
+                    await flow.write(msg.draft.rawFields);
+                }
                 msg.decided = 'saved';
+                this._speak('Saved.');
             } catch (e) {
                 msg.decided = null;
                 this.errorMsg = 'Save failed: ' + e.message;

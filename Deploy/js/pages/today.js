@@ -572,11 +572,14 @@ export function todayPage() {
         async setWorkoutDayType(type) {
             if (!['workout', 'active_recovery', 'full_rest'].includes(type)) return;
             try {
-                // Upsert one row per day with the new day_type. Reuses
-                // DB.Workout.save's onConflict:entry_date pattern, so this
-                // never creates a duplicate row even if the user taps a
-                // different chip mid-day.
-                this.workoutEntry = await DB.Workout.save(todayIsoDate(), { day_type: type });
+                // When there's no loaded entry (post-deletion or first of the
+                // day), pass explicit nulls for all data fields so the upsert
+                // doesn't resurrect stale data from a soft-deleted row that
+                // still physically exists on the same entry_date.
+                const patch = !this.workoutEntry
+                    ? { day_type: type, workout_score: null, calories: null, duration_minutes: null, workout_type: null, vo2_max: null, note: null }
+                    : { day_type: type };
+                this.workoutEntry = await DB.Workout.save(todayIsoDate(), patch);
             } catch (e) {
                 this.errorMsg = 'Save failed: ' + e.message;
             }
@@ -715,6 +718,7 @@ export function todayPage() {
             try {
                 await DB.Workout.softDelete(entry.id);
                 this.workoutEntry = null;
+                this.workoutSessions = [];
                 showUndoToast('Workout log deleted', async () => {
                     this.workoutEntry = await DB.Workout.restoreFromTrash(entry.id);
                 });
