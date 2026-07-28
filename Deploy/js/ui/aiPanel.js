@@ -177,15 +177,14 @@ export function atlasAi() {
             this.messages.forEach(m => { if (m.voiceState === 'playing' || m.voiceState === 'loading') m.voiceState = 'idle'; });
 
             if (this.voiceName && this.voiceName.startsWith('atlas_')) {
-                // Cloud TTS via Edge Function
-                let truncated = clean;
+                // Cloud TTS via Edge Function -- send the full cleaned reply.
+                // No client-side truncation: the server is the single source
+                // of truth on whether/how a reply gets cut (its hard limit is
+                // well above what Google's TTS API itself accepts), and it
+                // reports back via the X-Voice-Truncated header so the UI
+                // hint always reflects what actually happened, not a guess.
                 msg.voiceTruncated = false;
-                if (truncated.length > 900) {
-                    const match = truncated.substring(0, 900).match(/.*[.?!](?=\s|$)/);
-                    truncated = match ? match[0] : truncated.substring(0, 900);
-                    msg.voiceTruncated = true;
-                }
-                
+
                 msg.voiceState = 'loading';
                 const session = getSession();
                 if (!session) {
@@ -193,16 +192,17 @@ export function atlasAi() {
                     showUndoToast('Voice failed to load (Not signed in)');
                     return;
                 }
-                
+
                 fetch('https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/atlas-tts-proxy', {
                     method: 'POST',
                     headers: {
                         'Authorization': 'Bearer ' + session.access_token,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ text: truncated, voice_profile: this.voiceName })
+                    body: JSON.stringify({ text: clean, voice_profile: this.voiceName })
                 }).then(res => {
                     if (!res.ok) throw new Error('Cloud TTS request failed');
+                    msg.voiceTruncated = res.headers.get('X-Voice-Truncated') === 'true';
                     return res.blob();
                 }).then(blob => {
                     if (msg.voiceState === 'idle') return; // Cancelled mid-flight

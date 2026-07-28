@@ -32,6 +32,26 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Sonnet 5) — TTS: removed truncation for hands-free full-reply reading
+
+**Session scope:** Follow-up to the same-day TTS fix. Abhishek confirmed the Indian voice works but wants hands-free use — Atlas should read the *whole* reply, not stop after ~900 characters. Direct implementation instructions given (not a diagnose-first task), implemented as specified.
+
+**What shipped (commit pending):**
+- `Deploy/js/ui/aiPanel.js` — `_speak()`'s client-side 900-char sentence-boundary truncation removed entirely. The full cleaned message is now always sent to `atlas-tts-proxy`. `msg.voiceTruncated` is no longer guessed client-side before sending — it's set from the server's `X-Voice-Truncated` response header after the fetch resolves, so the UI hint always reflects what the server actually did.
+- `supabase/functions/atlas-tts-proxy/index.ts` — `MAX_CHARS` raised `1,000` → `3,000` (a new named constant, safely under Google Cloud TTS's own ~5,000-char input ceiling on the synchronous synthesize endpoint). Behavior on overflow changed from a hard 400 rejection to **server-side truncation at the last sentence boundary within the limit** (same regex approach the client used to use) — a very long reply still gets mostly spoken rather than nothing. Added `X-Voice-Truncated: 'true'|'false'` to the success response headers, plus a matching `Access-Control-Expose-Headers: X-Voice-Truncated` CORS entry (without it, custom response headers are invisible to browser `fetch()` on a cross-origin request even though the header is genuinely sent). Voice mapping, Google auth (native Web Crypto, from the earlier fix this same day), and the 401/400 validation logic are all unchanged.
+- `Deploy/index.html` — truncation hint text updated to "✂ Voice plays only part of this very long reply." (was "...only the first part of this long reply.") per Abhishek's exact requested wording. This was the one necessary companion change outside the two files Abhishek scoped the task to, since he explicitly specified this hint text in the same request.
+- Deployed via Supabase MCP (`atlas-tts-proxy` now version 4, `verify_jwt: false` preserved, unchanged from before).
+- `Deploy/service-worker.js` cache bumped `v62` → `v63`.
+- `PLAN.md` updated: TTS section rewritten to describe the new truncation behavior, header cache-version line updated to `v63`.
+
+**What was verified locally:** `node --check` clean on `aiPanel.js`. `index.html` div tag balance 512/512. `index.ts` brace balance 71/71 (TypeScript, not Node-executable, so hand-verified by full re-read before redeploying). Read the deployed function back via `get_edge_function` post-deploy to confirm it matches.
+
+**What's still open:** Abhishek needs to test live: a full reply (well under 3,000 chars, which is the overwhelming majority of assistant replies) is now spoken in its entirety with no clipping; the "✂" hint no longer appears for normal-length replies; if he can get Atlas to produce an unusually long reply (>3,000 chars), confirm it still speaks a large truncated chunk (not silence) and the new hint wording shows correctly.
+
+**What NOT to do:** Don't reintroduce client-side truncation in `_speak()` — the server is now the single source of truth on truncation, by design, so the hint is never a guess. Don't lower `MAX_CHARS` back toward 1,000 — the whole point of this pass was to let Atlas read full replies for hands-free use.
+
+---
+
 ## 2026-07-29 · Claude Code (Sonnet 5) — Took over Google Cloud TTS from Gemini: fixed atlas-tts-proxy, TTS now live
 
 **Session scope:** Abhishek reported Cloud TTS (Atlas Calm/Clear) showing a spinner then "Voice failed to load" toast, while browser voices still worked. Gemini had already built the full frontend (Settings voice picker, Play/Stop/spinner, 900-char sentence-boundary truncation + hint, error toast with no fallback) and a first version of the `atlas-tts-proxy` Edge Function across commits `e878665`/`467af06`/`3e8de45`/`60b5dd2`, but never logged any of it in this file or `PLAN.md` — this session's first job was figuring out what was actually already there before touching anything. Diagnosed via the Supabase MCP tools directly (not guessed), reported findings, got explicit approval, then implemented.

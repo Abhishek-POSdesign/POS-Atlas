@@ -6,7 +6,19 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://atlas.abhisheksikka.com',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // Lets the browser's fetch() read X-Voice-Truncated off the response --
+  // without this, custom response headers are invisible to client JS on a
+  // cross-origin request even though the header is actually sent.
+  'Access-Control-Expose-Headers': 'X-Voice-Truncated',
 };
+
+// Hard ceiling for hands-free use: high enough that Atlas "usually reads
+// everything it wrote" (the whole point -- Abhishek wants full replies
+// spoken, not clipped), but safely under Google Cloud TTS's own ~5,000
+// character input limit on the synchronous synthesize endpoint. A reply
+// longer than this is truncated (not rejected) so a very long answer still
+// gets spoken in large part rather than the user hearing nothing at all.
+const MAX_CHARS = 3000;
 
 // Each Atlas voice profile maps to a real Google Cloud TTS voice. The
 // languageCode MUST match the voice's own locale prefix -- Google's API
@@ -132,13 +144,17 @@ serve(async (req) => {
       });
     }
 
-    // Hard limit: 1000 characters
-    if (text.length > 1000) {
-      console.warn(`Rejected long text request from user ${user.id} (${text.length} chars)`);
-      return new Response(JSON.stringify({ error: 'Text exceeds maximum allowed length of 1,000 characters' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Hard limit: MAX_CHARS. A reply longer than this is truncated at the
+    // last sentence boundary within the limit (not rejected) so hands-free
+    // use still hears most of a very long answer instead of nothing.
+    let synthText = text;
+    let wasTruncated = false;
+    if (text.length > MAX_CHARS) {
+      console.warn(`Truncating long text request from user ${user.id} (${text.length} chars)`);
+      const clipWindow = text.substring(0, MAX_CHARS);
+      const match = clipWindow.match(/[\s\S]*[.?!](?=\s|$)/);
+      synthText = match ? match[0] : clipWindow;
+      wasTruncated = true;
     }
 
     // Map allowed voice profiles to actual Google voice + matching language code
@@ -150,7 +166,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`TTS Request: user=${user.id} voice=${voiceConfig.name} chars=${text.length}`);
+    console.log(`TTS Request: user=${user.id} voice=${voiceConfig.name} chars=${text.length} truncated=${wasTruncated}`);
 
     // 4. Authenticate with Google Cloud
     const gcpKeyString = Deno.env.get('GCP_SERVICE_ACCOUNT_KEY');
@@ -168,7 +184,7 @@ serve(async (req) => {
         'Content-Type': 'application/json; charset=utf-8'
       },
       body: JSON.stringify({
-        input: { text },
+        input: { text: synthText },
         voice: { languageCode: voiceConfig.languageCode, name: voiceConfig.name },
         audioConfig: { audioEncoding: 'MP3' }
       })
@@ -195,7 +211,8 @@ serve(async (req) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'audio/mp3',
-        'Content-Length': bytes.length.toString()
+        'Content-Length': bytes.length.toString(),
+        'X-Voice-Truncated': wasTruncated ? 'true' : 'false'
       }
     });
   } catch (error) {
