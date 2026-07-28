@@ -20,13 +20,15 @@
 // - confirmDraft() never speaks "Done." before the DB write is confirmed.
 
 import { DB } from '../db.js';
+import { getSession } from '../auth.js';
 import { todayIsoDate } from '../date-utils.js';
 import { askConfirm } from '../components/confirm-dialog.js';
+import { showUndoToast } from '../components/undo-toast.js';
 import {
     loadConfig, saveConfig, loadPersona, savePersona,
-    hasPin as pinExists, setPin, checkPin, clearPin,
+    pinExists, hashPin, setPin, checkPin, clearPin,
     loadChatHistory, saveChatHistory, clearChatHistory,
-    loadNotebookLocal, saveNotebookLocal, pushNotebook, pullNotebook,
+    loadNotebookLocal, pushNotebook, pullNotebook,
     sendToProvider, buildSystemPrompt, getNotebookContext
 } from '../features/aiConfig.js';
 import { buildFactPackage, WRITE_FLOWS, sanitizeDraftFields } from '../features/aiContext.js';
@@ -109,10 +111,14 @@ export function atlasAi() {
                     { name: 'atlas_clear', lang: 'Cloud TTS', label: 'Atlas Clear' }
                 ];
                 const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+                const currentName = this.voiceName;
                 this.voiceList = [
                     ...cloudVoices,
                     ...(voices.length ? voices.map(v => ({ name: v.name, lang: v.lang, label: v.name })) : [])
                 ];
+                if (this.$nextTick) {
+                    this.$nextTick(() => { this.voiceName = currentName; });
+                }
             };
             loadVoices();
             if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -179,16 +185,20 @@ export function atlasAi() {
                 }
                 
                 msg.voiceState = 'loading';
-                getSessionAsync().then(session => {
-                    if (!session) throw new Error('Not signed in');
-                    return fetch('https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/atlas-tts-proxy', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer ' + session.access_token,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ text: truncated, voice_profile: this.voiceName })
-                    });
+                const session = getSession();
+                if (!session) {
+                    msg.voiceState = 'idle';
+                    showUndoToast('Voice failed to load (Not signed in)');
+                    return;
+                }
+                
+                fetch('https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/atlas-tts-proxy', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + session.access_token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: truncated, voice_profile: this.voiceName })
                 }).then(res => {
                     if (!res.ok) throw new Error('Cloud TTS request failed');
                     return res.blob();
