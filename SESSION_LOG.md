@@ -32,6 +32,33 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-28 · Claude Code (Opus 4.6) — Fix 6 live-test bugs: workout resurrection, AI rules, checklist numbers, voice, memory save, journal detection
+
+**Session scope:** Deep investigation and fix of all 6 issues surfaced by Abhishek's live testing of the pre-trial bundle (commit `932a403`). All fixes shipped in one commit, no new features.
+
+**What shipped (commits):**
+- `e5b603f` — fix: resolve 6 live-test bugs (workout resurrection, AI rules, checklist numbers, voice, memory save, journal detection)
+
+**Changes by bug:**
+- **A. Workout delete resurrection:** `setWorkoutDayType()` in `today.js` now passes explicit nulls for all data fields when `!this.workoutEntry`, preventing the `DB.Workout.save()` upsert (which hardcodes `deleted_at: null`) from resurrecting a soft-deleted row's stale data. Also clears `workoutSessions` on delete.
+- **B. Contradictory AI rules:** Removed duplicate "Never write to Atlas directly" from HARD LIMITS and persona `instructions` field. Consolidated into one authoritative CAN/CANNOT block in `aiConfig.js` with explicit: "If he asks for something on the CAN list, DO IT via JSON draft."
+- **C. Checklist numbers + notes:** Dynamic context in `_askModel()` now groups items by block with per-block numbers. Extraction instruction accepts `{block, number, name, status, note}`. `_handleChecklistMarking()` resolves by block+number > flat number > exact name. Notes forwarded via `extra.note` to `DB.Checklist.setStatus()`. Muted `.ck-num` span added to `index.html` + CSS.
+- **D. Voice gap:** `_speak()` now called after every confirm card push (task/checklist/generic) and after `confirmDraft()` succeeds ("Saved."). `closePanel()` and `sendMessage()` both call `speechSynthesis.cancel()`.
+- **E. AI Memory save:** New `save_ai_memory` WRITE_FLOW in `aiContext.js`. `_detectIntent()` catches "save/remember this to memory" etc. `confirmDraft()` special-cases `save_ai_memory` to call `this._addNotebookEntry('memory', summary)` (same path Pin/Save Session use). CAN-DO list in system prompt updated.
+- **F. Journal detection:** Regex broadened: `i(?:'m|\s+am)` matches both contractions and full words. Added "exhausted/burnt out/motivated/depressed/lonely/content/hopeful/irritated" to emotion list. Added "mark my journal"/"write in my journal"/"log my journal" as explicit triggers.
+- Cache bump v52 → v53.
+
+**What's still open:**
+- Live testing by Abhishek on the deployed app (atlas.abhisheksikka.com) — all 6 fixes need real confirmation.
+- Google Cloud TTS integration (handover doc received, deferred to post-trial Phase 2).
+- The untracked `Google Cloud Text-to-Speech — Atlas Integration Handover.md` file is NOT committed to git (contains security notes about the service account key — keeping it local only for now).
+
+**What NOT to do:**
+- Don't integrate Google Cloud TTS yet — it's explicitly post-trial.
+- Don't remove the `save_ai_memory` special-case in `confirmDraft()` — it's intentional because `WRITE_FLOWS.write()` has no access to `this` (the Alpine component where `_addNotebookEntry` lives).
+
+---
+
 ## 2026-07-28 · Claude Code (Sonnet 4.6) — Final pre-trial bundle: Group A (voice-write flows) + Group B (health delete)
 
 **Session scope:** Ship the final development bundle before a 4-7 day real-life trial freeze. Group A = three new AI voice-write flows (task completion, checklist marking, journal reflection). Group B = sleep/workout whole-day delete. Also includes the fake-AI-notebook save block (pre-work from last session's bug list).
