@@ -308,3 +308,33 @@ For anything with real visual/layout weight (a new page section, a dashboard, a 
 3. **Show it, take the specific feedback, rebuild the same artifact** (same URL, republish in place) — this took three rounds on the Today dashboard before approval. Don't defend a choice he's rejected; fix it and show the fix.
 4. **Only once he says something like "now you can start your build"** does any of it touch the real app — and even then, write the plan (schema changes needed, files touched, verification steps) before the first line of real code.
 5. After building for real, expect a live-testing round to surface bugs the mockup couldn't show (data mismatches, CSS that didn't actually get ported, real interaction gaps) — treat that as a normal part of the cycle, fix everything found in one pass, and say plainly which items were bugs vs. which were the originally-requested features.
+
+---
+
+## AI Action Layer — Current Status (as of 2026-07-28)
+
+> This section is authoritative. Read it before touching `ui/aiPanel.js`, `features/aiContext.js`, or any `WRITE_FLOWS` code.
+
+**The AI panel and conversation features work.** The floating launcher, docked panel, persona/PIN, hybrid routing (Local Ollama / Cloud via `pos-partner`), Memory Notebook (Pin/Save Session/Compact), web search opt-in — all of these are live and functional on `atlas.abhisheksikka.com`.
+
+**The AI write flows (action layer) do not work reliably and are deferred.** Six write flows exist in code — `log_workout`, `log_sleep`, `complete_task`, `mark_checklist`, `journal_reflection`, `save_ai_memory` — built across Atlas AI Phase 1 plus multiple fix/rebuild rounds across 2026-07-28. None of them reached a state Abhishek trusted for daily use.
+
+**What the intended architecture was:**
+- Intent detection: client-side regex (`_detectIntent()`) classified messages into one of six write-flow buckets before calling the model.
+- Two-call extraction: write-intent messages fired a prose call (full persona + history) and an extraction call (schema-only context, returns JSON) in parallel. Prose reply displayed; confirm card pushed if extraction returned valid fields.
+- Confirm → verified write: `confirmDraft()` called `flow.write()` (awaited, using `verifiedInsert`/`verifiedUpdate` in `db.js`), then dispatched `atlas:data-changed` to refresh the Today page panels.
+- AI Memory (Track A): client-side phrase detection bypassed the model entirely; confirm card appeared immediately; local write + awaited cloud push before speaking.
+
+**What failed in real use:**
+- Field extraction was incomplete even when confirm cards appeared (workout VO2 max missing from saved entry in final test).
+- Task-related flows (task completion, checklist marking) produced confusing and potentially unsafe behavior — number interpretation was ambiguous enough that Abhishek could not trust what was being acted on.
+- Earlier rounds hit: `pendingUseCase` state trapping all messages in task-lookup mode; model returning prose instead of JSON despite extraction instructions; AI Memory confirm card appearing but entry not visible in Notebook view.
+- Multiple architectural attempts (single combined call → two-call extraction → Track A bypass) each fixed specific bugs and uncovered new ones. No round reached end-to-end reliability.
+
+**Abhishek's decision (2026-07-28):** Stopped testing. Will use manual UI for all data entry. "The AI action layer is a failed experiment."
+
+**What this means for future sessions:**
+- Do not tell Abhishek the write flows work. Do not demo them. Do not attempt further patches — the failure modes are structural, not fixable with another round of targeted edits.
+- Any future attempt at AI-driven data writes must be scoped as a standalone project: new architecture design, mockup review, incremental live testing. Not a patch on this codebase.
+- The code is left in place — removing it is unnecessary churn. Treat it as inert until a rewrite is explicitly approved.
+- For full failure history and Abhishek's exact verdict: see `PLAN.md` → "AI Action Layer — FAILED / DEFERRED" subsection, and `SESSION_LOG.md` → the 2026-07-28 documentation entry.

@@ -32,6 +32,30 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-28 · Claude Code (Sonnet 4.6) — Documentation only: AI action layer marked failed and deferred
+
+**Session scope:** No code changes. Record the final failure verdict on the Atlas AI write-flow (action) layer so no future agent mistakes it for a working or stable feature.
+
+**What was verified live (by Abhishek, this session):**
+- Workout flow: confirm card appeared but VO2 max was not captured in the saved entry — a field the user explicitly dictated.
+- Task-related flows: wording around "break down a task" led to unexpected task selection. Abhishek found the behavior confusing and potentially unsafe; he was unable to trust what the AI was actually acting on.
+- General verdict: after the latest rebuild (two-call extraction architecture, commit `c13a0ab`), real-use testing still showed failures. Abhishek stopped testing and will not re-test. He will use the manual UI (sleep card, workout card, task modal, checklist Log buttons, journal toggle) for all data entry going forward.
+
+**What shipped (commits):** None — documentation-only session.
+
+**What's still open:**
+- The AI panel conversation, persona/PIN, hybrid routing, and Memory Notebook (Pin/Save Session/Compact) work and are unaffected.
+- All six write flows (`log_workout`, `log_sleep`, `complete_task`, `mark_checklist`, `journal_reflection`, `save_ai_memory`) exist in code but must be treated as **non-functional / not live** until a deliberate full rewrite is done, scoped, and re-approved.
+- Any future work on AI writes must be treated as a fresh architectural project, not another patch round. The current design's failure modes (extraction reliability, task-number ambiguity, confirm-card interaction model on mobile) are structural, not fixable incrementally.
+- Until such a rewrite is done and verified live, no agent should tell Abhishek that AI writes are working, demo them, or attempt small patches on the existing layer.
+
+**What NOT to do:**
+- Do not assume any of the six AI write flows are safe or reliable. Do not tell Abhishek they are working. Do not re-test them without a full rewrite plan that has been explicitly approved.
+- Do not attempt small patches on `ui/aiPanel.js`, `features/aiContext.js`, or the `WRITE_FLOWS` extraction instructions as a path to fixing this — that approach has been exhausted across multiple rounds.
+- Do not describe the Atlas AI Phase 1 build as "done" or "stable" to mean the write flows work — only the conversation panel is stable.
+
+---
+
 ## 2026-07-28 · Claude Code (Sonnet 4.6) — AI action-layer rebuild: two-call extraction architecture
 
 **Session scope:** Took over after all 6 AI write flows failed in live testing. Diagnosed root cause, wrote a comprehensive recovery plan (approved by user), implemented it.

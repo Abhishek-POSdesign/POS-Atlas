@@ -23,14 +23,14 @@ Abhishek is switching to a different Claude account (his wife's) for future sess
 **Phase status at handover:**
 - **Phase 5 (Health + Insight Pills) — CLOSED**, per Abhishek's explicit sign-off 2026-07-27.
 - **Phase 6 (Tasks & Reminders + sparkline fix + split cards + Upcoming modal) — substantially closed** as of 2026-07-28/29.
-- **Atlas AI Phase 1 — action-layer rebuilt 2026-07-28 (Sonnet session), live testing still pending.** All 6 write flows are now implemented with the two-call extraction architecture. The root cause of all prior write-flow failures (combined extraction+prose prompt) is resolved in code. Needs a full live test pass per the 8-test matrix in the approved plan before this can be called "working."
+- **Atlas AI Phase 1 — conversation panel is live; AI write flows (action layer) are FAILED and DEFERRED.** The panel itself, persona/PIN, hybrid routing, and Memory Notebook all work. All six write flows (workout, sleep, task completion, checklist marking, journal reflection, AI Memory save) have been attempted across multiple fix rounds and have NOT produced reliable behavior in real use. Abhishek's verdict (2026-07-28): "I will not test this again. I will use manual editing." The action layer is deferred to a future full rewrite — see the "AI Action Layer — FAILED / DEFERRED" subsection below.
 
 **What's live now for Atlas AI:**
 - Sticky header (`.app-header-sticky`), floating launcher (Atlas's own compass mark), docked AI panel that content-shifts the page rather than overlaying it.
 - Persona (7 fields: Role, Job, Targets, Knowledge, About Me, Responsibilities, Strict Instructions) + 6-digit PIN lock (SHA-256 hashed, Forgot/Change both preserve persona + notebook).
 - Hybrid routing skeleton: Local (Ollama, non-streaming `/api/chat`, manual model-name field) and Cloud (the sibling apps' shared `pos-partner` Edge Function, called with Atlas's own signed-in session JWT) with a working provider toggle in the header pill and in Settings, kept in sync.
 - Memory Notebook: Pin / Save Session / Compact, backed by the new `atlas_ai_notebook` table (migration 016), local-first read with last-write-wins cloud sync.
-- Two voice-write flows — **Log workout** and **Log sleep** — using the full "dictate → Atlas rephrases as a draft → Confirm → real write via `DB.Workout.save()`/`DB.Sleep.save()`" loop. Cancel discards; nothing is ever written without an explicit tap.
+- ~~Two voice-write flows~~ — **code exists but does not work reliably in real use. Do not present these as live features.** See "AI Action Layer — FAILED / DEFERRED" subsection below.
 - Web search opt-in on Cloud: a checkbox (header + Settings) sends `webSearch:true` to `pos-partner`, which now (v2, deployed 2026-07-29) conditionally attaches Google Search grounding -- additive only, the Task Manager and Finance apps calling the same function unaffected.
 
 **What's still to be refined in upcoming sessions** (starting points for the next account, not blocking anything):
@@ -38,8 +38,7 @@ Abhishek is switching to a different Claude account (his wife's) for future sess
 - **Web search on Cloud/Gemini** — just deployed; unverified live whether grounding actually improves answers for real "latest info" questions, and whether `groundingMetadata`/citations from the Vertex response are worth surfacing in the UI (currently just the plain text reply is shown, no source links).
 - **Scrollbar visuals** — AI panel, Notebook list, and Tasks & Reminders card scrollbars were tightened twice (6px → 4px thumb, hidden button-arrows) but Abhishek reported them still looking chunky after the first pass; this may be a Windows display-scaling/accessibility setting outside what page CSS can control, not a code bug — worth a fresh look with screenshots from his actual device before assuming it's fixable in CSS.
 - **Persona tone / "data reader" avoidance** — the conversation-first system-prompt rewrite (this session) is the real fix attempt, but was not live-tested by Claude before this handover (Abhishek confirmed verbally it's "replying perfectly" after the rewrite, but no side-by-side transcript was captured). Worth a deliberate test pass early next session: try "hello", "how are you", "can we just chat" and confirm the tone lands before building anything further on top.
-- **[FAILED 2026-07-28] All AI voice-write flows failed in real use.** Code exists for 6 flows (workout, sleep, task completion, checklist marking, journal reflection, AI Memory save) but NONE work reliably when tested live by Abhishek. Specific failures: (1) workout logging got trapped in `pendingUseCase = 'explain_task'` mode with no escape — every message was routed to task-name lookup instead of the AI model; (2) workout extraction was missing `vo2_max` and `workout_type` fields (fixed in `c5eb8fd` but untested); (3) AI Memory Notebook save showed "Saved" on the confirm card but the entry did not appear in the Notebook view; (4) the model frequently replies in prose instead of returning the required JSON, meaning nothing gets saved even when the user provides all the data. **The fundamental architecture needs rework before these can be reliable.** Key issues: `pendingUseCase` has no timeout/cancel (traps the panel forever), `_detectIntent()` regex misses too many real input patterns, model doesn't reliably output JSON despite the extraction instructions.
-- **[REBUILT 2026-07-28] AI Memory Notebook save** — AI Memory is now Track A: client-side phrase detection bypasses the model entirely, pushes an immediate confirm card, and `confirmDraft()` now awaits `pushNotebook()` (was fire-and-forget) before speaking "Done.". Entry visibly appears in Notebook view immediately (reactive array). Needs live test to confirm reliability.
+- **[FAILED / DEFERRED — final verdict 2026-07-28] All AI write flows remain unreliable.** Code exists for 6 flows across multiple implementation rounds (two-call extraction architecture, Track A Memory, pendingUseCase expiry) but real-use testing still showed failures. Workout logging showed a confirm card but was missing VO2 max field and VO2 max was not saved. Task-related flows were confusing and potentially unsafe (task number interpretation led to unexpected task selection). Abhishek's final decision: "I will not test this again. I will use manual editing." This is not a fixable-in-one-more-round issue — it requires a deliberate full architectural rewrite. **Do not touch this layer without a fresh plan and explicit re-approval.**
 - **[BUG] Voice quality is inconsistent -- browser SpeechSynthesis is not good enough (confirmed 2026-07-28).** Abhishek has a soundbar and wants a real, natural-sounding voice. A Google Cloud TTS handover doc has been received (service account `pos-tts-proxy` created, key generated) — integration deferred to post-trial Phase 2. Do not integrate until the real-usage trial is complete.
 - **[FIXED 2026-07-28] No delete option for sleep/workout log entries** — shipped in the pre-trial bundle (`932a403`). Workout delete resurrection bug then fixed in `e5b603f`.
 - **Per-view Fact Package binding** — every chat message still carries `explain_day` as ambient context regardless of which page the panel was opened from (the context badge that would have shown this binding was cut from the UI early on to de-clutter the header). A future session could reintroduce a lighter version of this if it turns out to matter in practice.
@@ -169,6 +168,33 @@ Full architecture plan lives in the session's approved plan doc (see SESSION_LOG
 - **Health panel delete (as of 2026-07-28):** both Sleep and Workout panels now have a trash icon in the header (`deleteWorkoutEntry()` / `deleteSleepEntry()` in `today.js`), `askConfirm()` + 8s undo toast with restore callback. Visible only when an entry exists for today.
 - **What's NOT done yet**: the `atlas-ai` Edge Function itself (Cloud provider will show "unavailable" until this is deployed with a real secret); per-view Fact Package binding (badge was cut, so it's always `explain_day` right now).
 
+### AI Action Layer — FAILED / DEFERRED (final verdict 2026-07-28)
+
+> **Future agents: read this section before touching anything in `ui/aiPanel.js`, `features/aiContext.js`, or `features/aiConfig.js` related to write flows. The write-flow layer is not a live feature.**
+
+**What exists in code:**
+Six write flows are implemented in `aiContext.js` (`WRITE_FLOWS`) and routed through `aiPanel.js`: `log_workout`, `log_sleep`, `complete_task`, `mark_checklist`, `journal_reflection`, `save_ai_memory`. The architecture as of the last attempt (commit `c13a0ab`) uses a two-call extraction model — one parallel prose call and one extraction-only call — plus client-side phrase detection for AI Memory (Track A, bypasses the model entirely).
+
+**What happened in real use:**
+The write flows were attempted across at least four separate fix/rebuild rounds (roughly 2026-07-28 to 2026-07-28). Each round fixed specific bugs but introduced or uncovered new ones. The final round (two-call architecture) still showed:
+- Workout confirm card appeared but VO2 max was missing from the saved entry.
+- Task-related flows were confusing: ambiguous number interpretation (task numbering vs. quick-action wording) led to unexpected task selection. Abhishek found this potentially unsafe and stopped testing.
+- Reliable JSON extraction is inconsistent across providers and prompt phrasings.
+- The interaction model (dictate → wait → confirm card → tap) is fragile when any step in the chain fails silently.
+
+**Abhishek's verdict (2026-07-28):** "I give up. I will not test this again. I will use manual editing. The AI action layer is a failed experiment."
+
+**Current status:**
+- AI panel conversation, persona/PIN, hybrid routing, and Memory Notebook (Pin/Save Session/Compact): **working**.
+- All six write flows: **do not treat as live features**. They are implemented in code but not reliable in practice. All data writes must be done through the existing manual UI (sleep card Edit, workout card Edit, task modal, checklist Log buttons, journal toggle, Notebook overlay).
+- The code is left in place — removing it would be churn with no gain. But no agent should demo it, rely on it, or patch it without being explicitly asked to do a full rewrite.
+
+**What a future rewrite would need to address:**
+- The confirm-card interaction model may not be the right fit for mobile voice use. The two-tap flow (dictate → tap Confirm) works mechanically but fails under real latency + voice-to-text imprecision.
+- JSON extraction reliability requires either a dedicated extraction model (not shared with conversation), or a fundamentally different approach (e.g. structured outputs / function calling via a capable API, not Ollama).
+- Task-number/name resolution is inherently ambiguous when the user is dictating quickly. This needs an unambiguous UI affordance, not a text-parsing guess.
+- Any future attempt should be scoped as a standalone project, mockup-reviewed, and live-tested incrementally — not patched on top of the current architecture.
+
 ### Universal time picker (Round 2 build)
 - Shared Alpine `timePicker12h` component + `.tp-numeric` markup: two 2-digit numeric HH/MM inputs + AM/PM segmented control.
 - `inputmode="numeric"` opens the OS number pad on mobile.
@@ -229,9 +255,9 @@ Currently a modal overlay. A floating draggable variant (stay open while using t
 ### Visual-hierarchy pass on Projects list + Notebook
 Round 1 covered Today. Round 2 covered the Project workspace. A similar polish pass on the Projects list surface and the Notebook overlay was scoped-out for later. Deferred.
 
-### AI layer -- Phase 1 shipped 2026-07-29 (see LIVE section above); fast-follow work
-- The `atlas-ai` Supabase Edge Function itself (Cloud provider needs this + a real Vertex/Gemini secret before it stops showing "unavailable"). Still open.
-- **All 6 write flows now implemented** (log workout, log sleep, complete task, mark checklist, journal reflection, AI Memory save) with the two-call extraction architecture. Needs live testing per the 8-test matrix in the plan.
+### AI layer -- action layer FAILED / DEFERRED; conversation panel is live
+- The `atlas-ai` Supabase Edge Function itself (Cloud provider needs this + a real Vertex/Gemini secret before it stops showing "unavailable"). Still open if Cloud AI is ever revisited.
+- **All 6 write flows exist in code but are not live features** — see "AI Action Layer — FAILED / DEFERRED" subsection under LIVE. Do not treat them as something to patch; treat them as a future rewrite project.
 - Per-view Fact Package binding (a context badge showing "About: Project X" etc. -- cut from the Phase 1 UI to de-clutter the header; every message currently carries `explain_day` as ambient context regardless of which page the panel was opened from).
 - **Voice output mode (text-to-speech):** shipped 2026-07-28 using browser `SpeechSynthesis` with a voice picker in Settings. Works, but quality is inconsistent -- browser voices vary in speed and naturalness even with Microsoft neural voices. Abhishek has a soundbar and wants a properly high-quality voice. **Next step:** replace SpeechSynthesis with a real TTS API (ElevenLabs recommended for quality; Google Cloud Neural2/Journey or OpenAI TTS are alternatives). Needs API key management + audio playback (chunked or streamed). The toggle + voice picker UI stays as-is; only the playback back-end changes.
 - Chapter 21 Stage 2+ (Vertex Teacher Mode, Logic Card versioning, Learning Records, Evaluation Packs) -- not attempted anywhere yet, including the sibling app; a distinct future initiative, not a Phase 1 gap.
@@ -255,7 +281,7 @@ Standing "would want an answer before starting" items — these are not blocking
 
 **Phase 6 (Tasks & Reminders) is substantially closed as of 2026-07-28.** Gemini shipped a starter slice (time picker, compact row, muted project chip) on 2026-07-27; Claude Code took it over and closed out the remaining items the same round: the sparkline console-crash fix, the Upcoming modal for future-dated tasks, Tasks-card inner scroll, and removal of the inert priority-pill/drag-handle hooks. See the "Phase 6 status" note under Today's Tasks & Reminders card (above) and under PLANNED (below) for the full detail on each. What's left is genuinely new work, not a fix-up of this round: a real priority system, real drag-and-drop, and the full History/Calendar page -- none of those were built this round, all three need their own design pass before any code starts.
 
-**Atlas AI Phase 1 shipped 2026-07-29** (overlay, persona+PIN, hybrid routing, memory notebook, log-workout/log-sleep voice-write flows). See the "AI layer" section above for what's deliberately still open.
+**Atlas AI Phase 1 shipped 2026-07-29** (overlay, persona+PIN, hybrid routing, memory notebook). **The AI action layer (all 6 write flows) is FAILED / DEFERRED** — conversation and notebook features work, write flows do not. See "AI Action Layer — FAILED / DEFERRED" in the LIVE section for the full status.
 
 ### Next workstreams (priority order as of 2026-07-28)
 
