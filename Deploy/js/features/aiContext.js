@@ -94,19 +94,185 @@ async function buildExplainTask(taskId) {
     }, ['explain', 'suggest']);
 }
 
-async function buildExplainHealth() {
-    const [sleepLogs, workoutLogs, streaks] = await Promise.all([
-        DB.Sleep.listRecent(14),
-        DB.Workout.listRecent(14),
-        DB.Targets.listStreaks()
-    ]);
+// Range-aware, direction-agnostic Fact Package. startDate/endDate may both
+// be in the past (a history question), straddle today, or both be in the
+// future (a "what's coming up" question) -- the same builder and the same
+// DB.*.listForDateRange methods serve all three, since a future window
+// naturally returns empty for the log tables (sleep/workout/checklist/
+// journal) while still returning real rows for scheduled tasks/reminders.
+// This is what makes "explain_history" also Atlas's forward-looking
+// planner context, not just its trend-spotting one -- the name predates
+// that expansion but the shape now covers both.
+async function buildExplainHistory({ startDate, endDate, compare = false, label } = {}) {
+    const today = todayIsoDate();
+    endDate = endDate || today;
+    startDate = startDate || endDate;
+    const rangeDays = Math.round((new Date(endDate + 'T00:00:00') - new Date(startDate + 'T00:00:00')) / 86400000) + 1;
 
-    return basePackage('explain_health', {
-        currentDate: todayIsoDate(),
-        recentSleep: sleepLogs.map(s => `${s.entry_date}: ${s.duration_minutes != null ? Math.floor(s.duration_minutes / 60) + 'h ' + (s.duration_minutes % 60) + 'm' : 'no duration'}${s.sleep_score != null ? ', score ' + s.sleep_score : ''}`),
-        recentWorkouts: workoutLogs.map(w => `${w.entry_date}: ${w.day_type || 'unspecified'}${w.workout_score != null ? ', score ' + w.workout_score : ''}`),
-        streaks: streaks.map(s => s.name)
+    const addDays = (d, n) => {
+        const dt = new Date(d + 'T00:00:00');
+        dt.setDate(dt.getDate() + n);
+        return dt.toLocaleDateString('en-CA');
+    };
+    const prevStart = addDays(startDate, -rangeDays);
+    const prevEnd = addDays(startDate, -1);
+    // For compare mode, fetch one doubled window per trend-relevant category
+    // and bucket client-side into current vs. previous period -- half the
+    // queries of fetching two separate ranges (same "walk the window"
+    // approach today.js's loadHealthTrend/loadTrend already use).
+    const fetchStart = compare ? prevStart : startDate;
+
+    const [sleepRows, workoutRows, sessionRows, checklistRows, tasksScheduled,
+        tasksCompleted, taskLogRows, projectNoteRows, notebookRows, streaks] =
+        await Promise.all([
+            DB.Sleep.listForDateRange(fetchStart, endDate),
+            DB.Workout.listForDateRange(fetchStart, endDate),
+            DB.WorkoutSessions.listForDateRange(fetchStart, endDate),
+            DB.Checklist.listHistoryRange(fetchStart, endDate),
+            DB.Tasks.listScheduledInRange(startDate, endDate),
+            DB.Tasks.listCompletedInRange(startDate, endDate),
+            DB.TaskLogs.listForDateRange(startDate, endDate),
+            DB.ProjectNotes.listForDateRange(startDate, endDate),
+            DB.Notebook.listForDateRange(startDate, endDate),
+            DB.Targets.listStreaks()
+        ]);
+
+    const inCurrent = row => row.entry_date >= startDate && row.entry_date <= endDate;
+    const inPrev = row => row.entry_date >= prevStart && row.entry_date <= prevEnd;
+    const fmtDur = m => m == null ? null : `${Math.floor(m / 60)}h ${m % 60}m`;
+
+    // ---- sleep: per-day, gap-filled -- a day with no row is an explicit
+    // "no sleep log" entry, never silently omitted. For a pure-future range
+    // this array is legitimately all gaps -- that's correct, and the system
+    // prompt tells the model to read it as "nothing logged yet," not as
+    // missing/broken data. ----
+    const curSleep = sleepRows.filter(inCurrent);
+    const sleepByDay = [];
+    for (let d = startDate; d <= endDate; d = addDays(d, 1)) {
+        const row = curSleep.find(s => s.entry_date === d);
+        sleepByDay.push(row
+            ? `${d}: ${fmtDur(row.duration_minutes) || 'no duration'}${row.sleep_score != null ? ', score ' + row.sleep_score : ''}`
+            : `${d}: no sleep log`);
+    }
+    const sleepDurs = curSleep.filter(s => s.duration_minutes != null).map(s => s.duration_minutes);
+    const sleepAvg = sleepDurs.length ? Math.round(sleepDurs.reduce((a, b) => a + b, 0) / sleepDurs.length) : null;
+    const sleepScores = curSleep.filter(s => s.sleep_score != null).map(s => s.sleep_score);
+    const sleepAvgScore = sleepScores.length ? Math.round(sleepScores.reduce((a, b) => a + b, 0) / sleepScores.length) : null;
+
+    // ---- workout ----
+    const curWorkout = workoutRows.filter(inCurrent);
+    const workoutByDay = curWorkout.map(w => `${w.entry_date}: ${w.day_type || 'unspecified'}${w.workout_score != null ? ', score ' + w.workout_score : ''}${w.calories != null ? ', ' + w.calories + ' cal' : ''}`);
+    const curSessions = sessionRows.filter(s => {
+        const d = s.atlas_workout_logs?.entry_date;
+        return d && d >= startDate && d <= endDate;
+    });
+
+    // ---- checklist ----
+    const curChecklist = checklistRows.filter(inCurrent);
+    const doneCount = curChecklist.filter(h => h.status === 'done').length;
+    const skippedCount = curChecklist.filter(h => h.status === 'skipped').length;
+    const checklistPct = (doneCount + skippedCount) ? Math.round((doneCount / (doneCount + skippedCount)) * 100) : null;
+
+    // ---- tasks: per-day load (scheduled/not-done + completed), the field
+    // that carries the calendar's future side -- a future window naturally
+    // has zero completed entries but real scheduled ones. ----
+    const tasksByDay = [];
+    for (let d = startDate; d <= endDate; d = addDays(d, 1)) {
+        const scheduled = tasksScheduled.filter(t => t.scheduled_date === d && t.status !== 'done');
+        const completed = tasksCompleted.filter(t => t.completed_at && t.completed_at.slice(0, 10) === d);
+        if (!scheduled.length && !completed.length) continue;
+        const parts = [];
+        if (scheduled.length) parts.push(`${scheduled.length} scheduled (${scheduled.map(t => `${t.name}${t.kind === 'reminder' ? ' [reminder]' : ''}`).join(', ')})`);
+        if (completed.length) parts.push(`${completed.length} completed (${completed.map(t => t.name).join(', ')})`);
+        tasksByDay.push(`${d}: ${parts.join('; ')}`);
+    }
+    const overdueNow = tasksScheduled.filter(t => t.status !== 'done' && t.scheduled_date < today);
+
+    // ---- project logs / notes ----
+    const projectWorkLines = [
+        ...taskLogRows.slice(0, 20).map(l => `${l.entry_date}: work log -- ${(l.body || '').slice(0, 100)}`),
+        ...projectNoteRows.slice(0, 10).map(n => `${(n.created_at || '').slice(0, 10)}: note -- ${(n.body || '').slice(0, 100)}`)
+    ];
+
+    // ---- journal ----
+    const journalLines = notebookRows.map(n => `${n.entry_date}: ${(n.body || '').slice(0, 150)}`);
+
+    // ---- comparison: always "requested period vs. the period immediately
+    // before it" -- direction-agnostic by construction, so this correctly
+    // answers both "this week vs last week" (past) and "next week vs this
+    // week" (future) with the same math. ----
+    let comparison = null;
+    if (compare) {
+        const prevSleepDurs = sleepRows.filter(inPrev).filter(s => s.duration_minutes != null).map(s => s.duration_minutes);
+        const prevSleepAvg = prevSleepDurs.length ? Math.round(prevSleepDurs.reduce((a, b) => a + b, 0) / prevSleepDurs.length) : null;
+        const prevWorkoutCount = workoutRows.filter(inPrev).length;
+        const prevChecklist = checklistRows.filter(inPrev);
+        const prevDone = prevChecklist.filter(h => h.status === 'done').length;
+        const prevSkipped = prevChecklist.filter(h => h.status === 'skipped').length;
+        const prevPct = (prevDone + prevSkipped) ? Math.round((prevDone / (prevDone + prevSkipped)) * 100) : null;
+        comparison = {
+            priorPeriod: `${prevStart} to ${prevEnd}`,
+            sleepAvgDelta: (sleepAvg != null && prevSleepAvg != null)
+                ? `${sleepAvg - prevSleepAvg >= 0 ? '+' : ''}${sleepAvg - prevSleepAvg} min vs prior period (prior avg ${fmtDur(prevSleepAvg)})`
+                : 'not enough data to compare',
+            workoutCountDelta: `${curWorkout.length} vs ${prevWorkoutCount} workout day(s) in the prior period`,
+            checklistPctDelta: (checklistPct != null && prevPct != null)
+                ? `${checklistPct}% vs ${prevPct}% in the prior period`
+                : 'not enough data to compare'
+        };
+    }
+
+    // ---- recentContext: when the requested range extends into the future,
+    // attach a compact "how has the last week actually gone" glance so a
+    // forward-looking answer can connect to recent reality without a
+    // second question -- but never fetched for a pure-past ask, to avoid
+    // over-fetching. ----
+    let recentContext = null;
+    const coversFuture = endDate > today;
+    if (coversFuture) {
+        const recentStart = addDays(today, -6);
+        const [recentSleep, recentWorkout, recentChecklist] = await Promise.all([
+            DB.Sleep.listForDateRange(recentStart, today),
+            DB.Workout.listForDateRange(recentStart, today),
+            DB.Checklist.listHistoryRange(recentStart, today)
+        ]);
+        const rDurs = recentSleep.filter(s => s.duration_minutes != null).map(s => s.duration_minutes);
+        const rAvg = rDurs.length ? Math.round(rDurs.reduce((a, b) => a + b, 0) / rDurs.length) : null;
+        const rDone = recentChecklist.filter(h => h.status === 'done').length;
+        const rSkipped = recentChecklist.filter(h => h.status === 'skipped').length;
+        const rPct = (rDone + rSkipped) ? Math.round((rDone / (rDone + rSkipped)) * 100) : null;
+        recentContext = {
+            rangeLabel: `${recentStart} to ${today}`,
+            sleepSummary: rAvg != null ? `Avg ${fmtDur(rAvg)} over the last 7 days (${recentSleep.length} nights logged).` : 'No recent sleep logs.',
+            workoutSummary: `${recentWorkout.length} workout day(s) in the last 7 days.`,
+            checklistSummary: rPct != null ? `${rPct}% routine completion over the last 7 days.` : 'No recent checklist marks.'
+        };
+    }
+
+    const pkg = basePackage('explain_history', {
+        currentDate: today,
+        rangeLabel: label || `${startDate} to ${endDate}`,
+        rangeDays,
+        coversFuture,
+        sleep: { summary: sleepAvg != null ? `Avg ${fmtDur(sleepAvg)}, avg score ${sleepAvgScore ?? 'n/a'}, ${curSleep.length} of ${rangeDays} night(s) logged.` : 'No sleep logs in this range.', byDay: sleepByDay },
+        workout: { summary: `${curWorkout.length} workout day(s) logged, ${curSessions.length} session(s) total in this range.`, byDay: workoutByDay },
+        checklist: { summary: checklistPct != null ? `${checklistPct}% of marked routine items completed this range (${doneCount} done, ${skippedCount} skipped).` : 'No checklist marks in this range.' },
+        tasks: { summary: `${tasksCompleted.length} task(s) completed in this range, ${overdueNow.length} currently overdue, ${tasksScheduled.filter(t => t.status !== 'done').length} scheduled/planned in this range.`, byDay: tasksByDay },
+        projectWork: { summary: `${taskLogRows.length + projectNoteRows.length} project log/note entr${(taskLogRows.length + projectNoteRows.length) === 1 ? 'y' : 'ies'} in this range.`, entries: projectWorkLines },
+        journal: { summary: `${notebookRows.length} journal entr${notebookRows.length === 1 ? 'y' : 'ies'} in this range.`, entries: journalLines },
+        streaks: streaks.map(s => s.name),
+        comparison,
+        recentContext
     }, ['explain', 'suggest']);
+
+    pkg._rangeLabel = `${startDate}..${endDate}` + (compare ? ` vs ${prevStart}..${prevEnd}` : '');
+    pkg._counts = {
+        sleep: curSleep.length, workout: curWorkout.length, sessions: curSessions.length,
+        checklist: curChecklist.length, tasksCompleted: tasksCompleted.length,
+        tasksScheduled: tasksScheduled.length, taskLogs: taskLogRows.length,
+        projectNotes: projectNoteRows.length, journal: notebookRows.length
+    };
+    return pkg;
 }
 
 // ---- write-flow packages: minimal context so Atlas can phrase a natural
@@ -129,11 +295,11 @@ async function buildLogSleep() {
     }, ['propose_write']);
 }
 
-export async function buildFactPackage(useCase, entityId) {
+export async function buildFactPackage(useCase, entityId, rangeOpts) {
     switch (useCase) {
         case 'explain_day': return buildExplainDay();
         case 'explain_task': return buildExplainTask(entityId);
-        case 'explain_health': return buildExplainHealth();
+        case 'explain_history': return buildExplainHistory(rangeOpts || {});
         case 'log_workout': return buildLogWorkout();
         case 'log_sleep': return buildLogSleep();
         default: return buildExplainDay();

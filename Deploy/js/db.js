@@ -110,6 +110,38 @@ export const DB = {
             if (error) throw new Error(error.message);
             return data;
         },
+        // Tasks/reminders (kind='task'|'reminder') whose scheduled_date falls
+        // in the window -- works identically for a past window (what was
+        // planned) or a future window (what's coming up). Deliberately does
+        // NOT filter archived_at -- a task archived after the window still
+        // represents real activity/plan that existed in it, which the
+        // Calendar/AI history pipeline should not silently hide.
+        async listScheduledInRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_tasks')
+                .select('*')
+                .gte('scheduled_date', startDate)
+                .lte('scheduled_date', endDate)
+                .is('deleted_at', null)
+                .order('scheduled_date', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        // Tasks completed inside the window, by completed_at timestamp (not
+        // scheduled_date) -- a task scheduled days earlier but finished today
+        // should show as activity on today, not on its original schedule.
+        async listCompletedInRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_tasks')
+                .select('*')
+                .eq('status', 'done')
+                .gte('completed_at', `${startDate}T00:00:00`)
+                .lte('completed_at', `${endDate}T23:59:59.999`)
+                .is('deleted_at', null)
+                .order('completed_at', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         async listDeleted() {
             const { data, error } = await supabase
                 .from('atlas_tasks')
@@ -151,6 +183,22 @@ export const DB = {
             if (error) throw new Error(error.message);
             return data;
         },
+        // Global (all projects) date-range read -- atlas_task_logs already
+        // carries its own entry_date/deleted_at columns directly, no join
+        // needed. Used by the Calendar and the AI history pipeline, which
+        // both need "what work-log activity happened on date X" without
+        // picking a project first.
+        async listForDateRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_task_logs')
+                .select('*')
+                .gte('entry_date', startDate)
+                .lte('entry_date', endDate)
+                .is('deleted_at', null)
+                .order('entry_date', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         async listDeleted() {
             const { data, error } = await supabase
                 .from('atlas_task_logs')
@@ -178,6 +226,22 @@ export const DB = {
             if (error) throw new Error(error.message);
             return data;
         },
+        // All notes in the window regardless of project_id (unlike
+        // listGlobal, which only returns project_id IS NULL notes) --
+        // ranged over created_at since this table has no entry_date column.
+        // Used by the Calendar/AI history pipeline to know which days had
+        // any project note activity, project-linked or not.
+        async listForDateRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_project_notes')
+                .select('*')
+                .gte('created_at', `${startDate}T00:00:00`)
+                .lte('created_at', `${endDate}T23:59:59.999`)
+                .is('deleted_at', null)
+                .order('created_at', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         async listDeleted() {
             const { data, error } = await supabase
                 .from('atlas_project_notes')
@@ -202,6 +266,20 @@ export const DB = {
                 .is('deleted_at', null)
                 .order('entry_date', { ascending: false })
                 .limit(limit);
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        // True calendar-date range (unlike listRecent, which is anchored to
+        // "most recent N rows" and can't jump to an arbitrary past/future
+        // window). Used by the Calendar and the AI history pipeline.
+        async listForDateRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_notebook_entries')
+                .select('*')
+                .gte('entry_date', startDate)
+                .lte('entry_date', endDate)
+                .is('deleted_at', null)
+                .order('entry_date', { ascending: true });
             if (error) throw new Error(error.message);
             return data;
         },
@@ -344,6 +422,21 @@ export const DB = {
             if (error) throw new Error(error.message);
             return data;
         },
+        // True calendar-date range (unlike listRecent, row-count-anchored).
+        // A future window naturally returns empty -- you can't log sleep for
+        // a day that hasn't happened yet. Used by the Calendar and the AI
+        // history pipeline.
+        async listForDateRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_sleep_logs')
+                .select('*')
+                .gte('entry_date', startDate)
+                .lte('entry_date', endDate)
+                .is('deleted_at', null)
+                .order('entry_date', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
         // One row per day (entry_date unique) -- same upsert pattern as
         // Checklist.setStatus, since "log tonight's sleep" is naturally an
         // upsert against today's date, not an insert-then-update dance.
@@ -464,6 +557,20 @@ export const DB = {
                 .is('deleted_at', null)
                 .order('entry_date', { ascending: false })
                 .limit(limit);
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        // True calendar-date range (unlike listRecent, row-count-anchored).
+        // A future window naturally returns empty. Used by the Calendar and
+        // the AI history pipeline.
+        async listForDateRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_workout_logs')
+                .select('*')
+                .gte('entry_date', startDate)
+                .lte('entry_date', endDate)
+                .is('deleted_at', null)
+                .order('entry_date', { ascending: true });
             if (error) throw new Error(error.message);
             return data;
         },

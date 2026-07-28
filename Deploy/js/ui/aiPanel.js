@@ -273,7 +273,19 @@ export function atlasAi() {
 
         askQuickAction(useCase) {
             if (useCase === 'explain_day') { this.draft = 'Explain my day'; this.sendMessage(); }
-            else if (useCase === 'explain_health') { this.draft = 'Give me a health check-in'; this.sendMessage(); }
+            else if (useCase === 'explain_health') {
+                // Bypasses sendMessage()'s text-based routing entirely (same
+                // reasoning as explain_task below) so this button is never
+                // dependent on phrase-matching drift -- it always reaches a
+                // real 14-day history package, not explain_day.
+                const text = 'Give me a health check-in';
+                this._pushMessage({ role: 'user', type: 'text', text });
+                const today = todayIsoDate();
+                const start = new Date(today + 'T00:00:00');
+                start.setDate(start.getDate() - 13);
+                const range = { startDate: start.toLocaleDateString('en-CA'), endDate: today, label: 'last 14 days', compare: false };
+                this._askModel(text, 'explain_history', null, range);
+            }
             else if (useCase === 'explain_task') {
                 this.pendingUseCase = 'explain_task';
                 _pendingUseCaseExpiry = Date.now() + 90000; // 90-second window
@@ -330,8 +342,12 @@ export function atlasAi() {
                 return;
             }
 
-            // Track C: Normal chat
-            await this._askModel(text, 'explain_day');
+            // Track C: Normal chat -- route to a date-range package when the
+            // message asks about a past day/week/pattern or a future
+            // plan/workload; otherwise stay on today-only.
+            const histRange = this._detectHistoryRange(text);
+            if (histRange) await this._askModel(text, 'explain_history', null, histRange);
+            else await this._askModel(text, 'explain_day');
         },
 
         // Detects explicit "save to memory" requests client-side.
@@ -421,7 +437,16 @@ export function atlasAi() {
         // but NO extraction instruction. Returns raw reply string; never throws -- returns an
         // error string instead so Track B can always display something.
         async _callModelProse(userText) {
-            const pkg = await buildFactPackage('explain_day');
+            // Write-intent messages occasionally carry history/comparison
+            // language too ("that leg day was better than last week's") --
+            // give the prose reply real numbers when that's the case. The
+            // parallel extraction call (_extractFields) is untouched, it
+            // only ever needs the narrow write-flow schema.
+            const histRange = this._detectHistoryRange(userText);
+            const pkg = histRange
+                ? await buildFactPackage('explain_history', null, histRange)
+                : await buildFactPackage('explain_day');
+            this._logFactPackage(pkg);
             // Update caches from the prose call's fact package (avoids a duplicate DB fetch)
             if (pkg._taskList) _taskCache = pkg._taskList;
             if (pkg._checklistItems) _checklistCache = pkg._checklistItems;
@@ -574,10 +599,11 @@ export function atlasAi() {
         },
 
         // Track C normal chat + explain_task breakdown. Pure prose, no extraction instruction.
-        async _askModel(userText, factUseCase, entityId) {
+        async _askModel(userText, factUseCase, entityId, rangeOpts) {
             this.thinking = true;
             try {
-                const pkg = await buildFactPackage(factUseCase, entityId);
+                const pkg = await buildFactPackage(factUseCase, entityId, rangeOpts);
+                this._logFactPackage(pkg);
                 if (pkg._taskList) _taskCache = pkg._taskList;
                 if (pkg._checklistItems) _checklistCache = pkg._checklistItems;
                 if (pkg._checklistDate != null) _checklistDate = pkg._checklistDate;
@@ -621,6 +647,20 @@ export function atlasAi() {
             this.thinking = false;
         },
 
+        // Dev visibility into exactly what the model was given for a given
+        // question. Always prints a one-line summary; full JSON payload only
+        // behind a debug flag so normal use stays quiet.
+        // Toggle with: localStorage.setItem('atlas_ai_debug','1')
+        _logFactPackage(pkg) {
+            const counts = pkg._counts ? Object.entries(pkg._counts).map(([k, v]) => `${k}=${v}`).join(' ') : '';
+            console.log(`[Atlas AI] fact package · useCase=${pkg.useCase}${pkg._rangeLabel ? ' · range=' + pkg._rangeLabel : ''}${counts ? ' · ' + counts : ''}`);
+            if (localStorage.getItem('atlas_ai_debug') === '1') {
+                console.group('[Atlas AI] full facts payload (' + pkg.useCase + ')');
+                console.log(JSON.stringify(pkg.facts, null, 2));
+                console.groupEnd();
+            }
+        },
+
         _currentProviderLabel() {
             if (this.provider === 'vertex') return 'Cloud · Gemini' + (this.webSearch ? ' (web)' : '');
             return 'Local · ' + (this.model || 'unknown');
@@ -639,6 +679,93 @@ export function atlasAi() {
                 if (ch === '{') depth++;
                 else if (ch === '}') { depth--; if (depth === 0) { try { return JSON.parse(str.slice(start, i + 1)); } catch (e) { return null; } } }
             }
+            return null;
+        },
+
+        // Deterministic date-range phrase detector for Track C/B (no second model
+        // call, same style as _detectIntent below). Returns
+        // {startDate, endDate, label, compare} or null -- null means "stay on
+        // today-only" (explain_day). Covers both past phrasing ("last week",
+        // "yesterday") and future phrasing ("next week", "next 10 days", a
+        // named month) since Atlas's Calendar/history pipeline is a single
+        // past+future timeline, not two separate systems.
+        _detectHistoryRange(text) {
+            const t = text.toLowerCase();
+            const today = todayIsoDate();
+            const addDays = (d, n) => {
+                const dt = new Date(d + 'T00:00:00');
+                dt.setDate(dt.getDate() + n);
+                return dt.toLocaleDateString('en-CA');
+            };
+            const wantsCompare = /\b(vs\.?|versus|compare[d]?\s+to|relative\s+to|compared\s+with)\b/.test(t);
+
+            // "last N days"
+            let m = t.match(/\blast\s+(\d{1,3})\s+days?\b/);
+            if (m) {
+                const n = Math.min(90, Math.max(1, parseInt(m[1], 10)));
+                return { startDate: addDays(today, -(n - 1)), endDate: today, label: `last ${n} days`, compare: false };
+            }
+            // "next N days"
+            m = t.match(/\bnext\s+(\d{1,3})\s+days?\b/);
+            if (m) {
+                const n = Math.min(90, Math.max(1, parseInt(m[1], 10)));
+                return { startDate: today, endDate: addDays(today, n - 1), label: `next ${n} days`, compare: false };
+            }
+
+            if (/\byesterday\b|\blast\s+night\b/.test(t)) {
+                const y = addDays(today, -1);
+                return { startDate: y, endDate: y, label: 'yesterday', compare: false };
+            }
+
+            // Named month ("show me my plan for August"), optionally with a year.
+            const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+            m = t.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december)\b(?:\s+(\d{4}))?/);
+            if (m) {
+                const monthIdx = MONTHS.indexOf(m[1]);
+                const now = new Date(today + 'T00:00:00');
+                let year = m[2] ? parseInt(m[2], 10) : now.getFullYear();
+                if (!m[2] && monthIdx < now.getMonth()) year += 1; // named month already passed this year -- assume next year
+                const first = new Date(year, monthIdx, 1);
+                const last = new Date(year, monthIdx + 1, 0);
+                const fmt = d => d.toLocaleDateString('en-CA');
+                return { startDate: fmt(first), endDate: fmt(last), label: `${m[1][0].toUpperCase() + m[1].slice(1)} ${year}`, compare: false };
+            }
+
+            if (/\bnext\s+week\b/.test(t)) {
+                return { startDate: addDays(today, 7), endDate: addDays(today, 13), label: 'next week', compare: wantsCompare };
+            }
+            const thisVsLastWeek = /\bthis\s+week\b[\s\S]*\blast\s+week\b|\blast\s+week\b[\s\S]*\bthis\s+week\b/.test(t);
+            if (thisVsLastWeek || (wantsCompare && /\bweek\b/.test(t) && !/\bnext\s+week\b/.test(t))) {
+                return { startDate: addDays(today, -6), endDate: today, label: 'this week vs last week', compare: true };
+            }
+            if (wantsCompare && /\bmonth\b/.test(t) && !/\bnext\s+month\b/.test(t)) {
+                return { startDate: addDays(today, -29), endDate: today, label: 'this month vs last month', compare: true };
+            }
+            if (/\bthis\s+week\b/.test(t)) {
+                return { startDate: today, endDate: addDays(today, 6), label: 'this week', compare: false };
+            }
+            if (/\blast\s+week\b|\bpast\s+week\b/.test(t)) {
+                return { startDate: addDays(today, -6), endDate: today, label: 'last 7 days', compare: false };
+            }
+            if (/\bnext\s+month\b/.test(t)) {
+                return { startDate: addDays(today, 1), endDate: addDays(today, 30), label: 'next 30 days', compare: false };
+            }
+            if (/\blast\s+month\b|\bpast\s+month\b/.test(t)) {
+                return { startDate: addDays(today, -29), endDate: today, label: 'last 30 days', compare: false };
+            }
+            if (/\bhealth\s+check[\s-]?in\b/.test(t)) {
+                return { startDate: addDays(today, -13), endDate: today, label: 'last 14 days', compare: false };
+            }
+            if (/\b(pattern|trend|lately|recently|over\s+time)\b/.test(t) || /\bhow\s+(have|has|i)\s+.*been\b/.test(t)) {
+                return { startDate: addDays(today, -13), endDate: today, label: 'last 14 days', compare: false };
+            }
+            if (/\b(coming\s+up|upcoming|what.?s\s+(planned|on\s+my\s+plate|ahead))\b/.test(t)) {
+                return { startDate: today, endDate: addDays(today, 9), label: 'next 10 days', compare: false };
+            }
+            if (/\b(last|past)\s+(two|2|three|3|couple(\s+of)?)\s+(workouts?|sessions?|nights?|days?)\b/.test(t)) {
+                return { startDate: addDays(today, -9), endDate: today, label: 'recent activity', compare: false };
+            }
+
             return null;
         },
 
