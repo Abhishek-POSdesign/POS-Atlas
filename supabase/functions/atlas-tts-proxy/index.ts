@@ -57,9 +57,9 @@ serve(async (req) => {
     }
 
     // Map allowed voice profiles to actual Google voice names
-    let voiceName = 'en-US-Journey-D'; // Default to Calm
+    let voiceName = 'en-IN-Neural2-B'; // Default to Calm (Male Indian English)
     if (voice_profile === 'atlas_clear') {
-      voiceName = 'en-US-Neural2-F';
+      voiceName = 'en-US-Journey-D'; // Global English
     } else if (voice_profile !== 'atlas_calm') {
       return new Response(JSON.stringify({ error: 'Invalid voice_profile' }), { 
         status: 400, 

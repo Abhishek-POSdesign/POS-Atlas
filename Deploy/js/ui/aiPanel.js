@@ -107,8 +107,8 @@ export function atlasAi() {
 
             const loadVoices = () => {
                 const cloudVoices = [
-                    { name: 'atlas_calm', lang: 'Cloud TTS', label: 'Atlas Calm' },
-                    { name: 'atlas_clear', lang: 'Cloud TTS', label: 'Atlas Clear' }
+                    { name: 'atlas_calm', lang: 'Indian English', label: 'Atlas Calm' },
+                    { name: 'atlas_clear', lang: 'Global English', label: 'Atlas Clear' }
                 ];
                 const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
                 const currentName = this.voiceName;
@@ -179,9 +179,11 @@ export function atlasAi() {
             if (this.voiceName && this.voiceName.startsWith('atlas_')) {
                 // Cloud TTS via Edge Function
                 let truncated = clean;
-                if (truncated.length > 600) {
-                    const match = truncated.substring(0, 600).match(/.*[.?!]/);
-                    truncated = match ? match[0] : truncated.substring(0, 600);
+                msg.voiceTruncated = false;
+                if (truncated.length > 900) {
+                    const match = truncated.substring(0, 900).match(/.*[.?!](?=\s|$)/);
+                    truncated = match ? match[0] : truncated.substring(0, 900);
+                    msg.voiceTruncated = true;
                 }
                 
                 msg.voiceState = 'loading';

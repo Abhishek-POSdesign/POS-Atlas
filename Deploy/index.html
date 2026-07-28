@@ -243,6 +243,9 @@
                                                                 <template x-if="m.pinned">
                                                                     <span class="msg-action-btn pinned">📌 Pinned</span>
                                                                 </template>
+                                                                <template x-if="m.voiceTruncated">
+                                                                    <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">✂ Voice plays only the first part of this long reply.</span>
+                                                                </template>
                                                             </div>
                                                         </template>
                                                     </div>
