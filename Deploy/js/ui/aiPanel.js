@@ -104,8 +104,15 @@ export function atlasAi() {
             this.persona = loadPersona();
 
             const loadVoices = () => {
+                const cloudVoices = [
+                    { name: 'atlas_calm', lang: 'Cloud TTS', label: 'Atlas Calm' },
+                    { name: 'atlas_clear', lang: 'Cloud TTS', label: 'Atlas Clear' }
+                ];
                 const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
-                if (voices.length) this.voiceList = voices.map(v => ({ name: v.name, lang: v.lang }));
+                this.voiceList = [
+                    ...cloudVoices,
+                    ...(voices.length ? voices.map(v => ({ name: v.name, lang: v.lang, label: v.name })) : [])
+                ];
             };
             loadVoices();
             if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -136,29 +143,94 @@ export function atlasAi() {
         },
         onVoiceReplyChange() {
             saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply, voiceName: this.voiceName });
+            if (this.currentCloudAudio) { this.currentCloudAudio.pause(); URL.revokeObjectURL(this.currentCloudAudio.src); this.currentCloudAudio = null; }
             if (!this.voiceReply && window.speechSynthesis) window.speechSynthesis.cancel();
         },
         onVoiceNameChange() {
             saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply, voiceName: this.voiceName });
         },
-        _speak(text) {
-            if (!this.voiceReply || !window.speechSynthesis) return;
-            window.speechSynthesis.cancel();
+        _speak(msg) {
+            if (!this.voiceReply) return;
+            const text = msg.text;
             const clean = text
                 .replace(/\[System:.*?\]/g, '')
-                .replace(/⚠[^\n]*/g, '')
+                .replace(/—[^\n]*/g, '')
                 .replace(/https?:\/\/\S+/g, '')
                 .trim();
             if (!clean) return;
-            const utt = new SpeechSynthesisUtterance(clean);
-            utt.rate = 1.0;
-            utt.pitch = 1;
-            if (this.voiceName) {
-                const voices = window.speechSynthesis.getVoices();
-                const match = voices.find(v => v.name === this.voiceName);
-                if (match) utt.voice = match;
+
+            // Stop any currently playing audio
+            if (this.currentCloudAudio) {
+                this.currentCloudAudio.pause();
+                URL.revokeObjectURL(this.currentCloudAudio.src);
+                this.currentCloudAudio = null;
             }
-            window.speechSynthesis.speak(utt);
+            if (window.speechSynthesis) window.speechSynthesis.cancel();
+            
+            // Re-set all other messages to idle
+            this.messages.forEach(m => { if (m.voiceState === 'playing' || m.voiceState === 'loading') m.voiceState = 'idle'; });
+
+            if (this.voiceName && this.voiceName.startsWith('atlas_')) {
+                // Cloud TTS via Edge Function
+                let truncated = clean;
+                if (truncated.length > 600) {
+                    const match = truncated.substring(0, 600).match(/.*[.?!]/);
+                    truncated = match ? match[0] : truncated.substring(0, 600);
+                }
+                
+                msg.voiceState = 'loading';
+                getSessionAsync().then(session => {
+                    if (!session) throw new Error('Not signed in');
+                    return fetch('https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/atlas-tts-proxy', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer ' + session.access_token,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ text: truncated, voice_profile: this.voiceName })
+                    });
+                }).then(res => {
+                    if (!res.ok) throw new Error('Cloud TTS request failed');
+                    return res.blob();
+                }).then(blob => {
+                    if (msg.voiceState === 'idle') return; // Cancelled mid-flight
+                    msg.voiceState = 'playing';
+                    const url = URL.createObjectURL(blob);
+                    this.currentCloudAudio = new Audio(url);
+                    this.currentCloudAudio.onended = () => { msg.voiceState = 'idle'; };
+                    this.currentCloudAudio.onerror = () => { msg.voiceState = 'idle'; };
+                    this.currentCloudAudio.play();
+                }).catch(e => {
+                    console.error('TTS proxy error:', e);
+                    msg.voiceState = 'idle';
+                    // Show a brief error toast, do not silently fallback to SpeechSynthesis
+                    showUndoToast('Voice failed to load');
+                });
+            } else {
+                // Browser fallback
+                if (!window.speechSynthesis) return;
+                msg.voiceState = 'playing';
+                const utt = new SpeechSynthesisUtterance(clean);
+                utt.rate = 1.0;
+                utt.pitch = 1;
+                if (this.voiceName) {
+                    const voices = window.speechSynthesis.getVoices();
+                    const match = voices.find(v => v.name === this.voiceName);
+                    if (match) utt.voice = match;
+                }
+                utt.onend = () => { msg.voiceState = 'idle'; };
+                utt.onerror = () => { msg.voiceState = 'idle'; };
+                window.speechSynthesis.speak(utt);
+            }
+        },
+        toggleAudio(msg) {
+            if (msg.voiceState === 'playing' || msg.voiceState === 'loading') {
+                if (this.currentCloudAudio) { this.currentCloudAudio.pause(); URL.revokeObjectURL(this.currentCloudAudio.src); this.currentCloudAudio = null; }
+                if (window.speechSynthesis) window.speechSynthesis.cancel();
+                msg.voiceState = 'idle';
+            } else {
+                this._speak(msg);
+            }
         },
 
         get messageGroups() {
@@ -177,8 +249,10 @@ export function atlasAi() {
             this.$nextTick(() => this._scrollToBottom());
         },
         _pushAssistantText(text, providerLabel) {
-            this._pushMessage({ role: 'assistant', type: 'text', text, providerLabel: providerLabel || null });
-            this._speak(text);
+            const msgId = 'msg_' + Date.now() + '_' + Math.floor(Math.random()*1000);
+            const msg = { role: 'assistant', type: 'text', text, providerLabel: providerLabel || null, id: msgId, voiceState: 'idle' };
+            this._pushMessage(msg);
+            this._speak(msg);
         },
         _scrollToBottom() {
             const el = this.$refs.messagesEl;
@@ -465,7 +539,6 @@ export function atlasAi() {
                 draft: { title: flow.title, icon: flow.icon, fields: fieldRows, flowKey: intent, rawFields: fields },
                 decided: null
             });
-            this._speak('Got it — tap Confirm to save.');
         },
 
         // Task-name lookup for explain_task quick action (pendingUseCase).
@@ -620,7 +693,6 @@ export function atlasAi() {
                 },
                 decided: null
             });
-            this._speak('Found it -- ' + task.name + '. Tap Confirm to mark it done.');
         },
 
         // Resolves a checklist-marking intent against today's cached items.
@@ -695,7 +767,6 @@ export function atlasAi() {
                 decided: null
             });
             const count = resolved.length;
-            this._speak(count + ' item' + (count > 1 ? 's' : '') + ' ready. Tap Confirm to save.');
         },
 
         async confirmDraft(msg) {
@@ -728,7 +799,6 @@ export function atlasAi() {
                     this.view = 'notebook';
                     this._pushAssistantText('Saved to your Memory Notebook.');
                 }
-                this._speak('Done.');
             } catch (e) {
                 msg.decided = null;
                 this.errorMsg = 'Save failed: ' + e.message;

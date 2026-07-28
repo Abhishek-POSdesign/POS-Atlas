@@ -230,11 +230,20 @@
                                                                 <span class="msg-provider-tag" x-text="m.providerLabel"></span>
                                                             </template>
                                                         </div>
-                                                        <template x-if="m.role === 'assistant' && !m.pinned">
-                                                            <div class="msg-actions"><button class="msg-action-btn" @click="pinMessage(m)">📌 Pin</button></div>
-                                                        </template>
-                                                        <template x-if="m.role === 'assistant' && m.pinned">
-                                                            <div class="msg-actions"><span class="msg-action-btn pinned">📌 Pinned</span></div>
+                                                        <template x-if="m.role === 'assistant'">
+                                                            <div class="msg-actions">
+                                                                <button class="msg-action-btn" @click="toggleAudio(m)">
+                                                                    <template x-if="m.voiceState === 'playing'"><span>⏹ Stop</span></template>
+                                                                    <template x-if="m.voiceState === 'loading'"><span class="voice-spinner"></span></template>
+                                                                    <template x-if="!m.voiceState || m.voiceState === 'idle'"><span>▶ Play</span></template>
+                                                                </button>
+                                                                <template x-if="!m.pinned">
+                                                                    <button class="msg-action-btn" @click="pinMessage(m)">📌 Pin</button>
+                                                                </template>
+                                                                <template x-if="m.pinned">
+                                                                    <span class="msg-action-btn pinned">📌 Pinned</span>
+                                                                </template>
+                                                            </div>
                                                         </template>
                                                     </div>
                                                 </template>
@@ -338,7 +347,7 @@
                                         <select x-model="voiceName" @change="onVoiceNameChange()" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-1);color:var(--text);font-size:13px;">
                                             <option value="">Default voice</option>
                                             <template x-for="v in voiceList" :key="v.name">
-                                                <option :value="v.name" x-text="v.name + ' (' + v.lang + ')'"></option>
+                                                <option :value="v.name" x-text="(v.label || v.name) + ' (' + v.lang + ')'"></option>
                                             </template>
                                         </select>
                                         <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">On Windows, look for Microsoft voices — they sound the most natural.</div>
