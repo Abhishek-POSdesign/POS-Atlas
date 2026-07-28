@@ -159,7 +159,7 @@ export const WRITE_FLOWS = {
             { key: 'workout_type', label: 'Workout type', type: 'text' },
             { key: 'note', label: 'Note', type: 'text' }
         ],
-        extractionInstruction: 'CRITICAL: If Abhishek describes completing a workout (mentions a score, calories, duration, VO2 max, workout type, or simply "did my workout"), you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll draft this for you": {"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"vo2_max":number|null,"workout_type":string|null,"note":string|null}}. Score is 0-100 (same scale as Garmin/fitness apps). vo2_max is the VO2 Max reading (a decimal number like 48.8). workout_type is the category of workout (e.g. "strength", "cardio", "yoga", "hiit"). note is for any additional qualitative detail that does not fit into the other fields. Map each data point to the RIGHT field -- do NOT cram workout_type or vo2_max into the note field. Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object for the SINGLE intent that matches the message. Never combine two intents in one reply.',
+        extractionInstruction: 'When the message describes a completed workout (mentions a score, calories, duration, VO2 max, workout type, or having done a workout session), extract these fields and return exactly this JSON:\n{"intent":"log_workout","fields":{"score":number|null,"calories":number|null,"duration_minutes":number|null,"vo2_max":number|null,"workout_type":string|null,"note":string|null}}\nField semantics: score = 0-100 (Garmin/fitness scale). vo2_max = VO2 max decimal like 48.8. workout_type = category e.g. "strength", "cardio", "yoga", "hiit". duration_minutes = total workout duration in minutes. note = qualitative details that do not fit any other field. Map each data point to the correct field -- do NOT cram workout_type or vo2_max into note. Use null for any field not mentioned. Do not invent values.\nIf the message does not describe a completed workout, return {"intent":null}.',
         async write(fields) {
             const today = todayIsoDate();
             const patch = {};
@@ -185,7 +185,7 @@ export const WRITE_FLOWS = {
             { key: 'hrv', label: 'HRV (ms)', type: 'number', min: 0, max: 300 },
             { key: 'morning_note', label: 'Morning reflection', type: 'text' }
         ],
-        extractionInstruction: 'CRITICAL: If Abhishek describes last night\'s sleep, you MUST respond with ONLY this JSON object and absolutely nothing else -- no prose, no explanation, no "I\'ll log this for you": {"intent":"log_sleep","fields":{"duration_minutes":number|null,"sleep_score":number|null,"deep_minutes":number|null,"rem_minutes":number|null,"resting_hr":number|null,"hrv":number|null,"morning_note":string|null}}. Map each piece of data to the RIGHT field: total sleep duration goes in duration_minutes (convert hours to minutes, e.g. "8 hours" = 480). A score or quality rating goes in sleep_score. Deep sleep duration goes in deep_minutes. REM sleep duration goes in rem_minutes. Resting heart rate goes in resting_hr. HRV goes in hrv. How he feels or any qualitative comment goes in morning_note. Do NOT dump multiple data points into morning_note -- each has its own field. Use null for any field not mentioned. Do not invent numbers. The app saves data ONLY through this JSON format -- if you reply in prose instead, NOTHING will be saved. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object for the SINGLE intent that matches the message. Never combine two intents in one reply.',
+        extractionInstruction: 'When the message describes last night\'s sleep, extract these fields and return exactly this JSON:\n{"intent":"log_sleep","fields":{"duration_minutes":number|null,"sleep_score":number|null,"deep_minutes":number|null,"rem_minutes":number|null,"resting_hr":number|null,"hrv":number|null,"morning_note":string|null}}\nField semantics: duration_minutes = total sleep in minutes (convert hours, e.g. "8 hours" = 480). sleep_score = score or quality rating 0-100. deep_minutes = deep sleep duration. rem_minutes = REM sleep duration. resting_hr = resting heart rate in bpm. hrv = HRV in ms. morning_note = how he feels or any qualitative comment. Map each data point to the correct field -- do NOT dump multiple values into morning_note. Use null for any field not mentioned. Do not invent values.\nIf the message does not describe sleep, return {"intent":null}.',
         async write(fields) {
             const today = todayIsoDate();
             const patch = {};
@@ -205,8 +205,8 @@ export const WRITE_FLOWS = {
         fields: [
             { key: 'task_name', label: 'Task', type: 'text' }
         ],
-        // Dynamic context (numbered task list) is prepended by _askModel() before this string
-        extractionInstruction: 'CRITICAL: If Abhishek says a specific task is done, finished, or completed, you MUST respond with ONLY this JSON object and nothing else -- no prose, no explanation: {"intent":"complete_task","fields":{"task_number":number|null,"task_name":string|null}}. task_number is the 1-based number from the task list above (use if he said "task 4", "number 3", "#2", etc.). task_name is the exact name if he named the task instead -- use it verbatim, do not paraphrase or abbreviate. Set one; set the other to null. If neither a clear number nor an exact task name is present, reply in prose asking which task. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        // Dynamic context (numbered task list) is prepended by _extractFields() before this string
+        extractionInstruction: 'When the message says a specific task is done, finished, or completed, extract these fields and return exactly this JSON:\n{"intent":"complete_task","fields":{"task_number":number|null,"task_name":string|null}}\nField semantics: task_number = 1-based number from the task list above (use when he says "task 4", "number 3", "#2", etc.). task_name = exact task name verbatim if he named the task -- do not paraphrase. Set one field; set the other to null.\nIf the message does not mention completing a task from the list, or is ambiguous about which task, return {"intent":null}.',
         async write(fields) {
             if (!fields.task_id) throw new Error('Task not identified -- confirm card should have supplied the ID');
             return DB.Tasks.complete(fields.task_id, null);
@@ -216,8 +216,8 @@ export const WRITE_FLOWS = {
         title: 'Draft · Mark routine items',
         icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><polyline points="4 6 5 7 7 5"/><polyline points="4 12 5 13 7 11"/><polyline points="4 18 5 19 7 17"/></svg>',
         fields: [], // confirm card built manually in _handleChecklistMarking(), not via sanitizeDraftFields
-        // Dynamic context (today's item names) is prepended by _askModel() before this string
-        extractionInstruction: 'CRITICAL: If Abhishek says he did or skipped specific routine/checklist items, you MUST respond with ONLY this JSON object and nothing else: {"intent":"mark_checklist","fields":{"items":[{"block":"morning|afternoon|night|sleep","number":1,"name":"exact item name OR null if using number","status":"done or skipped","note":"optional note text or null"}]}}. RESOLUTION PRIORITY: Use block+number when he says things like "morning 2 and 3" or "afternoon item 1". Use exact name when he names the item. The "block" field is the block name (morning/afternoon/night/sleep) and "number" is the 1-based position within that block from the list above. If he says just a number without a block name, use the flat position across all items. "note" captures any extra detail he mentions about that specific item (e.g. "I did mouthwash, used a new brand" → note: "used a new brand"). Only include items he explicitly mentioned. Use "done" if he did it, "skipped" if he deliberately skipped it. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        // Dynamic context (today's checklist grouped by block) is prepended by _extractFields() before this string
+        extractionInstruction: 'When the message says specific routine or checklist items were done or skipped, extract them and return exactly this JSON:\n{"intent":"mark_checklist","fields":{"items":[{"block":"morning|afternoon|night|sleep","number":1,"name":"exact item name or null if using number","status":"done or skipped","note":"optional note or null"}]}}\nResolution priority: use block+number when he says "morning 2 and 3" or "afternoon 1". Use exact name when he names the item. "number" is the 1-based position within its block from the list above; if no block is named, use flat position across all items. "note" captures extra detail about a specific item (e.g. "used a new brand"). Only include items he explicitly mentioned. "status" is "done" or "skipped".\nIf the message does not mention routine or checklist items, return {"intent":null}.',
         async write(fields) {
             if (!fields.resolved || !fields.resolved.length) throw new Error('No items to mark');
             for (const item of fields.resolved) {
@@ -233,10 +233,12 @@ export const WRITE_FLOWS = {
         fields: [
             { key: 'summary', label: 'Memory note', type: 'text' }
         ],
-        extractionInstruction: 'CRITICAL: If Abhishek asks you to save something to memory, remember something, note something for future reference, or store something in the notebook, you MUST respond with ONLY this JSON object and nothing else: {"intent":"save_ai_memory","fields":{"summary":"a concise 1-3 sentence summary of what he wants remembered"}}. Distill the key fact or instruction into a concise note -- do not parrot back his exact words if they can be tightened. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        // save_ai_memory is handled client-side via Track A in aiPanel.js sendMessage()
+        // (no model call -- immediate confirm card from user's own text).
+        // This extractionInstruction is never used; write() is unreachable.
+        extractionInstruction: '',
         async write(fields) {
-            // Handled specially in confirmDraft() since _addNotebookEntry lives on the Alpine component
-            throw new Error('save_ai_memory.write() should not be called directly');
+            // Track A in sendMessage() bypasses this -- confirmDraft() handles save_ai_memory directly
         }
     },
     journal_reflection: {
@@ -245,7 +247,7 @@ export const WRITE_FLOWS = {
         fields: [
             { key: 'body', label: 'Reflection', type: 'text' }
         ],
-        extractionInstruction: 'CRITICAL: If Abhishek shares a personal feeling, reflection, emotion, or what today was like for him (gratitude, frustration, pride, a realisation, a mood), you MUST respond with ONLY this JSON object and nothing else: {"intent":"journal_reflection","fields":{"body":"his reflection in his own words"}}. Do NOT trigger this for task/health/routine questions, greetings, or factual questions -- only for genuine reflective or emotional content. This overrides the conversation-first rule. IMPORTANT: respond with exactly ONE JSON object. Never combine two intents in one reply.',
+        extractionInstruction: 'When the message shares a personal feeling, reflection, emotion, or describes what today was like (gratitude, frustration, pride, a realisation, a mood), extract and return exactly this JSON:\n{"intent":"journal_reflection","fields":{"body":"his reflection in his own words, preserving the emotional tone"}}\nOnly trigger for genuine reflective or emotional content -- not for task/health questions, greetings, or factual questions.\nIf the message is not a personal reflection, return {"intent":null}.',
         async write(fields) {
             if (!fields.body) throw new Error('No reflection text');
             const today = todayIsoDate();

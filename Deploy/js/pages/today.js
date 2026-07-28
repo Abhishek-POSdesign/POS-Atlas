@@ -78,6 +78,8 @@ export function todayPage() {
 
         async init() {
             await this.load();
+            // Refresh when AI panel confirms a write (workout, sleep, task, checklist)
+            window.addEventListener('atlas:data-changed', () => { this.load().catch(console.error); });
         },
         async load() {
             this.loading = true;

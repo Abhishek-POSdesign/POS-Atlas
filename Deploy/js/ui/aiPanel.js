@@ -3,19 +3,21 @@
 // page -- it needs to be reachable from anywhere in Atlas, same reasoning as
 // the Notebook/Restore header overlays.
 //
-// Architecture notes (see the approved AI plan for full detail):
-// - The AI never writes to Atlas directly. It only ever returns a draft;
-//   confirmDraft() below is the one place that calls a real DB.* write
-//   method, and only after Abhishek taps Confirm.
-// - Every ordinary message carries the `explain_day` Fact Package as ambient
-//   context (Phase 1 simplification -- the per-view context badge was cut
-//   from this round's UI to de-clutter the header, so there's no separate
-//   "About: Project X" binding yet; every conversation just always has
-//   today's situation available).
-// - The system prompt always includes the two Phase-1 write-flow extraction
-//   instructions (log workout / log sleep), so a dictated or typed message
-//   describing either can switch the model into structured-draft mode from
-//   anywhere in the conversation, not just behind a specific quick-action.
+// Architecture (action-layer rebuild 2026-07-28):
+// - Write-intent messages fire TWO model calls in parallel:
+//     1. Extraction call: minimal context (schema + user message only),
+//        returns JSON or null. Never has persona or history -- it can't be
+//        pulled toward prose by a "conversation first" instruction.
+//     2. Prose call: full persona + history, no extraction instruction.
+//        Returns natural conversational text.
+//   The prose reply is displayed; if extraction returned valid fields, a
+//   confirm card is pushed below it.
+// - AI Memory save (save_ai_memory) bypasses the model entirely: client-side
+//   phrase detection pushes a confirm card immediately. Confirm path awaits
+//   both local write and cloud push before speaking "Done."
+// - pendingUseCase ('explain_task') auto-expires after 90 seconds and always
+//   clears after one lookup attempt regardless of match success.
+// - confirmDraft() never speaks "Done." before the DB write is confirmed.
 
 import { DB } from '../db.js';
 import { todayIsoDate } from '../date-utils.js';
@@ -51,10 +53,11 @@ function dayLabel(dateStr) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-let speechRecognition = null; // module-level, not reactive -- avoids Alpine proxy issues with a browser API object
-let _taskCache = null;        // populated from each explain_day package; used for complete_task resolution
-let _checklistCache = null;   // populated from each explain_day package; used for mark_checklist resolution
-let _checklistDate = null;    // todayKey() value matching _checklistCache; used as entry_date for setStatus()
+let speechRecognition = null;   // module-level, not reactive -- avoids Alpine proxy issues with a browser API object
+let _taskCache = null;          // populated from explain_day packages; used for complete_task resolution
+let _checklistCache = null;     // populated from explain_day packages; used for mark_checklist resolution
+let _checklistDate = null;      // todayKey() value matching _checklistCache
+let _pendingUseCaseExpiry = 0;  // timestamp after which pendingUseCase auto-clears (90s window)
 
 export function atlasAi() {
     return {
@@ -88,8 +91,6 @@ export function atlasAi() {
         pinError: '',
 
         init() {
-            // Measure Atlas's own sticky header so the panel docks flush
-            // underneath it with zero gap, instead of a hardcoded pixel guess.
             this._measureHeaderHeight();
             window.addEventListener('resize', () => this._measureHeaderHeight());
 
@@ -102,7 +103,6 @@ export function atlasAi() {
             this.voiceName = cfg.voiceName || '';
             this.persona = loadPersona();
 
-            // Populate voice list — voices load asynchronously on some browsers
             const loadVoices = () => {
                 const voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
                 if (voices.length) this.voiceList = voices.map(v => ({ name: v.name, lang: v.lang }));
@@ -134,8 +134,6 @@ export function atlasAi() {
         saveProviderConfig() {
             saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply, voiceName: this.voiceName });
         },
-        // Called by @change on the voice-reply checkbox. x-model already toggled
-        // this.voiceReply; this function only saves + cancels queued speech.
         onVoiceReplyChange() {
             saveConfig({ provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch, voiceReply: this.voiceReply, voiceName: this.voiceName });
             if (!this.voiceReply && window.speechSynthesis) window.speechSynthesis.cancel();
@@ -192,6 +190,7 @@ export function atlasAi() {
             else if (useCase === 'explain_health') { this.draft = 'Give me a health check-in'; this.sendMessage(); }
             else if (useCase === 'explain_task') {
                 this.pendingUseCase = 'explain_task';
+                _pendingUseCaseExpiry = Date.now() + 90000; // 90-second window
                 this._pushAssistantText("Which task would you like me to break down? Type its name and I'll take a look.");
             }
         },
@@ -203,11 +202,15 @@ export function atlasAi() {
             el.style.height = Math.min(el.scrollHeight, 70) + 'px';
         },
         handleComposerEnter(event) {
-            if (event.shiftKey) return; // let the newline through
+            if (event.shiftKey) return;
             event.preventDefault();
             this.sendMessage();
         },
 
+        // ---- Three-track routing ----
+        // Track A: AI Memory save — client-side phrase detection, no model call, immediate confirm card.
+        // Track B: Write-flow intent — parallel extraction call (JSON) + prose call (natural reply).
+        // Track C: Normal chat — single prose call.
         async sendMessage() {
             const text = this.draft.trim();
             if (!text || this.thinking) return;
@@ -217,24 +220,267 @@ export function atlasAi() {
             this.errorMsg = '';
             this.$nextTick(() => this.autoGrowComposer());
 
+            // Auto-clear pendingUseCase if the 90-second window expired
+            if (this.pendingUseCase && Date.now() > _pendingUseCaseExpiry) {
+                this.pendingUseCase = null;
+            }
+
+            // pendingUseCase: explain_task -- one-turn task lookup, always clears after
             if (this.pendingUseCase === 'explain_task') {
                 await this._handleTaskLookup(text);
                 return;
             }
+
+            // Track A: AI Memory save -- no model call needed
+            if (this._isMemorySaveRequest(text)) {
+                this._pushMemoryConfirmCard(text);
+                return;
+            }
+
+            // Track B: Write-flow intent -- parallel extraction + prose
+            const detectedIntent = this._detectIntent(text);
+            if (detectedIntent) {
+                await this._handleWriteIntent(text, detectedIntent);
+                return;
+            }
+
+            // Track C: Normal chat
             await this._askModel(text, 'explain_day');
         },
 
+        // Detects explicit "save to memory" requests client-side.
+        // These bypass the model entirely and go to _pushMemoryConfirmCard().
+        _isMemorySaveRequest(text) {
+            const t = text.toLowerCase();
+            if (/\bremember\s+(this|that)\b/.test(t)) return true;
+            if (/\bnote\s+this\s+down\b/.test(t)) return true;
+            if (/\b(save|store|note|add)\s+(this|that|it)\s+(to|in|into)\s+(your\s+)?(memory|notebook)\b/.test(t)) return true;
+            if (/\b(save|add|note)\s+this\s+to\s+(your\s+)?memory\b/.test(t)) return true;
+            if (/\b(save|store)\s+to\s+(your\s+)?(memory|notebook)\b/.test(t)) return true;
+            return false;
+        },
+
+        // Pushes a confirm card for AI Memory save without any model call.
+        // Strips the trigger phrase and uses the remainder as the memory entry.
+        // Falls back to the last assistant response if no content remains.
+        _pushMemoryConfirmCard(text) {
+            let content = text
+                .replace(/^(remember|save|store|note|add)\s+(this|that|it)\s+(to|in|into)\s+(your\s+)?(memory|notebook)\s*:?\s*/i, '')
+                .replace(/^(save|add|note)\s+this\s+to\s+(your\s+)?memory\s*:?\s*/i, '')
+                .replace(/^remember\s+(this|that)\s*:?\s*/i, '')
+                .replace(/^note\s+this\s+down\s*:?\s*/i, '')
+                .replace(/\s+to\s+(your\s+)?(memory|notebook)$/i, '')
+                .trim();
+
+            if (!content) {
+                // User said "save this" with no payload -- use last assistant text
+                const lastAssistant = [...this.messages].reverse().find(m => m.role === 'assistant' && m.type === 'text');
+                content = lastAssistant ? lastAssistant.text.slice(0, 300) : text;
+            }
+            content = content.slice(0, 300);
+
+            this._pushMessage({
+                role: 'assistant',
+                type: 'confirm',
+                draft: {
+                    title: 'Draft · Save to Memory Notebook',
+                    icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+                    fields: [{ k: 'Memory note', v: content }],
+                    flowKey: 'save_ai_memory',
+                    rawFields: { summary: content }
+                },
+                decided: null
+            });
+        },
+
+        // Track B: fires extraction call and prose call in parallel.
+        // Shows prose reply; if extraction returned usable fields, pushes confirm card below.
+        async _handleWriteIntent(text, detectedIntent) {
+            this.thinking = true;
+
+            // For task/checklist: fetch task data first (needed in extraction context + caches)
+            if (detectedIntent === 'complete_task' || detectedIntent === 'mark_checklist') {
+                try {
+                    const pkg = await buildFactPackage('explain_day');
+                    if (pkg._taskList) _taskCache = pkg._taskList;
+                    if (pkg._checklistItems) _checklistCache = pkg._checklistItems;
+                    if (pkg._checklistDate != null) _checklistDate = pkg._checklistDate;
+                } catch (e) { /* caches may be stale; handlers degrade gracefully */ }
+            }
+
+            const dynamicCtx = this._buildDynamicContext(detectedIntent);
+
+            // Run both calls in parallel
+            const results = await Promise.allSettled([
+                this._extractFields(text, detectedIntent, dynamicCtx),
+                this._callModelProse(text)
+            ]);
+
+            const extracted = results[0].status === 'fulfilled' ? results[0].value : null;
+            const proseReply = results[1].status === 'fulfilled'
+                ? results[1].value
+                : 'Atlas AI is unavailable right now. Check the provider in Settings, or try the other one.';
+
+            this._pushAssistantText(proseReply, this._currentProviderLabel());
+
+            // Push confirm card if extraction succeeded
+            if (extracted) {
+                this._buildAndPushConfirmCard(extracted, detectedIntent);
+            }
+
+            this.thinking = false;
+        },
+
+        // Prose-only model call for Track B. Builds full system prompt (persona + facts + history)
+        // but NO extraction instruction. Returns raw reply string; never throws -- returns an
+        // error string instead so Track B can always display something.
+        async _callModelProse(userText) {
+            const pkg = await buildFactPackage('explain_day');
+            // Update caches from the prose call's fact package (avoids a duplicate DB fetch)
+            if (pkg._taskList) _taskCache = pkg._taskList;
+            if (pkg._checklistItems) _checklistCache = pkg._checklistItems;
+            if (pkg._checklistDate != null) _checklistDate = pkg._checklistDate;
+
+            const notebookCtx = getNotebookContext();
+            let systemPrompt = buildSystemPrompt(this.persona, notebookCtx);
+            systemPrompt += '\n\n## FACTS AVAILABLE IF RELEVANT (do not mention these for a greeting or small talk)\n' + JSON.stringify(pkg.facts, null, 1);
+            // No extraction instruction -- that goes in the separate extraction call
+
+            const historyMessages = this.messages.slice(0, -1).slice(-14);
+            const apiMessages = [{ role: 'system', content: systemPrompt }];
+            let lastRole = 'system';
+            for (const m of historyMessages) {
+                let role, content;
+                if (m.type === 'text') {
+                    role = m.role === 'user' ? 'user' : 'assistant';
+                    content = m.text;
+                } else if (m.type === 'confirm' && m.decided) {
+                    role = 'assistant';
+                    content = m.decided === 'saved'
+                        ? '[' + m.draft.title + ' was confirmed and saved. That intent is complete.]'
+                        : '[Draft was discarded -- nothing was saved.]';
+                } else {
+                    continue;
+                }
+                if (role === lastRole && apiMessages.length > 1) {
+                    apiMessages[apiMessages.length - 1].content += '\n' + content;
+                } else {
+                    apiMessages.push({ role, content });
+                    lastRole = role;
+                }
+            }
+            apiMessages.push({ role: 'user', content: userText });
+
+            const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch };
+            return await sendToProvider(apiMessages, cfg);
+        },
+
+        // Extraction-only model call for Track B. Minimal context: schema + user message.
+        // No persona, no history, no fact package. Returns parsed JSON object or null; never throws.
+        async _extractFields(userText, detectedIntent, dynamicCtx) {
+            try {
+                const flow = WRITE_FLOWS[detectedIntent];
+                if (!flow || !flow.extractionInstruction) return null;
+
+                const systemContent = 'Extract structured data from the user message. Return ONLY valid JSON, no prose, no explanation, nothing else.\n' +
+                    (dynamicCtx ? dynamicCtx + '\n' : '') +
+                    flow.extractionInstruction;
+
+                const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: false };
+                const reply = await sendToProvider(
+                    [{ role: 'system', content: systemContent }, { role: 'user', content: userText }],
+                    cfg
+                );
+
+                // Parse JSON from reply
+                let parsed = null;
+                const raw = reply.trim();
+                const fenceMatch = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+                const cleanStr = fenceMatch ? fenceMatch[1].trim() : raw;
+                try { parsed = JSON.parse(cleanStr); } catch (e) {
+                    parsed = this._extractFirstJson(cleanStr);
+                }
+                return parsed;
+            } catch (e) {
+                return null; // Extraction failure is silently handled -- prose reply stands alone
+            }
+        },
+
+        // Builds the numbered task/checklist list used in the extraction call context
+        // for complete_task and mark_checklist. Empty string for other intents.
+        _buildDynamicContext(detectedIntent) {
+            if (detectedIntent === 'complete_task' && _taskCache && _taskCache.length) {
+                return 'Current pending task list (1-based numbers):\n' +
+                    _taskCache.map((t, i) => `${i + 1}. ${t.name}`).join('\n') + '\n';
+            }
+            if (detectedIntent === 'mark_checklist' && _checklistCache && _checklistCache.length) {
+                const blockOrder = ['morning', 'afternoon', 'night', 'sleep'];
+                const grouped = {};
+                for (const c of _checklistCache) {
+                    const bk = c.block || 'other';
+                    if (!grouped[bk]) grouped[bk] = [];
+                    grouped[bk].push(c);
+                }
+                let lines = "Today's routine checklist items (grouped by block, 1-based numbers within each block):\n";
+                for (const bk of blockOrder) {
+                    if (!grouped[bk] || !grouped[bk].length) continue;
+                    lines += bk.charAt(0).toUpperCase() + bk.slice(1) + ':\n';
+                    grouped[bk].forEach((c, i) => { lines += `  ${i + 1}. ${c.name}\n`; });
+                }
+                if (grouped['other'] && grouped['other'].length) {
+                    lines += 'Other:\n';
+                    grouped['other'].forEach((c, i) => { lines += `  ${i + 1}. ${c.name}\n`; });
+                }
+                return lines;
+            }
+            return '';
+        },
+
+        // Converts extraction output into a confirm card. Routes task/checklist through
+        // their dedicated client-side resolution handlers; all others use the generic path.
+        _buildAndPushConfirmCard(parsed, detectedIntent) {
+            const intent = (parsed && parsed.intent) || detectedIntent;
+            if (!intent || !WRITE_FLOWS[intent]) return;
+
+            if (intent === 'complete_task') {
+                this._handleTaskCompletion(parsed.fields || {}, this._currentProviderLabel());
+                return;
+            }
+            if (intent === 'mark_checklist') {
+                this._handleChecklistMarking(parsed.fields || {}, this._currentProviderLabel());
+                return;
+            }
+
+            const flow = WRITE_FLOWS[intent];
+            const fields = sanitizeDraftFields(intent, parsed.fields);
+            if (!fields || Object.keys(fields).length === 0) return;
+
+            const fieldRows = flow.fields
+                .filter(f => fields[f.key] !== undefined)
+                .map(f => ({ k: f.label, v: String(fields[f.key]) }));
+
+            this._pushMessage({
+                role: 'assistant',
+                type: 'confirm',
+                draft: { title: flow.title, icon: flow.icon, fields: fieldRows, flowKey: intent, rawFields: fields },
+                decided: null
+            });
+            this._speak('Got it — tap Confirm to save.');
+        },
+
+        // Task-name lookup for explain_task quick action (pendingUseCase).
+        // Always clears pendingUseCase at the start, whether or not a match is found.
         async _handleTaskLookup(text) {
+            this.pendingUseCase = null; // Always clear -- one attempt, then normal routing resumes
             this.thinking = true;
             try {
                 const tasks = await DB.Tasks.listActive();
                 const match = tasks.find(t => t.name.toLowerCase().includes(text.toLowerCase()));
                 if (!match) {
-                    this._pushAssistantText(`I couldn't find a task matching "${text}" -- try typing more of its exact name.`);
+                    this._pushAssistantText(`I couldn't find a task matching "${text}" -- try typing more of its exact name, or ask me anything else.`);
                     this.thinking = false;
                     return;
                 }
-                this.pendingUseCase = null;
                 await this._askModel(`Break down the task "${match.name}" into 3-6 concrete sub-steps.`, 'explain_task', match.id);
             } catch (e) {
                 this.thinking = false;
@@ -242,11 +488,11 @@ export function atlasAi() {
             }
         },
 
+        // Track C normal chat + explain_task breakdown. Pure prose, no extraction instruction.
         async _askModel(userText, factUseCase, entityId) {
             this.thinking = true;
             try {
                 const pkg = await buildFactPackage(factUseCase, entityId);
-                // Cache task/checklist arrays from explain_day packages for client-side resolution
                 if (pkg._taskList) _taskCache = pkg._taskList;
                 if (pkg._checklistItems) _checklistCache = pkg._checklistItems;
                 if (pkg._checklistDate != null) _checklistDate = pkg._checklistDate;
@@ -254,53 +500,8 @@ export function atlasAi() {
                 const notebookCtx = getNotebookContext();
                 let systemPrompt = buildSystemPrompt(this.persona, notebookCtx);
                 systemPrompt += '\n\n## FACTS AVAILABLE IF RELEVANT (do not mention these for a greeting or small talk)\n' + JSON.stringify(pkg.facts, null, 1);
+                // No extraction instruction in Track C -- extraction is only for Track B's parallel call
 
-                // Client-side pre-classification: only attach the extraction
-                // instruction that matches this message's intent. Sending both
-                // sleep and workout instructions every time -- especially with
-                // sleep values in the conversation history -- primes the model
-                // to anchor on the wrong intent. When neither keyword set
-                // matches, skip extraction instructions entirely so the model
-                // just replies in prose.
-                const detectedIntent = this._detectIntent(userText);
-                if (detectedIntent) {
-                    systemPrompt += '\n\n## DATA LOGGING (apply ONLY because this message matches "' + detectedIntent + '")\n';
-                    // For complete_task and mark_checklist, prepend the current list
-                    // so the model knows exactly what names/numbers to extract
-                    let dynamicCtx = '';
-                    if (detectedIntent === 'complete_task' && _taskCache && _taskCache.length) {
-                        dynamicCtx = 'Current pending task list (use these 1-based numbers only):\n' +
-                            _taskCache.map((t, i) => `${i + 1}. ${t.name}`).join('\n') + '\n';
-                    } else if (detectedIntent === 'mark_checklist' && _checklistCache && _checklistCache.length) {
-                        const blockOrder = ['morning', 'afternoon', 'night', 'sleep'];
-                        const grouped = {};
-                        for (const c of _checklistCache) {
-                            const bk = c.block || 'other';
-                            if (!grouped[bk]) grouped[bk] = [];
-                            grouped[bk].push(c);
-                        }
-                        let lines = "Today's routine checklist items (grouped by block with per-block numbers):\n";
-                        for (const bk of blockOrder) {
-                            if (!grouped[bk] || !grouped[bk].length) continue;
-                            lines += bk.charAt(0).toUpperCase() + bk.slice(1) + ':\n';
-                            grouped[bk].forEach((c, i) => { lines += `  ${i + 1}. ${c.name}\n`; });
-                        }
-                        if (grouped['other'] && grouped['other'].length) {
-                            lines += 'Other:\n';
-                            grouped['other'].forEach((c, i) => { lines += `  ${i + 1}. ${c.name}\n`; });
-                        }
-                        dynamicCtx = lines;
-                    }
-                    systemPrompt += dynamicCtx + WRITE_FLOWS[detectedIntent].extractionInstruction;
-                }
-
-                // Build conversation history for the model. Exclude the
-                // current userText -- it was already pushed to this.messages
-                // by sendMessage() before _askModel was called, so we slice
-                // to -1 to avoid sending it twice (duplicate user turns cause
-                // Gemini to reject or misbehave). Confirm cards are included
-                // as a brief "[saved / discarded]" note -- NO field values,
-                // so prior sleep numbers don't prime the model for a workout.
                 const historyMessages = this.messages.slice(0, -1).slice(-14);
                 const apiMessages = [{ role: 'system', content: systemPrompt }];
                 let lastRole = 'system';
@@ -311,14 +512,12 @@ export function atlasAi() {
                         content = m.text;
                     } else if (m.type === 'confirm' && m.decided) {
                         role = 'assistant';
-                        // Intentionally omit field values to prevent value anchoring
                         content = m.decided === 'saved'
                             ? '[' + m.draft.title + ' was confirmed and saved. That intent is complete.]'
-                            : '[Draft was discarded — nothing was saved.]';
+                            : '[Draft was discarded -- nothing was saved.]';
                     } else {
                         continue;
                     }
-                    // Merge consecutive same-role messages (Gemini requires strict alternation)
                     if (role === lastRole && apiMessages.length > 1) {
                         apiMessages[apiMessages.length - 1].content += '\n' + content;
                     } else {
@@ -326,14 +525,11 @@ export function atlasAi() {
                         lastRole = role;
                     }
                 }
-                // Ensure last message before the new user turn is 'assistant'
-                // if the history ended on 'user' (can happen if history was
-                // empty or all same-role); just append user turn directly.
                 apiMessages.push({ role: 'user', content: userText });
 
                 const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: this.webSearch };
                 const reply = await sendToProvider(apiMessages, cfg);
-                this._handleModelReply(reply, this._currentProviderLabel());
+                this._pushAssistantText(reply, this._currentProviderLabel());
             } catch (e) {
                 this._pushAssistantText('Atlas AI is unavailable right now (' + e.message + '). Check the provider in settings, or try the other one.');
             }
@@ -361,84 +557,33 @@ export function atlasAi() {
             return null;
         },
 
+        // Client-side intent classifier. Determines which write flow (if any) a message
+        // belongs to, before any model call. Only handles the five model-backed flows;
+        // save_ai_memory is handled upstream by _isMemorySaveRequest().
         _detectIntent(text) {
             const t = text.toLowerCase();
-            const w = /\b(workout|exercise|training|cardio|strength|calories|gym|leg\s*day|push\s*day|pull\s*day|run(ning)?|jog(ging)?|swim(ming)?|cycling|lift(ing)?|weights?|squats?|deadlifts?|bench|hiit|yoga|burned|reps|sets|treadmill)\b/.test(t);
-            const s = /\b(sle(ep|pt)|nap(ped)?|sleep\s*score|deep\s*sleep|rem\b|resting\s*(heart\s*rate|hr)|hrv|heart\s*rate\s*variability|woke\s*up|bed\s*time|hours?\s+(of\s+)?sleep)\b/.test(t);
+            const w = /\b(workout|exercise|training|cardio|strength|calories|gym|leg\s*day|push\s*day|pull\s*day|run(ning)?|jog(ging)?|swim(ming)?|cycling|lift(ing)?|weights?|squats?|deadlifts?|bench|hiit|yoga|burned|reps|sets|treadmill|session|went\s+to\s+(the\s+)?gym|personal\s+record|PR\b|vo2)\b/.test(t);
+            const s = /\b(sle(ep|pt)|nap(ped)?|sleep\s*score|deep\s*sleep|rem\b|resting\s*(heart\s*rate|hr)|hrv|heart\s*rate\s*variability|woke\s*up|bed\s*time|hours?\s+(of\s+)?sleep|fell\s+asleep|night\s+was|slept\s+(well|poorly|badly|great))\b/.test(t);
             if (w && !s) return 'log_workout';
             if (s && !w) return 'log_sleep';
-            // Task completion: requires "task" word + a clear completion verb
+            // Task completion: clear "task is done" language
             if (/\btask\b/.test(t) && /\b(done|finish(ed)?|complet(e|ed)?|mark(ed)?(\s+done)?)\b/.test(t)) return 'complete_task';
-            // AI Memory save: explicit "save/remember this to memory/notebook"
-            if (/\b(save|remember|store|note)\b/.test(t) && /\b(memory|notebook|your memory)\b/.test(t)) return 'save_ai_memory';
-            if (/\bremember\s+this\b/.test(t)) return 'save_ai_memory';
-            // Checklist marking: "mark checklist/routine/morning/afternoon/night items" or "skipped" or "I did"
+            if (/\b(finish(ed)?|complet(e|ed)?|done\s+with|knocked?\s+out)\b/.test(t) && /\btask\b/.test(t)) return 'complete_task';
+            // Checklist marking
             if (/\bmark\b/.test(t) && /\b(checklist|routine|morning|afternoon|night|items?)\b/.test(t)) return 'mark_checklist';
             if (/\bskipped?\b/.test(t) && !w && !s) return 'mark_checklist';
             if (/\bi\s+(did|completed|finished)\b/.test(t) && !/\btask\b/.test(t) && !w && !s) return 'mark_checklist';
             // Journal: emotional/reflective language
             if (/\b(felt|feeling|i\s+feel)\b/.test(t)) return 'journal_reflection';
-            if (/\btoday\s+was\b/.test(t)) return 'journal_reflection';
+            if (/\btoday\s+(was|felt|went)\b/.test(t)) return 'journal_reflection';
+            if (/\b(rough|good|great|bad|hard|tough)\s+day\b/.test(t)) return 'journal_reflection';
             if (/\b(mark|write|log)\s+(my\s+)?journal\b/.test(t)) return 'journal_reflection';
+            if (/\b(had\s+a\s+moment|want\s+to\s+note|reflecting\s+on|i\s+want\s+to\s+write)\b/.test(t)) return 'journal_reflection';
             if (/\bi(?:'m|\s+am)\s+(proud|grateful|anxious|tired|happy|sad|frustrated|excited|worried|stressed|calm|confident|overwhelmed|relieved|energised?|drained|exhausted|burnt\s*out|motivated|depressed|lonely|content|hopeful|irritated)\b/.test(t)) return 'journal_reflection';
             return null;
         },
 
-        _handleModelReply(reply, providerLabel) {
-            let parsed = null;
-            let jsonStr = reply.trim();
-            const fenceMatch = jsonStr.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
-            if (fenceMatch) jsonStr = fenceMatch[1].trim();
-            try { parsed = JSON.parse(jsonStr); } catch (e) {
-                parsed = this._extractFirstJson(jsonStr);
-            }
-
-            if (parsed && parsed.intent && WRITE_FLOWS[parsed.intent]) {
-                // Dedicated handlers for flows that need client-side resolution before the confirm card
-                if (parsed.intent === 'complete_task') {
-                    this._handleTaskCompletion(parsed.fields || {}, providerLabel);
-                    return;
-                }
-                if (parsed.intent === 'mark_checklist') {
-                    this._handleChecklistMarking(parsed.fields || {}, providerLabel);
-                    return;
-                }
-                // Generic WRITE_FLOWS path (log_workout, log_sleep, journal_reflection)
-                const flow = WRITE_FLOWS[parsed.intent];
-                const fields = sanitizeDraftFields(parsed.intent, parsed.fields);
-                if (!fields || Object.keys(fields).length === 0) {
-                    this._pushAssistantText("I heard that as a log entry but couldn't pull out any real values -- want to try again with the specific numbers?", providerLabel);
-                    return;
-                }
-                const fieldRows = flow.fields
-                    .filter(f => fields[f.key] !== undefined)
-                    .map(f => ({ k: f.label, v: String(fields[f.key]) }));
-                this._pushMessage({
-                    role: 'assistant',
-                    type: 'confirm',
-                    draft: { title: flow.title, icon: flow.icon, fields: fieldRows, flowKey: parsed.intent, rawFields: fields },
-                    decided: null
-                });
-                this._speak('Got it. I\'ve drafted that for you — tap Confirm to save.');
-                return;
-            }
-            this._pushAssistantText(reply, providerLabel);
-            // False-save warning: fires when the model claims to have saved
-            // workout/sleep data in prose (no confirm card). But suppress it
-            // if a confirm card for that intent already exists and was
-            // confirmed earlier in this session — that means the save DID
-            // happen; the model is just (annoyingly) re-confirming it.
-            if (/\b(log(ged|ging)?|sav(ed|ing)|record(ed|ing)|draft(ed)?)\b/i.test(reply) && /\b(sleep|workout|exercise|duration|hours?\s+(of\s+)?sleep)\b/i.test(reply)) {
-                const alreadySaved = this.messages.some(m => m.type === 'confirm' && m.decided === 'saved' && (m.draft.flowKey === 'log_workout' || m.draft.flowKey === 'log_sleep'));
-                if (!alreadySaved) {
-                    this._pushAssistantText('⚠ Note: nothing was actually saved to Atlas. To log data, try again with the details (e.g. "slept 7 hours, score 80") and I\'ll show a confirm card you can tap to save.', null);
-                }
-            }
-        },
-
         // Resolves a task-completion intent against the cached task list.
-        // Conservative: number = 1-based index only; name = exact normalized match only.
-        // Ambiguous or unresolvable → prose clarification, no confirm card.
         _handleTaskCompletion(fields, providerLabel) {
             if (!_taskCache || !_taskCache.length) {
                 this._pushAssistantText("I don't have the task list loaded yet -- try sending your message again.", providerLabel);
@@ -475,12 +620,10 @@ export function atlasAi() {
                 },
                 decided: null
             });
-            this._speak('Found it — ' + task.name + '. Tap Confirm to mark it done.');
+            this._speak('Found it -- ' + task.name + '. Tap Confirm to mark it done.');
         },
 
         // Resolves a checklist-marking intent against today's cached items.
-        // Resolution priority: block+number > flat number > exact name match.
-        // Any single unresolved item blocks the ENTIRE confirm card -- no partial writes.
         _handleChecklistMarking(fields, providerLabel) {
             if (!_checklistCache || !_checklistCache.length) {
                 this._pushAssistantText("I don't have today's routine items loaded -- try sending your message again.", providerLabel);
@@ -491,7 +634,6 @@ export function atlasAi() {
                 return;
             }
             const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
-            // Build block-grouped index for number resolution
             const blockOrder = ['morning', 'afternoon', 'night', 'sleep'];
             const byBlock = {};
             for (const c of _checklistCache) {
@@ -503,22 +645,15 @@ export function atlasAi() {
             const unresolved = [];
             for (const item of fields.items) {
                 let match = null;
-                // Try block+number first
                 if (item.block && item.number != null) {
                     const bk = item.block.toLowerCase();
                     const idx = Math.round(Number(item.number)) - 1;
-                    if (byBlock[bk] && idx >= 0 && idx < byBlock[bk].length) {
-                        match = byBlock[bk][idx];
-                    }
+                    if (byBlock[bk] && idx >= 0 && idx < byBlock[bk].length) match = byBlock[bk][idx];
                 }
-                // Try flat number (1-based across all items)
                 if (!match && item.number != null && !item.block) {
                     const idx = Math.round(Number(item.number)) - 1;
-                    if (idx >= 0 && idx < _checklistCache.length) {
-                        match = _checklistCache[idx];
-                    }
+                    if (idx >= 0 && idx < _checklistCache.length) match = _checklistCache[idx];
                 }
-                // Try exact name match
                 if (!match && item.name) {
                     const needle = normalize(item.name);
                     match = _checklistCache.find(c => normalize(c.name) === needle);
@@ -569,12 +704,31 @@ export function atlasAi() {
             if (!flow && flowKey !== 'save_ai_memory') return;
             try {
                 if (flowKey === 'save_ai_memory') {
-                    this._addNotebookEntry('memory', msg.draft.rawFields.summary);
+                    // AI Memory: local write (sync) → verify → awaited cloud push
+                    const summary = msg.draft.rawFields.summary;
+                    this._addNotebookEntry('memory', summary);
+                    // Verify local write landed in the reactive array
+                    if (!this.notebookEntries.length || this.notebookEntries[0].text !== summary) {
+                        throw new Error('Memory entry could not be confirmed locally');
+                    }
+                    // Await the cloud push (not fire-and-forget for AI Memory)
+                    await pushNotebook(this.notebookEntries);
                 } else {
+                    // All other flows: write is verified inside flow.write() (uses verifiedInsert/Update)
                     await flow.write(msg.draft.rawFields);
+                    // Dispatch cross-component refresh event so Today page panels update without reload
+                    if (flowKey === 'log_workout' || flowKey === 'log_sleep' ||
+                        flowKey === 'complete_task' || flowKey === 'mark_checklist') {
+                        window.dispatchEvent(new CustomEvent('atlas:data-changed', { detail: { source: flowKey } }));
+                    }
                 }
                 msg.decided = 'saved';
-                this._speak('Saved.');
+                if (flowKey === 'save_ai_memory') {
+                    // Auto-switch to notebook so the user sees the new entry immediately
+                    this.view = 'notebook';
+                    this._pushAssistantText('Saved to your Memory Notebook.');
+                }
+                this._speak('Done.');
             } catch (e) {
                 msg.decided = null;
                 this.errorMsg = 'Save failed: ' + e.message;
@@ -633,7 +787,7 @@ export function atlasAi() {
             } catch (e) { /* fallback summary already set above */ }
             const first = this.notebookEntries[this.notebookEntries.length - 1];
             const last = this.notebookEntries[0];
-            this.notebookEntries = [{ type: 'compact', date: `covers ${first.date}–${last.date}`, text: summary }];
+            this.notebookEntries = [{ type: 'compact', date: `covers ${first.date}--${last.date}`, text: summary }];
             saveNotebookLocal(this.notebookEntries);
             pushNotebook(this.notebookEntries);
         },
@@ -641,7 +795,7 @@ export function atlasAi() {
         _addNotebookEntry(type, text) {
             this.notebookEntries.unshift({ type, date: dayLabel(todayIsoDate()) === 'Today' ? new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : todayIsoDate(), text });
             saveNotebookLocal(this.notebookEntries);
-            pushNotebook(this.notebookEntries);
+            pushNotebook(this.notebookEntries); // fire-and-forget for pin/session/compact; confirmDraft awaits separately for save_ai_memory
         },
         deleteNotebookEntry(i) {
             this.notebookEntries.splice(i, 1);
@@ -679,11 +833,6 @@ export function atlasAi() {
             speechRecognition.start();
         },
 
-        // Keyboard shortcut for voice, requested directly: Alt+M toggles
-        // listening on/off, same underlying toggleVoice() the mic button
-        // calls -- a second way in if the mic button itself isn't
-        // registering a click for some reason (small touch target, focus
-        // stolen by the composer, etc.), and a faster path for repeat use.
         handleGlobalKey(event) {
             if (!this.panelOpen || this.view !== 'chat') return;
             if (event.altKey && event.key.toLowerCase() === 'm') {
@@ -730,11 +879,6 @@ export function atlasAi() {
             this.personaSaved = true;
             setTimeout(() => { this.personaSaved = false; }, 1500);
         },
-        // Discards any unsaved edits in the textareas by reloading the last
-        // saved copy from storage -- the fields are bound with x-model but
-        // never auto-save on their own now, only the explicit Save button
-        // does (Abhishek's feedback: editing without a visible Save felt
-        // like the edits weren't really being kept).
         reloadPersona() {
             this.persona = loadPersona();
         }
