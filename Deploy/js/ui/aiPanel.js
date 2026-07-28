@@ -234,7 +234,7 @@ export function atlasAi() {
             // Track A: AI Memory save -- no model call needed
             if (this._isMemorySaveRequest(text)) {
                 this._pushMemoryConfirmCard(text);
-                return;
+                // Removed return; to let the model generate a conversational reply
             }
 
             // Track B: Write-flow intent -- parallel extraction + prose

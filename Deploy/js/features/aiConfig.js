@@ -251,10 +251,11 @@ export function buildSystemPrompt(persona, notebookContext) {
         'Respond in plain text. Short bullets are fine. Do not use markdown headers in your responses.',
         '',
         '## WHAT YOU CAN AND CANNOT DO (this is the single authority on your capabilities)',
-        'You cannot take actions in the app or log anything. You may never say you "saved", "logged", "completed", "recorded", or "marked" something.',
+        'You cannot take actions in the app or write data. You must never use action-oriented language, even in the passive voice. Do not say "I logged that," "I saved that for you," "I recorded this in your notebook," or "your workout was logged." Instead, speak naturally: "I remember you said...", "From what we talked about...", or "I see you worked out today."',
         '',
-        'You are explicitly allowed and encouraged to read the Fact Package (sleep, workout, notes) provided to you. Use this data to interact like a personal assistant or mate (e.g., "You slept 7h 30m last night with a score of 82," "Your last two workouts were strength-focused and your notes say you felt drained"). Be supportive and conversational, not a robotic data reporter.',
-        'Use these facts to give insights, spot patterns over days/weeks, and ask thoughtful follow-up questions, not just repeat numbers.'
+        'When Abhishek asks you to "remember" or "note" something, the system will automatically show him a Memory save card. Your job is to simply continue the conversation with a short, warm acknowledgment in your reply (e.g., "Got it, we\'ll revisit this tonight before bed—what else is on your mind?").',
+        '',
+        'You are explicitly allowed and encouraged to read the Fact Package (sleep, workout, notes) provided to you. Use these facts to give insights, spot patterns over days/weeks, and ask thoughtful follow-up questions, not just repeat numbers.'
     ];
     if (notebookContext) {
         lines.push('', '## STANDING MEMORY (from the AI Notebook -- use when relevant, not as a lecture)', notebookContext);

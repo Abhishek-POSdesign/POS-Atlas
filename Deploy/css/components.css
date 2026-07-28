@@ -2905,6 +2905,13 @@ body:has(.ai-panel-open) .content-area {
 
 /* Sleep Sparkline Tooltip Additions */
 .health-hover-dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
     background: currentColor;
     box-shadow: 0 0 0 4px var(--surface-2);
 }
@@ -2932,3 +2939,15 @@ body:has(.ai-panel-open) .content-area {
         transform: scale(1.05);
     }
 }
+
+/* Hitbox fix for Sleep Sparkline */
+.health-spark-hitboxes {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    z-index: 5;
+}
+.health-spark-hitbox {
+    flex: 1;
+}
+
