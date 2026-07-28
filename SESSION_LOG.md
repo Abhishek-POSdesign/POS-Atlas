@@ -32,6 +32,41 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-28 · Claude Code (Sonnet 4.6) — AI action-layer rebuild: two-call extraction architecture
+
+**Session scope:** Took over after all 6 AI write flows failed in live testing. Diagnosed root cause, wrote a comprehensive recovery plan (approved by user), implemented it.
+
+**Root cause confirmed:** All 6 write flows failed because the model received a single prompt containing both "CONVERSATION FIRST" (dominant persona instruction, added 2026-07-29 to fix robot tone) AND "respond with ONLY JSON" (extraction instruction). The conversational instruction always won — model returned prose, no confirm card appeared, nothing was saved. `pendingUseCase = 'explain_task'` also trapped all subsequent messages in task-name lookup with no escape.
+
+**Architecture change (two-call separation):**
+- Write-intent messages now fire TWO parallel calls via `Promise.allSettled()`:
+  1. **Extraction call** — minimal prompt (schema only, no persona, no history). Can't be pulled toward prose. Returns JSON or null.
+  2. **Prose call** — full persona + history, zero extraction instruction. Returns natural conversational reply.
+- Prose reply is always displayed. Confirm card appears only when extraction returns valid fields.
+- This eliminates the conflict entirely: the model that writes JSON never sees persona; the model that talks naturally never sees the schema.
+
+**Track A (AI Memory — no model call):** Client-side phrase detection (`_isMemorySaveRequest()`) catches "save this", "remember that", etc. before any model call. Pushes confirm card immediately with user's own text. `confirmDraft()` now awaits `pushNotebook()` (was fire-and-forget) and verifies the local write before speaking.
+
+**pendingUseCase fix:** `_handleTaskLookup()` now resets `pendingUseCase = null` at the very top, unconditionally. 90-second auto-expiry (`_pendingUseCaseExpiry`) added at `sendMessage()`. One attempt, then normal routing resumes regardless of match.
+
+**Cross-component refresh:** `confirmDraft()` dispatches `atlas:data-changed` custom event after workout/sleep/task/checklist writes. `today.js init()` listens and calls `this.load()` so panels update without a manual reload.
+
+**What shipped (commits):**
+- `c13a0ab` — fix: rebuild AI action layer -- two-call extraction, Track A memory, pendingUseCase trap
+
+**Files changed:** `Deploy/js/ui/aiPanel.js` (full architectural rewrite), `Deploy/js/features/aiContext.js` (extractionInstruction strings cleaned for extraction-only context; save_ai_memory.write() changed from throw to no-op), `Deploy/js/pages/today.js` (atlas:data-changed listener), `Deploy/service-worker.js` (cache v55).
+
+**What's still open (live testing NOT yet done):**
+- All 6 flows need live testing on `atlas.abhisheksikka.com` per the test matrix in the approved plan
+- Test matrix: Test 1 (pendingUseCase escape), Test 2 (workout), Test 3 (sleep), Test 4 (task completion), Test 5 (checklist marking), Test 6 (journal reflection), Test 7 (AI Memory — including reload + second-browser persistence check), Test 8 (no false save language in prose after confirmed write)
+- Google Cloud TTS still deferred (unchanged)
+
+**What NOT to do:**
+- Do NOT merge the extraction instruction back into the prose system prompt — that's the root cause of every prior failure. The two-call separation is load-bearing.
+- Do NOT reintroduce fire-and-forget for AI Memory cloud push in `confirmDraft()` — it's now awaited intentionally.
+
+---
+
 ## 2026-07-28 · Claude Code (Opus 4.6) — FAILED: AI voice-write flows do not work in real use
 
 **Session scope:** Fix all 6 issues from live testing of the pre-trial AI bundle. Two fix rounds shipped (`e5b603f`, `c5eb8fd`). Abhishek tested after each round. Result: **all AI voice-write flows failed in real use.**
