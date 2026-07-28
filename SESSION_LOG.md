@@ -32,6 +32,46 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-28 · Claude Code (Opus 4.6) — FAILED: AI voice-write flows do not work in real use
+
+**Session scope:** Fix all 6 issues from live testing of the pre-trial AI bundle. Two fix rounds shipped (`e5b603f`, `c5eb8fd`). Abhishek tested after each round. Result: **all AI voice-write flows failed in real use.**
+
+**What was tested by Abhishek and FAILED:**
+
+1. **Workout logging — FAILED.** First round: confirm card appeared but only captured 4 of 6 DB fields (missing `vo2_max`, `workout_type` — they got crammed into `note`). Second round (after field fix): the app got stuck in `pendingUseCase = 'explain_task'` mode (the "Break down a task" quick action was left active), so every message was routed to `_handleTaskLookup()` instead of `_askModel()` — Atlas responded "I couldn't find a task matching..." to every workout dictation. The user could not log a workout at all.
+2. **AI Memory Notebook save — FAILED.** The confirm card appeared and showed "Saved", but Abhishek checked the AI Notebook view and the entry was NOT there. The `_addNotebookEntry('memory', summary)` call in `confirmDraft()` either silently failed or the notebook view wasn't re-rendering. Not investigated further.
+3. **Task completion — NOT re-tested** this round (worked in earlier rounds but untested after these changes).
+4. **Checklist marking — described as "in testing phase"** by Abhishek — uncertain if reliable.
+5. **Journal reflection — NOT tested** by Abhishek (lowest priority).
+6. **False save claims — PARTIALLY FIXED.** The false-save warning no longer fires after a confirmed save, but the model still responds in prose re-confirming saves that already happened.
+
+**Known root cause of the workout failure (second round):**
+The `pendingUseCase` state variable (`aiPanel.js` line 78) is set to `'explain_task'` when the "Break down a task" quick action fires. Once set, `sendMessage()` routes ALL subsequent messages through `_handleTaskLookup()` — which only tries to match against task names, not process workout/sleep/checklist intents. The only way to exit this mode is if a task IS found (then `pendingUseCase` is set to `null`). There is no timeout, no cancel, and no way for the user to escape it. This is a fundamental routing bug: once `pendingUseCase` is set, the entire AI panel becomes a task-name matcher and nothing else works.
+
+**Known root cause of the AI Memory failure:**
+Not fully investigated. The `_addNotebookEntry()` method writes to localStorage and pushes to cloud. Possible causes: (1) the notebook view component (`notebook.js`) loads its entries from `loadNotebookLocal()` on init but may not reactively update when entries are added from the AI panel; (2) the cloud push may have silently failed; (3) the entry may have been written under a key/format the notebook view doesn't display.
+
+**What shipped (commits) — code changes only, not confirmed working:**
+- `e5b603f` — fix: resolve 6 live-test bugs (workout resurrection, AI rules, checklist numbers, voice, memory save, journal detection)
+- `c5eb8fd` — fix: workout missing fields (vo2_max, workout_type) + stop false save claims
+
+**Workout delete resurrection — the ONE fix that worked:**
+Abhishek confirmed workout deletion no longer resurrects the entry. This fix (`setWorkoutDayType()` passing explicit nulls) is solid.
+
+**Abhishek's verdict:** "I give up." He has burned too many tokens on the same issues across multiple sessions. The AI voice-write flows are not reliable enough for real use. He is considering moving to another developer for this work.
+
+**Honest assessment for the next session:**
+The AI write-flow architecture (detect intent → extract JSON → confirm card → write) has too many failure modes in practice:
+- `_detectIntent()` regex misses real input patterns.
+- `pendingUseCase` state can trap the entire panel in the wrong mode with no escape.
+- The model doesn't reliably return JSON even with explicit extraction instructions — it often replies in prose instead, which means nothing gets saved.
+- The confirm card → real write path works mechanically, but getting TO the confirm card is unreliable.
+- The false-save warning creates confusion when it fires after a real save already happened.
+
+**Recommendation for next session:** Before attempting any more AI write-flow fixes, the fundamental routing in `sendMessage()` / `_askModel()` needs to be restructured. The `pendingUseCase` trap must be fixed (add a timeout or cancel mechanism). The `_detectIntent()` approach (client-side regex) may not be robust enough — consider letting the model itself classify intent from the full system prompt context instead of pre-filtering.
+
+---
+
 ## 2026-07-28 · Claude Code (Opus 4.6) — Fix 6 live-test bugs: workout resurrection, AI rules, checklist numbers, voice, memory save, journal detection
 
 **Session scope:** Deep investigation and fix of all 6 issues surfaced by Abhishek's live testing of the pre-trial bundle (commit `932a403`). All fixes shipped in one commit, no new features.
