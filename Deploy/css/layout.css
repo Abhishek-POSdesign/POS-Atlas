@@ -49,3 +49,20 @@
     max-width: 1200px;
     margin: 0 auto;
 }
+
+/* Fixed 2026-07-29, whole-app mobile bug: the sticky header (present on
+   every page) never wrapped or shrank -- .logo + .wordmark on the left,
+   two icon buttons + the username text + theme toggle + sign-out on the
+   right, all at a fixed 22px gap, routinely add up to more than a phone's
+   viewport width, forcing the ENTIRE page to scroll horizontally by a few
+   pixels regardless of which tab you're on. The username text is the one
+   purely decorative element here -- dropping it below 480px is enough to
+   bring the row back under typical phone widths without touching anything
+   page-specific. */
+@media (max-width: 480px) {
+    .top-header { padding: 12px var(--pad-md); }
+    .header-actions { gap: 10px; }
+    .user-name { display: none; }
+    .top-tabs { gap: 14px; padding: 6px var(--pad-md); }
+    .content-area { padding: var(--pad-lg) var(--pad-md); }
+}

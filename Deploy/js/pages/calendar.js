@@ -180,6 +180,8 @@ export function calendarPage(nav) {
         iconSvg(name) { return ICON_PATHS[name] || ''; },
 
         toggleCategory(cat) { this.categories[cat] = !this.categories[cat]; },
+        selectAllCategories() { this.categoryDefs.forEach(c => { this.categories[c.key] = true; }); },
+        selectNoCategories() { this.categoryDefs.forEach(c => { this.categories[c.key] = false; }); },
         setRangePreset(r) { this.rangePreset = r; },
 
         selectDate(dateStr) {
@@ -284,7 +286,13 @@ export function calendarPage(nav) {
                 blocks.push({ color: 'lilac', icon: 'note', t1: projCount + ' log' + (projCount === 1 ? '' : 's'), t2: null });
             }
 
-            return { blocks, journal: !!(this.categories.journal && journal) };
+            // Capped at a max of 3 content rows total, always (2026-07-29,
+            // live-testing bug: an unbounded cell with 3 blocks + a journal
+            // line could grow tall enough to stretch its whole grid row and
+            // read as broken/overflowing). Journal only shows in the cell
+            // preview when there's room under that cap -- it's never lost,
+            // Day Detail below always has the full truth regardless.
+            return { blocks, journal: blocks.length < 3 && !!(this.categories.journal && journal) };
         },
 
         // ---- Day Detail: derived from the already-loaded grid window, no

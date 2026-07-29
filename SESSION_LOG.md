@@ -32,6 +32,29 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Sonnet 5) — Live-testing round 4 (small fixes only, per explicit instruction)
+
+**Session scope:** Abhishek re-tested round 3's fixes live and reported which landed vs. which didn't, plus 2 new small items, with an explicit constraint: small/quick fixes only this round, anything needing a big round gets deferred to Phase 2. Went through each of his 8 numbered points:
+
+1. Running Now -- confirmed working, no action.
+2. Workout score/calories/VO2 max -- confirmed editable, but the new field row grew the modal. Compacted into one inline row (placeholders instead of stacked labels, Save button merged inline) instead of a separate stacked block + button row.
+3. Filter dropdown had no select-all/none -- added both as small buttons at the top of the menu (`selectAllCategories()`/`selectNoCategories()` in `calendar.js`).
+4. Range-preset row ("This week"/etc.) read as broken -- root cause: last round's fix moved the explanation into a `title="..."` hover tooltip, which is invisible on touch/mobile and easy to miss on desktop, so the buttons looked like they did nothing. Restored a short **visible** caption underneath instead.
+5. July 26-style cell overflow -- still not resolved by the CSS-only clip from round 3. Real fix this time, in `calendar.js`'s `_cellBlocks()`: the journal line now only renders in the cell preview when fewer than 3 blocks are already present, capping every cell at a hard max of 3 content rows. This removes the tall-cell/row-stretch case entirely rather than trying to clip it after the fact -- Day Detail still always has the full truth regardless of what's hidden in the cell preview.
+6. Today-cell marker still read as ambiguous next to a selected cell -- the round-3 badge fix technically worked but apparently wasn't a strong enough visual signal on its own. Added an explicit "Today" text label next to the date number so there's no room for doubt.
+7. AI TTS markdown stripping -- confirmed working, no action.
+8. Mobile drag was **whole-app, not Calendar-specific** -- traced to the shared sticky header (`css/layout.css`'s `.top-header`/`.header-actions`, present on every page): notebook/restore icons + username text + theme toggle + sign-out, fixed 22px gaps, no wrap, routinely wider than a phone viewport. Hid the username text and tightened gaps/padding below 480px -- a single shared-component fix rather than a per-page audit, which is explicitly deferred (a real whole-app mobile pass is Phase-2 scope per his own "small fix now, big round later" instruction).
+
+**What shipped:** `Deploy/index.html`, `Deploy/css/components.css`, `Deploy/css/layout.css`, `Deploy/js/pages/calendar.js`. Cache bumped `v68` → `v69`.
+
+**What was verified locally:** `node --check` clean on `calendar.js`. HTML tag balance re-checked (all matched). Dev server booted, zero console errors on login screen, stopped without signing in.
+
+**What's still open:** A full whole-app mobile-responsiveness pass (beyond the one shared-header fix above) is explicitly Phase-2 scope, per Abhishek's own instruction this round. Everything else from this list should now be resolved -- if item 5 or 6 still don't look right to him next check, that's the two to look at first (they got structural fixes, not just cosmetic tweaks, so a repeat report there would mean something else is going on).
+
+**What NOT to do:** Don't revert the journal-line row cap in `_cellBlocks()` -- that's the actual fix for the persistent overflow complaint, not the earlier CSS clip attempt. Don't move the range-preset explanation back into a hover-only `title` attribute -- confirmed invisible on mobile, was the actual root cause of "nothing happens when I click."
+
+---
+
 ## 2026-07-29 · Claude Code (Sonnet 5) — Live-testing round 3, Phase 1 officially closed
 
 **Session scope:** Abhishek did a real desktop + mobile pass through the deployed app, reported 5 concrete bugs plus a mobile gap, and made explicit decisions on all 4 urgent audit findings from the earlier entry this same day. This closes Phase 1.

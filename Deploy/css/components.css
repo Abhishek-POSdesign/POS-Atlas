@@ -2984,7 +2984,9 @@ body:has(.ai-panel-open) .content-area {
 /* Range presets -- a hint row for the AI summary range, not a live query
    yet. Blue used as UI chrome for "selected," same non-semantic use as
    the today/selected cell border below -- not a new accent meaning. */
+.range-bar-group { display: flex; flex-direction: column; gap: 4px; }
 .range-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.range-note { font-size: 10.5px; color: var(--text-muted); }
 .range-label { font-size: 11px; color: var(--text-muted); margin-right: 2px; }
 .range-chip { padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: none; color: var(--text-secondary); font-size: 11.5px; font-family: inherit; cursor: pointer; }
 .range-chip.on { background: var(--accent-blue-tint); border-color: var(--accent-blue); color: var(--text-primary); }
@@ -3007,6 +3009,8 @@ body:has(.ai-panel-open) .content-area {
     background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
     box-shadow: var(--shadow-card); padding: 6px; display: flex; flex-direction: column; gap: 1px;
 }
+.cal-filter-menu-actions { display: flex; gap: 4px; padding: 2px 8px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.cal-filter-menu-actions .btn-text { font-size: 11px; padding: 2px 0; }
 .cal-filter-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
 .cal-filter-item:hover { background: var(--surface-2); }
 .cal-filter-item input { margin: 0; flex-shrink: 0; accent-color: var(--accent-blue); }
@@ -3042,7 +3046,11 @@ body:has(.ai-panel-open) .content-area {
    selected on load) without conflicting. */
 .cal-cell.today .cal-cell-num { background: var(--accent-blue); color: var(--surface-1); border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; }
 .cal-cell.selected { background: var(--accent-blue-tint-hover); box-shadow: 0 0 0 2px var(--accent-blue); border-color: var(--accent-blue); }
+.cal-cell-num-row { display: flex; align-items: center; gap: 5px; }
 .cal-cell-num { font-size: 12.5px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+/* Fixed 2026-07-29: the today-badge alone still read as ambiguous next to
+   a selected cell's ring at a glance -- spelling it out removes all doubt. */
+.cal-today-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--accent-blue); }
 
 /* Vivid pass (2026-07-29): each day collapses to up to 3 colored blocks
    instead of flat icon+text lines. Block fill uses the app's existing

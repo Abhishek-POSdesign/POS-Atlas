@@ -1519,14 +1519,14 @@
                                         <div class="stack">
                                             <!-- Day-level summary fields -- workout_score/calories/vo2_max
                                                  already existed as data (read by workoutSummary/hasWorkoutData)
-                                                 with no manual edit path anywhere in the app until now. -->
-                                            <div class="field-row">
-                                                <div class="field"><label>Workout score</label><input type="number" x-model="workoutDetailsForm.score" min="0" max="100"></div>
-                                                <div class="field"><label>Calories</label><input type="number" x-model="workoutDetailsForm.calories" min="0"></div>
-                                                <div class="field"><label>VO2 max</label><input type="number" x-model="workoutDetailsForm.vo2max" min="0" step="0.1"></div>
-                                            </div>
-                                            <div class="modal-actions" style="margin-top: -4px; margin-bottom: 4px;">
-                                                <button class="btn btn-secondary" @click="saveWorkoutDetails()">Save details</button>
+                                                 with no manual edit path anywhere in the app until now. One
+                                                 compact inline row (placeholders, not stacked labels) so this
+                                                 doesn't grow the modal's height (2026-07-29 feedback). -->
+                                            <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+                                                <input type="number" x-model="workoutDetailsForm.score" placeholder="Score" min="0" max="100" style="flex:1; min-width:0;">
+                                                <input type="number" x-model="workoutDetailsForm.calories" placeholder="Calories" min="0" style="flex:1; min-width:0;">
+                                                <input type="number" x-model="workoutDetailsForm.vo2max" placeholder="VO2 max" min="0" step="0.1" style="flex:1; min-width:0;">
+                                                <button type="button" class="btn-text" @click="saveWorkoutDetails()" style="flex-shrink:0;">Save</button>
                                             </div>
                                             <template x-if="workoutSessions.length === 0">
                                                 <div class="empty-state">No sessions logged yet.</div>
@@ -2197,11 +2197,14 @@
                                  whichever you want off. Grid-only; Day Detail always shows
                                  the full truth regardless of these filters. -->
                             <div class="cal-controls-row">
-                                <div class="range-bar" title="Ask Atlas directly for a live summary of this range -- these buttons are a hint, not a query yet.">
-                                    <span class="range-label">AI range:</span>
-                                    <template x-for="r in rangePresetDefs" :key="r.key">
-                                        <button type="button" class="range-chip" :class="{on: rangePreset === r.key}" @click="setRangePreset(r.key)" x-text="r.label"></button>
-                                    </template>
+                                <div class="range-bar-group">
+                                    <div class="range-bar">
+                                        <span class="range-label">AI range:</span>
+                                        <template x-for="r in rangePresetDefs" :key="r.key">
+                                            <button type="button" class="range-chip" :class="{on: rangePreset === r.key}" @click="setRangePreset(r.key)" x-text="r.label"></button>
+                                        </template>
+                                    </div>
+                                    <span class="range-note">Sets the range Atlas uses when you ask it for a summary -- ask it directly, these don't filter the grid.</span>
                                 </div>
                                 <div class="cal-filter-dropdown" @click.outside="filterMenuOpen = false">
                                     <button type="button" class="cal-filter-toggle" @click="filterMenuOpen = !filterMenuOpen" :aria-expanded="filterMenuOpen">
@@ -2210,6 +2213,10 @@
                                         <svg class="cal-filter-chevron" :class="{open: filterMenuOpen}" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
                                     </button>
                                     <div class="cal-filter-menu" x-show="filterMenuOpen" x-cloak>
+                                        <div class="cal-filter-menu-actions">
+                                            <button type="button" class="btn-text" @click="selectAllCategories()">All</button>
+                                            <button type="button" class="btn-text" @click="selectNoCategories()">None</button>
+                                        </div>
                                         <template x-for="c in categoryDefs" :key="c.key">
                                             <label class="cal-filter-item">
                                                 <input type="checkbox" :checked="categories[c.key]" @change="toggleCategory(c.key)">
@@ -2250,7 +2257,10 @@
                                     <div class="cal-grid">
                                         <template x-for="cell in days" :key="cell.date">
                                             <div class="cal-cell" :class="{out: !cell.inMonth, today: cell.isToday, selected: cell.isSelected}" @click="selectDate(cell.date)">
-                                                <span class="cal-cell-num" x-text="cell.day"></span>
+                                                <div class="cal-cell-num-row">
+                                                    <span class="cal-cell-num" x-text="cell.day"></span>
+                                                    <span class="cal-today-label" x-show="cell.isToday">Today</span>
+                                                </div>
                                                 <div class="cal-cell-blocks">
                                                     <template x-for="b in cell.blocks" :key="b.color">
                                                         <div class="cal-block" :class="b.color">
