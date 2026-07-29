@@ -75,7 +75,11 @@ export const DB = {
             return data;
         },
         async getById(id) {
-            const { data, error } = await supabase.from('atlas_projects').select('*').eq('id', id).single();
+            // Fixed 2026-07-29 (Phase 1 close audit): was the only
+            // single-record getter in this file missing the deleted_at
+            // filter -- a stale link/pending-nav to a since-deleted project
+            // would still load and render its old data instead of erroring.
+            const { data, error } = await supabase.from('atlas_projects').select('*').eq('id', id).is('deleted_at', null).single();
             if (error) throw new Error(error.message);
             return data;
         },

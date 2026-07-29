@@ -44,6 +44,14 @@ export function todayPage() {
         workoutSessionsLoading: false,
         workoutSessionForm: { type: 'strength', duration: '', intensity: '', programTag: '', note: '' },
         editingSessionId: null,
+        // Day-level summary fields (2026-07-29, live-testing bug) --
+        // workout_score/calories/vo2_max are real atlas_workout_logs columns
+        // already read/displayed (workoutSummary/hasWorkoutData) and already
+        // nulled by setWorkoutDayType()'s reset patch, but had no manual
+        // edit form anywhere in the app -- the only path that ever wrote
+        // them was the day-type reset (always null) or the AI's deferred
+        // write flow. This form fills that gap.
+        workoutDetailsForm: { score: '', calories: '', vo2max: '' },
 
         // ---- weekly targets ----
         workoutTargets: [],
@@ -618,6 +626,12 @@ export function todayPage() {
             this.showSessionForm = false;
             this.editingSessionId = null;
             this.workoutSessionForm = { type: 'strength', duration: '', intensity: '', programTag: '', note: '' };
+            const e = this.workoutEntry;
+            this.workoutDetailsForm = {
+                score: e && e.workout_score != null ? String(e.workout_score) : '',
+                calories: e && e.calories != null ? String(e.calories) : '',
+                vo2max: e && e.vo2_max != null ? String(e.vo2_max) : ''
+            };
             if (this.workoutEntry) {
                 try {
                     this.workoutSessions = await DB.WorkoutSessions.listForLog(this.workoutEntry.id);
@@ -631,7 +645,20 @@ export function todayPage() {
             this.workoutModalOpen = true;
         },
         closeWorkoutModal() { this.workoutModalOpen = false; },
-        
+        async saveWorkoutDetails() {
+            const toNum = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+            const patch = {
+                workout_score: this.workoutDetailsForm.score === '' ? null : Math.round(toNum(this.workoutDetailsForm.score)),
+                calories: this.workoutDetailsForm.calories === '' ? null : Math.round(toNum(this.workoutDetailsForm.calories)),
+                vo2_max: this.workoutDetailsForm.vo2max === '' ? null : toNum(this.workoutDetailsForm.vo2max)
+            };
+            try {
+                this.workoutEntry = await DB.Workout.save(todayIsoDate(), patch);
+            } catch (e) {
+                this.errorMsg = 'Save failed: ' + e.message;
+            }
+        },
+
         openWorkoutSessionForm(session = null) {
             if (session) {
                 this.editingSessionId = session.id;

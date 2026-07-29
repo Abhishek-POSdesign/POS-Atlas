@@ -1517,6 +1517,17 @@
                                     
                                     <template x-if="!showSessionForm">
                                         <div class="stack">
+                                            <!-- Day-level summary fields -- workout_score/calories/vo2_max
+                                                 already existed as data (read by workoutSummary/hasWorkoutData)
+                                                 with no manual edit path anywhere in the app until now. -->
+                                            <div class="field-row">
+                                                <div class="field"><label>Workout score</label><input type="number" x-model="workoutDetailsForm.score" min="0" max="100"></div>
+                                                <div class="field"><label>Calories</label><input type="number" x-model="workoutDetailsForm.calories" min="0"></div>
+                                                <div class="field"><label>VO2 max</label><input type="number" x-model="workoutDetailsForm.vo2max" min="0" step="0.1"></div>
+                                            </div>
+                                            <div class="modal-actions" style="margin-top: -4px; margin-bottom: 4px;">
+                                                <button class="btn btn-secondary" @click="saveWorkoutDetails()">Save details</button>
+                                            </div>
                                             <template x-if="workoutSessions.length === 0">
                                                 <div class="empty-state">No sessions logged yet.</div>
                                             </template>
@@ -1938,20 +1949,29 @@
                         <template x-if="!loading && project">
                             <div>
 
-                                <!-- Running now (only if there is one) -->
+                                <!-- Running now (all in-progress tasks, not just the first) -->
                                 <!-- Insight Pill (Phase 5 close-out polish) -- replaces the old
                                      .running-card left-edge treatment. Same .ws-section outer
-                                     shell every other workspace section uses, with a single
-                                     Insight Pill inside -- mirrors how a Health panel (.card)
-                                     holds its chips/session pills. -->
-                                <div class="ws-section" x-show="runningTask">
-                                    <div class="insight-pill">
-                                        <div class="insight-pill-head">
-                                            <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg></span>
-                                            <span class="insight-pill-label">Running now</span>
-                                        </div>
-                                        <p class="insight-pill-running-name" x-text="runningTask ? runningTask.name : ''"></p>
-                                        <p class="insight-pill-note" x-show="runningTask && runningTask.running_note" x-text="runningTask ? runningTask.running_note : ''"></p>
+                                     shell every other workspace section uses. Fixed 2026-07-29:
+                                     was a single pill bound to one runningTask -- a second
+                                     in-progress task was invisible here even though it showed
+                                     correctly in the Tasks list. Now one pill per running task,
+                                     each visually separate (own card, own gap), with the same
+                                     4-tier hierarchy the Tasks list below uses: status label,
+                                     kind tag, task name, running note. -->
+                                <div class="ws-section" x-show="runningTasks.length">
+                                    <div class="running-now-list">
+                                        <template x-for="rt in runningTasks" :key="rt.id">
+                                            <div class="insight-pill">
+                                                <div class="insight-pill-head">
+                                                    <span class="insight-pill-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg></span>
+                                                    <span class="insight-pill-label">Running now</span>
+                                                    <span class="trv2-kind task running-now-tag" x-text="rt.kind === 'reminder' ? 'Reminder' : 'Task'"></span>
+                                                </div>
+                                                <p class="insight-pill-running-name" x-text="rt.name"></p>
+                                                <p class="insight-pill-note" x-show="rt.running_note" x-text="rt.running_note"></p>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
 
@@ -2169,23 +2189,36 @@
                         </div>
 
                         <div class="card calendar-page">
-                            <!-- Category filter bar -- grid-only; Day Detail always shows the full truth. -->
-                            <div class="filter-bar">
-                                <template x-for="c in categoryDefs" :key="c.key">
-                                    <button type="button" class="filter-chip" :class="{on: categories[c.key]}" @click="toggleCategory(c.key)">
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(c.icon)"></svg>
-                                        <span x-text="c.label"></span>
+                            <!-- Controls row (2026-07-29, live-testing bug): the always-open
+                                 7-chip category row plus a separate range row read as
+                                 cluttered/two full bands. Now one row: range-preset hint
+                                 chips on the left, category filters collapsed into a
+                                 dropdown menu on the right -- all on by default, toggle
+                                 whichever you want off. Grid-only; Day Detail always shows
+                                 the full truth regardless of these filters. -->
+                            <div class="cal-controls-row">
+                                <div class="range-bar" title="Ask Atlas directly for a live summary of this range -- these buttons are a hint, not a query yet.">
+                                    <span class="range-label">AI range:</span>
+                                    <template x-for="r in rangePresetDefs" :key="r.key">
+                                        <button type="button" class="range-chip" :class="{on: rangePreset === r.key}" @click="setRangePreset(r.key)" x-text="r.label"></button>
+                                    </template>
+                                </div>
+                                <div class="cal-filter-dropdown" @click.outside="filterMenuOpen = false">
+                                    <button type="button" class="cal-filter-toggle" @click="filterMenuOpen = !filterMenuOpen" :aria-expanded="filterMenuOpen">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('filter')"></svg>
+                                        <span x-text="'Filters · ' + activeCategoryCount + '/' + categoryDefs.length"></span>
+                                        <svg class="cal-filter-chevron" :class="{open: filterMenuOpen}" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
                                     </button>
-                                </template>
-                            </div>
-
-                            <!-- Range preset hint row -- UI only; the real range logic lives in aiContext.js's buildExplainHistory. -->
-                            <div class="range-bar">
-                                <span class="range-label">Range for AI summary:</span>
-                                <template x-for="r in rangePresetDefs" :key="r.key">
-                                    <button type="button" class="range-chip" :class="{on: rangePreset === r.key}" @click="setRangePreset(r.key)" x-text="r.label"></button>
-                                </template>
-                                <span class="range-note">Ask Atlas directly for a live summary of this range -- the buttons here are a hint, not a query yet.</span>
+                                    <div class="cal-filter-menu" x-show="filterMenuOpen" x-cloak>
+                                        <template x-for="c in categoryDefs" :key="c.key">
+                                            <label class="cal-filter-item">
+                                                <input type="checkbox" :checked="categories[c.key]" @change="toggleCategory(c.key)">
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(c.icon)"></svg>
+                                                <span x-text="c.label"></span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="cal-head">

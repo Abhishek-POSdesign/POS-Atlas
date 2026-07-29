@@ -53,8 +53,12 @@ export function projectWorkspacePage(nav) {
             }
             this.loading = false;
         },
-        get runningTask() {
-            return this.tasks.find(t => t.status === 'in_progress') || null;
+        // Plural (fixed 2026-07-29, live-testing bug) -- .find() only ever
+        // returned the first in-progress task, so a second running task was
+        // invisible in the "Running now" section despite showing correctly
+        // as "In progress" in the Tasks list below it.
+        get runningTasks() {
+            return this.tasks.filter(t => t.status === 'in_progress');
         },
         get logGroups() {
             return groupByDate(this.logs, l => l.entry_date);
@@ -343,12 +347,18 @@ export function projectWorkspacePage(nav) {
             try {
                 this.project = await DB.Projects.update(this.projectId, { status: 'in_progress' });
                 if (reason) {
-                    await DB.TaskLogs.create({
+                    // Fixed 2026-07-29: was `await this.loadLogs()`, which
+                    // doesn't exist anywhere in this file -- the reopen write
+                    // above already succeeded, but that call always threw,
+                    // so the user saw "Reopen failed" on a reopen that had
+                    // actually worked. Same prepend-locally pattern every
+                    // other TaskLogs.create call in this file already uses.
+                    const logRow = await DB.TaskLogs.create({
                         project_id: this.projectId,
                         entry_type: 'narrative',
                         body: 'Reopened project: ' + reason
                     });
-                    await this.loadLogs();
+                    this.logs = [logRow, ...this.logs];
                 }
             } catch (e) {
                 this.errorMsg = 'Reopen failed: ' + e.message;

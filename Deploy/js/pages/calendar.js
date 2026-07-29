@@ -37,7 +37,8 @@ const ICON_PATHS = {
     bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
     pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>',
     note: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
-    chevron: '<polyline points="9 18 15 12 9 6"/>'
+    chevron: '<polyline points="9 18 15 12 9 6"/>',
+    filter: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'
 };
 
 function fmtDur(mins) {
@@ -74,6 +75,13 @@ export function calendarPage(nav) {
         // UI hint only for now -- the real range logic already lives in
         // aiContext.js's buildExplainHistory / aiPanel.js's _detectHistoryRange.
         rangePreset: 'last10',
+        // Filter dropdown (2026-07-29, live-testing bug -- the always-open
+        // 7-chip row read as cluttered and pushed the range row into a
+        // second visual band). Closed by default, all categories on.
+        filterMenuOpen: false,
+        get activeCategoryCount() {
+            return this.categoryDefs.filter(c => this.categories[c.key]).length;
+        },
 
         // Fetched once (not per-month) purely for the project-name chip on
         // Projects & Work Log rows -- DB.ProjectNotes/TaskLogs only carry

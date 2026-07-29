@@ -32,6 +32,38 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Sonnet 5) — Live-testing round 3, Phase 1 officially closed
+
+**Session scope:** Abhishek did a real desktop + mobile pass through the deployed app, reported 5 concrete bugs plus a mobile gap, and made explicit decisions on all 4 urgent audit findings from the earlier entry this same day. This closes Phase 1.
+
+**Decisions on the 4 audit-urgent items:**
+1. **AI write-flows not actually disabled** -- Abhishek's explicit call: **leave it live**. "Let it be. It is in the trial phase, so let me check. I will have them see how it is working." This is a conscious choice made with full knowledge of the risk (an ordinary chat message can still trigger a real write), not an oversight -- do not silently disable this without him raising it again. He separately reiterated the AI must be genuinely insightful, not a "dumb data reader" -- a quality bar to keep in mind generally, not a specific bug in this pass.
+2. **Workout-session hard-delete** -- Abhishek explicitly does **not** want undo/soft-delete added ("the session is logged on my phone anyway, I can re-edit if I delete by mistake"). New ask instead: confirm day-level workout data can't duplicate ("one day, one dataset") -- verified `DB.Workout.save()` already `.upsert(payload, {onConflict:'entry_date'})`, a real unique constraint on `entry_date`, so this was already structurally guaranteed, no code change needed. He also floated a "lock this day's workout so it can't be edited/deleted" feature, explicitly gated it himself ("if it needs a data set change, just leave it") -- this needs a new column, so it's logged as a **Phase 2 item**, not built now.
+3. **`reopenProject()` false-failure bug** -- approved, fixed.
+4. **`Projects.getById` missing `deleted_at` filter** -- approved, fixed.
+
+**New live-testing bugs found and fixed (all same day):**
+- `Deploy/js/pages/project-workspace.js` -- `runningTask` (singular `.find()`) only ever showed one in-progress task even with two genuinely running simultaneously. Now `runningTasks` (plural `.filter()`), one Insight Pill per task in `index.html`'s new `.running-now-list`, each with the same status/tag/name/notes hierarchy the Tasks list below already uses.
+- `Deploy/js/pages/today.js` -- `workout_score`/`calories`/`vo2_max` are real columns already read/displayed but had zero manual edit path anywhere in the app (only the day-type reset or the AI's deferred write flow ever touched them). Added `workoutDetailsForm`/`saveWorkoutDetails()` + a field row in the existing Workout Sessions modal. No schema change.
+- `Deploy/index.html`/`css/components.css` -- Calendar's filter-chip row + range-preset row (two full bands) collapsed into one row; category filters moved into a closed-by-default dropdown menu (`calendar.js`'s new `filterMenuOpen`/`activeCategoryCount`).
+- Today vs. selected Calendar cells were visually identical (both got the same 2px blue ring, a regression from the vivid pass earlier this session) -- today now gets a small solid-badge date number instead, selected keeps the ring+tint, so they're unmistakable even when they differ.
+- Busy-day cell content could visually spill past the card edge -- added `overflow:hidden` to `.cal-block` itself as defense-in-depth alongside `.cal-cell`'s existing clip.
+- **Calendar mobile responsiveness** -- a real phone screenshot showed the month grid forcing horizontal scroll. Below 480px, blocks collapse to small colored dots (categories still visible at a glance, full detail one tap away in Day Detail, which already stacks to one column below 720px). **Today.js's own mobile layout was NOT touched** -- a separate phone screenshot showed it broken too, but that's a different page/component and wasn't scoped into this pass; flagged for its own session.
+- `Deploy/service-worker.js` cache bumped `v67` → `v68`.
+
+**What was verified locally:** `node --check` clean on all 4 touched JS files (`today.js`, `project-workspace.js`, `calendar.js`, `db.js`). HTML tag balance re-checked (div/template/svg/select/button/label all matched). Dev server booted, zero console errors on login screen, stopped without signing in (shared prod DB rule).
+
+**What's still open:**
+- Today page's own mobile responsiveness (separate from Calendar's, not touched this pass).
+- The "lock a workout day" feature (Phase 2, needs a schema change, Abhishek's own call to defer).
+- Everything else non-urgent/Phase-2 from the earlier audit entry today is still exactly as documented there -- nothing further was fixed on that list this pass except the 2 explicitly approved items above.
+
+**What NOT to do:** Don't add undo/soft-delete to workout-session delete -- explicitly declined. Don't disable the AI write-flows -- explicitly, knowingly left live for trial-phase observation. Don't build the workout-day-lock feature without a real schema/migration conversation first -- Abhishek's own gate, not a shortcut being skipped.
+
+**Phase 1 is now closed.** Next session (or Abhishek's own testing) starts the one-week real-data trial.
+
+---
+
 ## 2026-07-29 · Claude Code (Sonnet 5) — Calendar day-cell vivid pass (2 mockup rounds), Phase 1 close audit requested
 
 **Session scope:** Continuation of the same-day fix pass. Abhishek reviewed the "3 subtle color options" mockup and rejected all three as washed-out and too similar. Asked for a second round with genuinely distinct structures (referencing Dribbble/Bing-Rewards-style vivid calendar cards). Delivered 3 structurally different options (A: stacked category blocks, B: single agenda card with chips, C: heatmap wash); his reply was self-contradictory ("I like option B better" vs. "I only like category A, keep category A") so asked a direct clarifying question rather than guess -- confirmed Option A. Built one vivid pass on Option A (solid accent icon badges + stronger existing tint-hover block backgrounds, replacing the faint base tint) using only existing tokens -- explicitly named the real constraint (Atlas's 5 accents are muted by design, can't be made to look like a saturated illustration palette without inventing new tokens). Abhishek approved it as "not 100% satisfied, but let's agree to disagree, build it, next phase I'll have clearer direction" -- shipped as-is, flagged as an open design item, not a settled one.

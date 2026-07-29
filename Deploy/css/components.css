@@ -2529,6 +2529,8 @@
    .insight-pill-body modifier -- Goal pills and the Work log's Latest
    Update pill stay at the smaller shared size. */
 .insight-pill-running-name { font-size: 16px; font-weight: 600; color: var(--text-primary); line-height: 1.3; margin: 0; }
+.running-now-list { display: flex; flex-direction: column; gap: 10px; }
+.running-now-tag { margin-left: auto; }
 
 /* Mini variant -- Projects list card's inline "Running: X" line (a
    single line inside an already-surface-2 .card-nested; the standard
@@ -2975,29 +2977,40 @@ body:has(.ai-panel-open) .content-area {
    ============================================================ */
 .calendar-page { padding: var(--pad-lg); }
 
-/* Category filter bar -- toggles distinguished by surface + text
-   contrast, not an accent fill (CLAUDE.md: "selection is not a status"). */
-.filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.filter-chip {
-    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 8px;
-    border-radius: 20px; border: 1px solid var(--border); background: none;
-    color: var(--text-muted); font-size: 11.5px; font-family: inherit; cursor: pointer;
-    transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-.filter-chip svg { flex-shrink: 0; }
-/* --surface-2 was too close to the card background to read as "on" (esp.
-   Paper Studio) -- reuses the same accent-blue-tint treatment .range-chip.on
-   already uses one row below, so both chip rows read consistently. */
-.filter-chip.on { background: var(--accent-blue-tint-hover); border-color: var(--accent-blue); color: var(--text-primary); }
+/* Controls row (2026-07-29, live-testing bug): range hint chips + a
+   filter dropdown, one row instead of two full bands. */
+.cal-controls-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 
 /* Range presets -- a hint row for the AI summary range, not a live query
    yet. Blue used as UI chrome for "selected," same non-semantic use as
    the today/selected cell border below -- not a new accent meaning. */
-.range-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.range-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .range-label { font-size: 11px; color: var(--text-muted); margin-right: 2px; }
 .range-chip { padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border); background: none; color: var(--text-secondary); font-size: 11.5px; font-family: inherit; cursor: pointer; }
 .range-chip.on { background: var(--accent-blue-tint); border-color: var(--accent-blue); color: var(--text-primary); }
-.range-note { font-size: 10.5px; color: var(--text-muted); font-style: italic; margin-left: 4px; }
+
+/* Category filter dropdown -- replaces the old always-open 7-chip row
+   (too much vertical clutter in live testing). Toggles distinguished by
+   surface + text contrast inside the menu, not an accent fill (CLAUDE.md:
+   "selection is not a status"). */
+.cal-filter-dropdown { position: relative; }
+.cal-filter-toggle {
+    display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2);
+    color: var(--text-secondary); font-size: 11.5px; font-family: inherit; cursor: pointer;
+}
+.cal-filter-toggle:hover { background: var(--surface-1-hover); border-color: var(--border-hover); }
+.cal-filter-chevron { transition: transform var(--dur-fast) var(--ease-out); }
+.cal-filter-chevron.open { transform: rotate(90deg); }
+.cal-filter-menu {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 6; min-width: 168px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--shadow-card); padding: 6px; display: flex; flex-direction: column; gap: 1px;
+}
+.cal-filter-item { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 6px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
+.cal-filter-item:hover { background: var(--surface-2); }
+.cal-filter-item input { margin: 0; flex-shrink: 0; accent-color: var(--accent-blue); }
+.cal-filter-item svg { flex-shrink: 0; color: var(--text-muted); }
 
 .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .cal-title-group { display: flex; align-items: center; gap: 10px; }
@@ -3020,7 +3033,14 @@ body:has(.ai-panel-open) .content-area {
 }
 .cal-cell:hover { background: var(--surface-1-hover); border-color: var(--border-hover); }
 .cal-cell.out { opacity: .35; }
-.cal-cell.today { box-shadow: 0 0 0 2px var(--accent-blue); border-color: var(--accent-blue); }
+/* Today and selected are visually distinct treatments (fixed 2026-07-29,
+   live-testing bug -- both used to render the identical 2px blue ring,
+   which read as two simultaneous "selections" and made it impossible to
+   tell which cell was which at a glance). Today = a small solid-badge
+   date number, matching the same badge language the category blocks use.
+   Selected = the full-cell ring + tint. The two can coexist (today also
+   selected on load) without conflicting. */
+.cal-cell.today .cal-cell-num { background: var(--accent-blue); color: var(--surface-1); border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; }
 .cal-cell.selected { background: var(--accent-blue-tint-hover); box-shadow: 0 0 0 2px var(--accent-blue); border-color: var(--accent-blue); }
 .cal-cell-num { font-size: 12.5px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 
@@ -3037,8 +3057,12 @@ body:has(.ai-panel-open) .content-area {
    never repurposed. Journal has no locked-accent home so it stays an
    uncolored line, same treatment overdue gets as a coral flag rather
    than a whole block of its own. */
-.cal-cell-blocks { display: flex; flex-direction: column; gap: 5px; margin-top: auto; }
-.cal-block { display: flex; align-items: center; gap: 7px; border-radius: 8px; padding: 5px 7px; min-width: 0; }
+.cal-cell-blocks { display: flex; flex-direction: column; gap: 5px; margin-top: auto; min-width: 0; }
+/* overflow:hidden here is a second line of defense on top of .cal-cell's
+   own overflow:hidden (fixed 2026-07-29, live-testing bug: a busy day's
+   block could visually spill past the card edge instead of clipping
+   cleanly at the block's own rounded corner). */
+.cal-block { display: flex; align-items: center; gap: 7px; border-radius: 8px; padding: 5px 7px; min-width: 0; overflow: hidden; }
 .cal-block.sage { background: var(--accent-sage-tint-hover); }
 .cal-block.blue { background: var(--accent-blue-tint-hover); }
 .cal-block.lilac { background: var(--accent-lilac-tint-hover); }
@@ -3090,5 +3114,21 @@ body:has(.ai-panel-open) .content-area {
 
 @media (max-width: 720px) {
     .dd-sections { grid-template-columns: 1fr; }
-    .cal-cell { min-height: 84px; }
+    /* Fixed 2026-07-29, live-testing bug: full 7-column month grid at
+       phone width leaves ~45-50px per cell -- nowhere near enough room for
+       a badge + two lines of text, which was forcing the whole page to
+       scroll horizontally. Below 480px, each colored block collapses to a
+       small dot (same block color, badge/text/flag hidden) -- still shows
+       *which* categories are active at a glance without needing the width
+       real text needs. Full detail is always one tap away in Day Detail,
+       which already stacks to a single column above. */
+    .cal-controls-row { gap: 8px; }
+    .cal-filter-menu { right: auto; left: 0; }
+}
+@media (max-width: 480px) {
+    .cal-cell { min-height: 68px; padding: 6px; gap: 4px; }
+    .cal-cell-blocks { flex-direction: row; flex-wrap: wrap; gap: 4px; margin-top: auto; }
+    .cal-block { width: 9px; height: 9px; padding: 0; border-radius: 50%; }
+    .cal-badge, .cal-block-text, .cal-flag { display: none; }
+    .cal-journal-line { display: none; }
 }
