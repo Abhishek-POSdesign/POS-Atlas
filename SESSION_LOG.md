@@ -48,6 +48,16 @@ Companion docs sit beside this one:
 
 **What NOT to do:** Don't add a 4th colored block for Journal -- it deliberately has no locked-accent home, stays a plain line. Don't revert block backgrounds to the faint base tint -- that's the exact thing that was rejected as "washed out." Don't assume this color direction is locked in -- it's explicitly a placeholder Abhishek is unhappy with, pending his own more specific direction next phase.
 
+**Phase 1 close audit delivered.** Abhishek asked for a full whole-app debug pass (especially AI) before closing Phase 1 and starting a one-week real-data testing phase. Ran 3 parallel read-only research agents (AI layer / core pages & reliability / deploy & infra) against commit `ebc140a`, synthesized into `handover-docs/PHASE-1-CLOSE-AUDIT-2026-07-29.md` (also delivered as an Artifact). **4 urgent findings, none yet fixed as of this entry** -- fixing them was not requested in this turn, only the audit was:
+1. The 6 AI write flows declared "failed/deferred" on 2026-07-28 are **not actually inert** -- an ordinary chat message matching the intent regexes in `aiPanel.js`'s `_detectIntent()` can still produce a real DB-writing confirm card. No kill-switch exists, only a documented product decision. Real risk during a real-data testing week.
+2. `DB.WorkoutSessions.remove` (`db.js`) is a genuine hard-delete with no soft-delete/Restore/undo-toast coverage, unlike every other entity in the app -- called directly from `today.js`'s `deleteWorkoutSession`.
+3. `project-workspace.js`'s `reopenProject()` calls `this.loadLogs()`, which doesn't exist -- the reopen write succeeds but the user sees a false "failed" error afterward.
+4. `db.js`'s `Projects.getById` is the only single-record getter missing a `.is('deleted_at', null)` filter -- a stale link to a deleted project would still render its old data.
+
+7 additional non-urgent problems and 2 Phase-2 items are in the audit doc (TTS em-dash strip cutting off spoken replies, a bare-topic AI routing false-positive risk, an AI Memory "Saved" message that can't actually detect a failed cloud push, a silently-swallowed workout-chart load error, a non-atomic checklist reorder, one stale doc reference, and the deploy workflow also deploying a `staging` branch). Confirmed clean: the `db.js`-only Supabase access rule, no leaked secrets, no dead AI fact-package builders, full Restore-view coverage for everything Calendar reads, and no duplicate top-level declarations across the 10 core page files reviewed.
+
+**Next session should ask Abhishek whether/when to act on the 4 urgent items** -- especially #1 (AI write flows not actually inert) given real data starts flowing this week.
+
 ---
 
 ## 2026-07-29 · Claude Code (Sonnet 5) — Calendar + AI live-testing fix pass
