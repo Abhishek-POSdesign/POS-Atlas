@@ -199,57 +199,84 @@ export function calendarPage(nav) {
             let d = new Date(this._gridStart);
             while (d <= this._gridEnd) {
                 const dateStr = d.toLocaleDateString('en-CA');
+                const cb = this._cellBlocks(dateStr);
                 days.push({
                     date: dateStr,
                     day: d.getDate(),
                     inMonth: d.getMonth() === this.viewMonth,
                     isToday: dateStr === todayStr,
                     isSelected: dateStr === this.selectedDate,
-                    lines: this._cellLines(dateStr).slice(0, 4),
-                    moreCount: Math.max(0, this._cellLines(dateStr).length - 4)
+                    blocks: cb.blocks,
+                    journal: cb.journal
                 });
                 d.setDate(d.getDate() + 1);
             }
             return days;
         },
 
-        _cellLines(dateStr) {
+        // Vivid pass (2026-07-29, approved on Option A's structure): each day
+        // collapses to at most 3 colored blocks -- sage (Health & Checklist),
+        // blue (Tasks & Reminders), lilac (Projects & Work Logs) -- matching
+        // the 5 locked accent meanings exactly (health/checklist completion
+        // reads as "done"-family sage; tasks/planning is blue; projects is
+        // lilac). A category never gets its own block beyond these three --
+        // Journal has no locked-accent home, so it renders as a small plain
+        // (uncolored) line instead of a 4th block, same treatment overdue
+        // gets as a coral flag rather than a whole block of its own.
+        _cellBlocks(dateStr) {
             const today = todayIsoDate();
-            const lines = [];
+            const blocks = [];
             const sleep = this._sleepRows.find(s => s.entry_date === dateStr);
             const workout = this._workoutRows.find(w => w.entry_date === dateStr);
             const checklist = this._checklistRows.filter(h => h.entry_date === dateStr);
             const items = this._dayItems(dateStr);
             const taskItems = items.filter(t => t.kind !== 'reminder');
             const remItems = items.filter(t => t.kind === 'reminder');
-            const overdueTasks = taskItems.filter(t => t.status !== 'done' && dateStr < today).length;
-            const overdueRem = remItems.filter(t => t.status !== 'done' && dateStr < today).length;
+            const overdueCount = items.filter(t => t.status !== 'done' && dateStr < today).length;
             const projCount = this._taskLogRows.filter(l => l.entry_date === dateStr).length +
                 this._projectNoteRows.filter(n => (n.created_at || '').slice(0, 10) === dateStr).length;
             const journal = this._notebookRows.find(n => n.entry_date === dateStr);
 
-            if (this.categories.sleep && sleep) lines.push({ cat: 'sleep', icon: 'sleep', text: fmtDur(sleep.duration_minutes) || 'Logged' });
-            if (this.categories.workout && workout) {
-                const label = workout.day_type === 'active_recovery' ? 'Active recovery'
-                    : workout.day_type === 'full_rest' ? 'Full rest'
-                        : (workout.workout_type || 'Workout');
-                lines.push({ cat: 'workout', icon: 'workout', text: label });
+            const showSleep = this.categories.sleep && sleep;
+            const showWorkout = this.categories.workout && workout;
+            const showChecklist = this.categories.checklist && checklist.length;
+            if (showSleep || showWorkout || showChecklist) {
+                const parts = [];
+                if (showSleep) parts.push('Sleep ' + (fmtDur(sleep.duration_minutes) || 'logged'));
+                if (showWorkout) {
+                    const label = workout.day_type === 'active_recovery' ? 'Active recovery'
+                        : workout.day_type === 'full_rest' ? 'Full rest'
+                            : (workout.workout_type || 'Workout');
+                    parts.push(label);
+                }
+                if (showChecklist) {
+                    const done = checklist.filter(c => c.status === 'done').length;
+                    parts.push(done + '/' + checklist.length);
+                }
+                blocks.push({
+                    color: 'sage', icon: showSleep ? 'sleep' : 'workout',
+                    t1: parts[0], t2: parts.slice(1).join(' · ') || null
+                });
             }
-            if (this.categories.checklist && checklist.length) {
-                const done = checklist.filter(c => c.status === 'done').length;
-                lines.push({ cat: 'checklist', icon: 'check', text: done + '/' + checklist.length });
+
+            const showTasks = this.categories.tasks && taskItems.length;
+            const showReminders = this.categories.reminders && remItems.length;
+            if (showTasks || showReminders) {
+                const parts = [];
+                if (showTasks) parts.push(taskItems.length + ' task' + (taskItems.length === 1 ? '' : 's'));
+                if (showReminders) parts.push(remItems.length + ' reminder' + (remItems.length === 1 ? '' : 's'));
+                blocks.push({
+                    color: 'blue', icon: showReminders && !showTasks ? 'bell' : 'list',
+                    t1: parts.join(' · '), t2: null,
+                    overdueFlag: overdueCount || null
+                });
             }
-            if (this.categories.tasks && taskItems.length) {
-                lines.push({ cat: 'tasks', icon: 'list', text: taskItems.length + ' task' + (taskItems.length === 1 ? '' : 's') });
-                if (overdueTasks) lines.push({ cat: 'tasks', icon: 'list', text: overdueTasks + ' overdue', coral: true });
+
+            if (this.categories.projects && projCount) {
+                blocks.push({ color: 'lilac', icon: 'note', t1: projCount + ' log' + (projCount === 1 ? '' : 's'), t2: null });
             }
-            if (this.categories.reminders && remItems.length) {
-                lines.push({ cat: 'reminders', icon: 'bell', text: remItems.length + ' reminder' + (remItems.length === 1 ? '' : 's') });
-                if (overdueRem) lines.push({ cat: 'reminders', icon: 'bell', text: overdueRem + ' overdue', coral: true });
-            }
-            if (this.categories.projects && projCount) lines.push({ cat: 'projects', icon: 'note', text: projCount + ' log' + (projCount === 1 ? '' : 's') });
-            if (this.categories.journal && journal) lines.push({ cat: 'journal', icon: 'pencil', text: 'Journal' });
-            return lines;
+
+            return { blocks, journal: !!(this.categories.journal && journal) };
         },
 
         // ---- Day Detail: derived from the already-loaded grid window, no

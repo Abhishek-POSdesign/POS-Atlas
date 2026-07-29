@@ -3013,27 +3013,45 @@ body:has(.ai-panel-open) .content-area {
 .cal-weekdays span { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); text-align: center; }
 .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; }
 .cal-cell {
-    border-radius: 8px; border: 1px solid var(--border); background: var(--surface-1);
-    padding: 7px 8px; display: flex; flex-direction: column; min-height: 106px; cursor: pointer;
+    border-radius: 10px; border: 1px solid var(--border); background: var(--surface-1);
+    padding: 8px; display: flex; flex-direction: column; gap: 6px; min-height: 130px; cursor: pointer;
     overflow: hidden;
     transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
 }
 .cal-cell:hover { background: var(--surface-1-hover); border-color: var(--border-hover); }
 .cal-cell.out { opacity: .35; }
-.cal-cell.today { border-color: var(--accent-blue); box-shadow: inset 0 0 0 1px var(--accent-blue); }
-.cal-cell.selected { background: var(--accent-blue-tint); border-color: var(--accent-blue); }
-.cal-cell-num { font-size: 12px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.cal-cell-lines { margin-top: auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-/* Ellipsis must sit on the text node itself (.cal-line-text), not on the
-   flex row wrapping icon+text -- text-overflow on a flex container has no
-   effect on a nested child's overflowing text, which let long labels run
-   past the cell edge instead of truncating (confirmed live 2026-07-29). */
-.cal-line { display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--text-secondary); min-width: 0; }
-.cal-line-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
-.cal-line:first-child { color: var(--text-primary); font-weight: 500; }
-.cal-line svg { flex-shrink: 0; color: inherit; }
-.cal-line.coral { color: var(--accent-coral) !important; }
-.cal-more { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+.cal-cell.today { box-shadow: 0 0 0 2px var(--accent-blue); border-color: var(--accent-blue); }
+.cal-cell.selected { background: var(--accent-blue-tint-hover); box-shadow: 0 0 0 2px var(--accent-blue); border-color: var(--accent-blue); }
+.cal-cell-num { font-size: 12.5px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* Vivid pass (2026-07-29): each day collapses to up to 3 colored blocks
+   instead of flat icon+text lines. Block fill uses the app's existing
+   stronger *-tint-hover token (not the faint base tint -- that read as
+   "washed out" in live testing); the icon sits in a solid full-strength
+   accent circle for real contrast/pop, with the icon itself colored
+   --surface-1 so it reads as a legible "cutout" in both themes (dark
+   surface-1 is near-black, light surface-1 is near-white -- reliable
+   contrast against any of the 5 mid-tone accents without inventing a new
+   token for it). Sage = Health & Checklist, Blue = Tasks & Reminders,
+   Lilac = Projects & Work Logs -- exactly the locked accent meanings,
+   never repurposed. Journal has no locked-accent home so it stays an
+   uncolored line, same treatment overdue gets as a coral flag rather
+   than a whole block of its own. */
+.cal-cell-blocks { display: flex; flex-direction: column; gap: 5px; margin-top: auto; }
+.cal-block { display: flex; align-items: center; gap: 7px; border-radius: 8px; padding: 5px 7px; min-width: 0; }
+.cal-block.sage { background: var(--accent-sage-tint-hover); }
+.cal-block.blue { background: var(--accent-blue-tint-hover); }
+.cal-block.lilac { background: var(--accent-lilac-tint-hover); }
+.cal-badge { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cal-badge.sage { background: var(--accent-sage); color: var(--surface-1); }
+.cal-badge.blue { background: var(--accent-blue); color: var(--surface-1); }
+.cal-badge.lilac { background: var(--accent-lilac); color: var(--surface-1); }
+.cal-block-text { min-width: 0; flex: 1; }
+.cal-t1 { font-weight: 700; font-size: 10.5px; color: var(--text-primary); display: block; line-height: 1.25; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cal-t2 { font-size: 9px; color: var(--text-secondary); display: block; line-height: 1.2; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cal-flag { flex-shrink: 0; font-size: 9px; font-weight: 700; color: var(--accent-coral); }
+.cal-journal-line { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); padding: 0 2px; }
+.cal-journal-line svg { flex-shrink: 0; }
 
 /* ---- Day Detail: full-width, below the grid ---- */
 .day-detail-region { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }

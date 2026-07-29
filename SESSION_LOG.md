@@ -32,6 +32,24 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Sonnet 5) — Calendar day-cell vivid pass (2 mockup rounds), Phase 1 close audit requested
+
+**Session scope:** Continuation of the same-day fix pass. Abhishek reviewed the "3 subtle color options" mockup and rejected all three as washed-out and too similar. Asked for a second round with genuinely distinct structures (referencing Dribbble/Bing-Rewards-style vivid calendar cards). Delivered 3 structurally different options (A: stacked category blocks, B: single agenda card with chips, C: heatmap wash); his reply was self-contradictory ("I like option B better" vs. "I only like category A, keep category A") so asked a direct clarifying question rather than guess -- confirmed Option A. Built one vivid pass on Option A (solid accent icon badges + stronger existing tint-hover block backgrounds, replacing the faint base tint) using only existing tokens -- explicitly named the real constraint (Atlas's 5 accents are muted by design, can't be made to look like a saturated illustration palette without inventing new tokens). Abhishek approved it as "not 100% satisfied, but let's agree to disagree, build it, next phase I'll have clearer direction" -- shipped as-is, flagged as an open design item, not a settled one.
+
+**What shipped (real code, not just mockup):**
+- `Deploy/js/pages/calendar.js` -- `_cellLines()` replaced by `_cellBlocks()`: up to 3 grouped blocks per day (sage=Health&Checklist, blue=Tasks&Reminders, lilac=Projects&WorkLogs) instead of flat icon+text lines. Overdue count now a small coral flag inside the blue block, never its own block. Journal (no locked-accent home) stays an uncolored line. Filter-toggle gating preserved per sub-category.
+- `Deploy/index.html` -- cell markup rewritten for `.cal-badge`/`.cal-block-text`/`.cal-journal-line`.
+- `Deploy/css/components.css` -- block backgrounds use the existing stronger `*-tint-hover` token (not the faint base tint that read as washed-out); badges use the **solid** accent color with icon color `var(--surface-1)` (near-black in dark theme, near-white in light theme -- reads as a legible cutout against any of the 5 accents in both themes, zero new tokens). `.cal-cell` min-height 106px → 130px; today/selected chrome switched from a 1px border to a 2px box-shadow ring so it stays visible against colorful blocks.
+- `Deploy/service-worker.js` cache `v66` → `v67`.
+
+**What was verified locally:** `node --check` clean, HTML tag balance re-checked (all matched), dev server booted with zero console errors on the login screen, then stopped.
+
+**What's still open:** Abhishek is not fully satisfied with the visual direction and explicitly deferred further refinement to "next phase" with clearer direction from him -- don't treat the current block/badge treatment as final or re-litigate it without him raising it again. Separately, he's closing Phase 1 today and starting a one-week real-data testing phase; he asked for a full whole-app debug/triage document (urgent / not-urgent / Phase-2 bucket), especially covering the AI layer -- see the audit delivered later in this entry/session for findings.
+
+**What NOT to do:** Don't add a 4th colored block for Journal -- it deliberately has no locked-accent home, stays a plain line. Don't revert block backgrounds to the faint base tint -- that's the exact thing that was rejected as "washed out." Don't assume this color direction is locked in -- it's explicitly a placeholder Abhishek is unhappy with, pending his own more specific direction next phase.
+
+---
+
 ## 2026-07-29 · Claude Code (Sonnet 5) — Calendar + AI live-testing fix pass
 
 **Session scope:** Abhishek live-tested the freshly-shipped Calendar and AI history fix and reported 10 issues across both (AI: bare-topic health questions getting no data / a hallucinated "[Insert Sleep Duration Here]" placeholder reply, TTS reading markdown symbols aloud; Calendar: year-selector display bug, filter-chip contrast, cell text overflow, no dev logging; Calendar behavior: history needed to be fully read-only, drill-downs needed a confirm-before-leaving step, future dates needed to collapse to summary counts). Diagnosed every item against the actual code first (per the plan-before-code rule), reported root causes with file/line citations plus a before/after mockup Artifact, got explicit approval, then implemented.

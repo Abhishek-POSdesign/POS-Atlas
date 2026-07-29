@@ -2218,16 +2218,23 @@
                                         <template x-for="cell in days" :key="cell.date">
                                             <div class="cal-cell" :class="{out: !cell.inMonth, today: cell.isToday, selected: cell.isSelected}" @click="selectDate(cell.date)">
                                                 <span class="cal-cell-num" x-text="cell.day"></span>
-                                                <div class="cal-cell-lines">
-                                                    <template x-for="(line, li) in cell.lines" :key="li">
-                                                        <span class="cal-line" :class="{coral: line.coral}">
-                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(line.icon)"></svg>
-                                                            <span class="cal-line-text" x-text="line.text"></span>
-                                                        </span>
+                                                <div class="cal-cell-blocks">
+                                                    <template x-for="b in cell.blocks" :key="b.color">
+                                                        <div class="cal-block" :class="b.color">
+                                                            <div class="cal-badge" :class="b.color">
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(b.icon)"></svg>
+                                                            </div>
+                                                            <div class="cal-block-text">
+                                                                <span class="cal-t1" x-text="b.t1"></span>
+                                                                <span class="cal-t2" x-show="b.t2" x-text="b.t2"></span>
+                                                            </div>
+                                                            <span class="cal-flag" x-show="b.overdueFlag" x-text="'● ' + b.overdueFlag + ' late'"></span>
+                                                        </div>
                                                     </template>
-                                                    <template x-if="cell.moreCount > 0">
-                                                        <span class="cal-more" x-text="'+' + cell.moreCount + ' more'"></span>
-                                                    </template>
+                                                    <div class="cal-journal-line" x-show="cell.journal">
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('pencil')"></svg>
+                                                        <span>Journal</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </template>
