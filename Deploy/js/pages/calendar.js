@@ -1,7 +1,7 @@
 // Atlas Calendar -- the full-page past+future view of everything the AI's
 // explain_history Fact Package also reads (same db.js range methods, see
-// PLAN.md "Atlas AI -- history & future awareness"). Reads only; no ad-hoc
-// Supabase calls, everything goes through DB.*.
+// PLAN.md "Atlas AI -- history & future awareness"). Read-only; no ad-hoc
+// Supabase calls, everything goes through DB.* read methods only.
 //
 // Mockup-approved shape (2026-07-29, "Balanced" density, refined round 2):
 // month grid on top, inline Day Detail full-width below (never a modal/
@@ -9,16 +9,22 @@
 // filter chips above the grid (grid-only, Day Detail always shows the full
 // truth for the selected day), drill-down rows into the real existing
 // Task/Project/Notebook surfaces via the `nav` callback (never a duplicate
-// task modal -- see features/pendingNav.js). Sleep/Workout/Checklist have no
-// existing arbitrary-date editor anywhere in the app (Today's versions are
-// hardcoded to todayIsoDate()), so those three get a small inline editor
-// scoped to whichever date is selected, right inside the Day Detail section
-// -- same DB.Sleep.save/DB.Workout.save/DB.Checklist.setStatus calls Today
-// uses, just parameterized by date instead of assuming today.
+// task modal -- see features/pendingNav.js).
+//
+// Read-only pass (2026-07-29, live-testing feedback round 2): Sleep, Workout,
+// and Checklist inline editors were removed entirely -- Calendar shows what
+// happened, it is never where you change it. Checklist stays read-only with
+// no drill-down at all (checklist.js is hardcoded to todayKey(), same gap
+// Sleep/Workout had -- a real dated Checklist view is a deliberate follow-up,
+// not built here). Task/Project/Journal drill-downs now confirm before
+// leaving the page. Future dates collapse Tasks & Reminders into grouped
+// counts with a "Go to X" link per group instead of per-item interactive
+// rows -- a glimpse, not a workspace.
 
 import { DB } from '../db.js';
 import { todayIsoDate } from '../date-utils.js';
 import { setPendingTask } from '../features/pendingNav.js';
+import { askConfirm } from '../components/confirm-dialog.js';
 
 // Same x-html-into-<svg> injection pattern today.js's sessionIconSvg()
 // already uses -- a fixed lookup, never user-supplied, safe to inject.
@@ -38,8 +44,6 @@ function fmtDur(mins) {
     if (mins == null) return null;
     return Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm';
 }
-function toInt(v) { const n = parseInt(v, 10); return isNaN(n) ? null : n; }
-function toNum(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
 
 export function calendarPage(nav) {
     return {
@@ -82,10 +86,6 @@ export function calendarPage(nav) {
         _checklistItems: [], _tasksScheduled: [], _tasksCompleted: [],
         _taskLogRows: [], _projectNoteRows: [], _notebookRows: [],
         _gridStart: null, _gridEnd: null,
-
-        editingSleep: false, sleepForm: {},
-        editingWorkout: false, workoutForm: {},
-        editingChecklistItemId: null, checklistLogForm: {},
 
         async init() {
             this.selectedDate = todayIsoDate();
@@ -130,6 +130,8 @@ export function calendarPage(nav) {
                 this._tasksScheduled = tasksScheduled; this._tasksCompleted = tasksCompleted;
                 this._taskLogRows = taskLogs; this._projectNoteRows = projectNotes; this._notebookRows = notebook;
                 this._gridStart = gridStart; this._gridEnd = gridEnd;
+
+                console.log(`[Atlas Calendar] loaded ${startStr}..${endStr} · sleep=${sleep.length} workout=${workout.length} sessions=${sessions.length} checklistHist=${checklistHist.length} tasksScheduled=${tasksScheduled.length} tasksCompleted=${tasksCompleted.length} taskLogs=${taskLogs.length} projectNotes=${projectNotes.length} notebook=${notebook.length}`);
             } catch (e) {
                 this.errorMsg = 'Could not load Calendar: ' + e.message;
             }
@@ -174,9 +176,6 @@ export function calendarPage(nav) {
 
         selectDate(dateStr) {
             this.selectedDate = dateStr;
-            this.editingSleep = false;
-            this.editingWorkout = false;
-            this.editingChecklistItemId = null;
         },
 
         // Tasks/reminders touching a date: scheduled there (not yet done) OR
@@ -278,6 +277,24 @@ export function calendarPage(nav) {
                 return at < bt ? -1 : (at > bt ? 1 : 0);
             });
         },
+        // Future-date summary -- grouped by project (or "no project"), counts
+        // only. Used instead of selectedTasks' per-item rows so a future day
+        // reads as a glimpse ("3 tasks, 1 reminder") rather than a workspace.
+        get selectedTaskGroups() {
+            const groups = {};
+            for (const t of this.selectedTasks) {
+                const key = t.project_id || '__none__';
+                if (!groups[key]) groups[key] = { project_id: t.project_id || null, tasks: 0, reminders: 0 };
+                if (t.kind === 'reminder') groups[key].reminders++; else groups[key].tasks++;
+            }
+            return Object.values(groups);
+        },
+        taskGroupLabel(g) {
+            const parts = [];
+            if (g.tasks) parts.push(g.tasks + ' task' + (g.tasks === 1 ? '' : 's'));
+            if (g.reminders) parts.push(g.reminders + ' reminder' + (g.reminders === 1 ? '' : 's'));
+            return parts.join(' · ');
+        },
         get selectedProjectWork() {
             const logs = this._taskLogRows
                 .filter(l => l.entry_date === this.selectedDate)
@@ -306,133 +323,33 @@ export function calendarPage(nav) {
             return 'upcoming';
         },
 
-        // ---- drill-downs: reuse existing surfaces, never a duplicate page ----
-        openTaskDrillDown(task) {
+        // ---- drill-downs: reuse existing surfaces, never a duplicate page.
+        // Each confirms first (askConfirm) since leaving the Calendar loses
+        // the browsed date -- confirmed live 2026-07-29 this was jarring
+        // without warning. ----
+        async openTaskDrillDown(task) {
+            const ok = await askConfirm('Open this task? You\'ll leave the Calendar view.', { confirmLabel: 'Open', isDanger: false });
+            if (!ok) return;
             setPendingTask(task);
             if (task.project_id) nav.onOpenProject(task.project_id);
             else nav.onGoToday();
         },
-        openProjectWorkDrillDown(entry) {
-            if (entry.project_id) nav.onOpenProject(entry.project_id);
+        async goToTaskGroup(g) {
+            const ok = await askConfirm('Open this in Tasks? You\'ll leave the Calendar view.', { confirmLabel: 'Open', isDanger: false });
+            if (!ok) return;
+            if (g.project_id) nav.onOpenProject(g.project_id);
+            else nav.onGoToday();
         },
-        openJournalDrillDown() { nav.onOpenNotebook(); },
-
-        // ---- inline Sleep editor (Today's modal is hardcoded to
-        // todayIsoDate() and has no arbitrary-date mode -- this is the same
-        // field set and the same DB.Sleep.save() call, just parameterized by
-        // whichever date is selected here). ----
-        openSleepEditor() {
-            const e = this.selectedSleep;
-            const h = e && e.duration_minutes != null ? Math.floor(e.duration_minutes / 60) : '';
-            const m = e && e.duration_minutes != null ? e.duration_minutes % 60 : '';
-            this.sleepForm = {
-                hours: h === '' ? '' : String(h),
-                minutes: m === '' ? '' : String(m),
-                score: e && e.sleep_score != null ? String(e.sleep_score) : '',
-                deep: e && e.deep_minutes != null ? String(e.deep_minutes) : '',
-                rem: e && e.rem_minutes != null ? String(e.rem_minutes) : '',
-                restingHr: e && e.resting_hr != null ? String(e.resting_hr) : '',
-                hrv: e && e.hrv != null ? String(e.hrv) : '',
-                note: (e && e.note) || '',
-                morningNote: (e && e.morning_note) || ''
-            };
-            this.editingSleep = true;
+        async openProjectWorkDrillDown(entry) {
+            if (!entry.project_id) return;
+            const ok = await askConfirm('Open this project? You\'ll leave the Calendar view.', { confirmLabel: 'Open', isDanger: false });
+            if (!ok) return;
+            nav.onOpenProject(entry.project_id);
         },
-        closeSleepEditor() { this.editingSleep = false; },
-        async saveSleepEditor() {
-            const h = parseInt(this.sleepForm.hours, 10), m = parseInt(this.sleepForm.minutes, 10);
-            const patch = {
-                duration_minutes: (!isNaN(h) || !isNaN(m)) ? ((isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m)) : null,
-                sleep_score: toInt(this.sleepForm.score),
-                deep_minutes: toInt(this.sleepForm.deep),
-                rem_minutes: toInt(this.sleepForm.rem),
-                resting_hr: toInt(this.sleepForm.restingHr),
-                hrv: toNum(this.sleepForm.hrv),
-                note: this.sleepForm.note.trim() || null,
-                morning_note: this.sleepForm.morningNote.trim() || null
-            };
-            try {
-                const row = await DB.Sleep.save(this.selectedDate, patch);
-                this._sleepRows = this._sleepRows.filter(s => s.entry_date !== this.selectedDate).concat([row]);
-                this.editingSleep = false;
-            } catch (e) {
-                this.errorMsg = 'Save failed: ' + e.message;
-            }
-        },
-
-        // ---- inline Workout editor (day-level log fields only -- full
-        // per-session add/edit/delete stays on Today for now, this covers
-        // the day_type + summary fields for reviewing/correcting a past day). ----
-        openWorkoutEditor() {
-            const e = this.selectedWorkout;
-            this.workoutForm = {
-                dayType: (e && e.day_type) || 'workout',
-                duration: e && e.duration_minutes != null ? String(e.duration_minutes) : '',
-                workoutType: (e && e.workout_type) || '',
-                score: e && e.workout_score != null ? String(e.workout_score) : '',
-                calories: e && e.calories != null ? String(e.calories) : '',
-                vo2max: e && e.vo2_max != null ? String(e.vo2_max) : '',
-                note: (e && e.note) || ''
-            };
-            this.editingWorkout = true;
-        },
-        closeWorkoutEditor() { this.editingWorkout = false; },
-        async saveWorkoutEditor() {
-            const patch = {
-                day_type: this.workoutForm.dayType,
-                duration_minutes: toInt(this.workoutForm.duration),
-                workout_type: this.workoutForm.workoutType.trim() || null,
-                workout_score: toInt(this.workoutForm.score),
-                calories: toInt(this.workoutForm.calories),
-                vo2_max: toNum(this.workoutForm.vo2max),
-                note: this.workoutForm.note.trim() || null
-            };
-            try {
-                const row = await DB.Workout.save(this.selectedDate, patch);
-                this._workoutRows = this._workoutRows.filter(w => w.entry_date !== this.selectedDate).concat([row]);
-                this.editingWorkout = false;
-            } catch (e) {
-                this.errorMsg = 'Save failed: ' + e.message;
-            }
-        },
-
-        // ---- inline Checklist item editor (same DB.Checklist.setStatus()
-        // upsert Today's Log popup uses, parameterized by selectedDate). ----
-        openChecklistEditor(itemId) {
-            const existing = this._checklistRows.find(h => h.entry_date === this.selectedDate && h.item_id === itemId);
-            this.checklistLogForm = {
-                time: (existing && existing.logged_time) || '',
-                note: (existing && existing.note) || ''
-            };
-            this.editingChecklistItemId = itemId;
-        },
-        closeChecklistEditor() { this.editingChecklistItemId = null; },
-        // status is 'done' | 'skipped' | 'holiday' -- the same 3 real values
-        // checklist.js's own Log popup writes; 'missed' is never a settable
-        // status, only the derived absence of any history row for the day.
-        async saveChecklistEditor(status) {
-            try {
-                const extra = { note: this.checklistLogForm.note.trim() };
-                if (status === 'done' || status === 'holiday') extra.loggedTime = this.checklistLogForm.time;
-                const row = await DB.Checklist.setStatus(this.editingChecklistItemId, this.selectedDate, status, extra);
-                this._checklistRows = this._checklistRows
-                    .filter(h => !(h.entry_date === this.selectedDate && h.item_id === this.editingChecklistItemId))
-                    .concat([row]);
-                this.editingChecklistItemId = null;
-            } catch (e) {
-                this.errorMsg = 'Save failed: ' + e.message;
-            }
-        },
-        async undoChecklistEditor() {
-            const existing = this._checklistRows.find(h => h.entry_date === this.selectedDate && h.item_id === this.editingChecklistItemId);
-            if (!existing) { this.editingChecklistItemId = null; return; }
-            try {
-                await DB.Checklist.undoStatus(existing.id);
-                this._checklistRows = this._checklistRows.filter(h => h.id !== existing.id);
-                this.editingChecklistItemId = null;
-            } catch (e) {
-                this.errorMsg = 'Undo failed: ' + e.message;
-            }
+        async openJournalDrillDown() {
+            const ok = await askConfirm('Open your journal? You\'ll leave the Calendar view.', { confirmLabel: 'Open', isDanger: false });
+            if (!ok) return;
+            nav.onOpenNotebook();
         }
     };
 }

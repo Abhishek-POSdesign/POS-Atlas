@@ -2193,7 +2193,7 @@
                                     <span class="cal-title" x-text="monthLabel"></span>
                                     <select class="cal-year-select" x-model.number="viewYear" @change="loadMonth()">
                                         <template x-for="y in yearOptions" :key="y">
-                                            <option :value="y" x-text="y"></option>
+                                            <option :value="y" :selected="y === viewYear" x-text="y"></option>
                                         </template>
                                     </select>
                                 </div>
@@ -2221,8 +2221,8 @@
                                                 <div class="cal-cell-lines">
                                                     <template x-for="(line, li) in cell.lines" :key="li">
                                                         <span class="cal-line" :class="{coral: line.coral}">
-                                                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(line.icon)"></svg>
-                                                            <span x-text="line.text"></span>
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(line.icon)"></svg>
+                                                            <span class="cal-line-text" x-text="line.text"></span>
                                                         </span>
                                                     </template>
                                                     <template x-if="cell.moreCount > 0">
@@ -2253,15 +2253,14 @@
                                                         Health
                                                     </div>
 
-                                                    <template x-if="selectedSleep && !editingSleep">
+                                                    <template x-if="selectedSleep">
                                                         <div>
                                                             <div class="dd-sub-label">Sleep</div>
                                                             <div class="dd-row-wrap">
-                                                                <div class="dd-row" @click="openSleepEditor()">
+                                                                <div class="dd-row">
                                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('sleep')"></svg>
                                                                     <span class="name" x-text="'Sleep' + (selectedSleep.duration_minutes != null ? ' · ' + Math.floor(selectedSleep.duration_minutes/60) + 'h ' + (selectedSleep.duration_minutes%60) + 'm' : '')"></span>
                                                                     <span class="dd-chip" x-show="selectedSleep.sleep_score != null" x-text="'Score ' + selectedSleep.sleep_score"></span>
-                                                                    <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
                                                                 </div>
                                                             </div>
                                                             <div class="dd-fact-row" x-show="selectedSleep.deep_minutes != null"><span>Deep</span><span class="v" x-text="selectedSleep.deep_minutes + ' min'"></span></div>
@@ -2271,40 +2270,14 @@
                                                             <div class="dd-note" x-show="selectedSleep.note" x-text="'&quot;' + selectedSleep.note + '&quot;'"></div>
                                                         </div>
                                                     </template>
-                                                    <template x-if="!selectedSleep && !editingSleep">
-                                                        <button type="button" class="btn-text dd-add-btn" @click="openSleepEditor()">+ Log sleep for this date</button>
-                                                    </template>
-                                                    <template x-if="editingSleep">
-                                                        <div class="dd-editor">
-                                                            <div class="dd-editor-row">
-                                                                <div class="field"><label>Hours</label><input type="number" min="0" max="23" x-model="sleepForm.hours"></div>
-                                                                <div class="field"><label>Minutes</label><input type="number" min="0" max="59" x-model="sleepForm.minutes"></div>
-                                                                <div class="field"><label>Score</label><input type="number" min="0" max="100" x-model="sleepForm.score"></div>
-                                                            </div>
-                                                            <div class="dd-editor-row">
-                                                                <div class="field"><label>Deep (min)</label><input type="number" min="0" x-model="sleepForm.deep"></div>
-                                                                <div class="field"><label>REM (min)</label><input type="number" min="0" x-model="sleepForm.rem"></div>
-                                                                <div class="field"><label>Resting HR</label><input type="number" min="0" x-model="sleepForm.restingHr"></div>
-                                                                <div class="field"><label>HRV</label><input type="number" min="0" x-model="sleepForm.hrv"></div>
-                                                            </div>
-                                                            <div class="field"><label>Note</label><input type="text" x-model="sleepForm.note" placeholder="Context..."></div>
-                                                            <div class="field"><label>Morning reflection</label><input type="text" x-model="sleepForm.morningNote" placeholder="How did you feel..."></div>
-                                                            <div class="modal-actions">
-                                                                <button type="button" class="btn-text" @click="closeSleepEditor()">Cancel</button>
-                                                                <button type="button" class="btn btn-primary" @click="saveSleepEditor()">Save</button>
-                                                            </div>
-                                                        </div>
-                                                    </template>
-
-                                                    <template x-if="selectedWorkout && !editingWorkout">
+                                                    <template x-if="selectedWorkout">
                                                         <div>
                                                             <div class="dd-sub-label">Workout</div>
                                                             <div class="dd-row-wrap">
-                                                                <div class="dd-row" @click="openWorkoutEditor()">
+                                                                <div class="dd-row">
                                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('workout')"></svg>
                                                                     <span class="name" x-text="(selectedWorkout.workout_type || selectedWorkout.day_type || 'Workout') + (selectedWorkoutSessions.length ? ' · ' + selectedWorkoutSessions.length + ' session' + (selectedWorkoutSessions.length===1?'':'s') : '')"></span>
                                                                     <span class="dd-chip" x-show="selectedWorkout.workout_score != null" x-text="'Score ' + selectedWorkout.workout_score"></span>
-                                                                    <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
                                                                 </div>
                                                             </div>
                                                             <div class="dd-fact-row" x-show="selectedWorkout.calories != null"><span>Calories</span><span class="v" x-text="selectedWorkout.calories"></span></div>
@@ -2312,40 +2285,13 @@
                                                             <div class="dd-note" x-show="selectedWorkout.note" x-text="'&quot;' + selectedWorkout.note + '&quot;'"></div>
                                                         </div>
                                                     </template>
-                                                    <template x-if="!selectedWorkout && !editingWorkout">
-                                                        <button type="button" class="btn-text dd-add-btn" @click="openWorkoutEditor()">+ Log workout for this date</button>
-                                                    </template>
-                                                    <template x-if="editingWorkout">
-                                                        <div class="dd-editor">
-                                                            <div class="field">
-                                                                <label>Day type</label>
-                                                                <select x-model="workoutForm.dayType">
-                                                                    <option value="workout">Workout</option>
-                                                                    <option value="active_recovery">Active recovery</option>
-                                                                    <option value="full_rest">Full rest</option>
-                                                                </select>
-                                                            </div>
-                                                            <div class="dd-editor-row">
-                                                                <div class="field"><label>Type</label><input type="text" x-model="workoutForm.workoutType" placeholder="Strength, cardio..."></div>
-                                                                <div class="field"><label>Duration (min)</label><input type="number" min="0" x-model="workoutForm.duration"></div>
-                                                                <div class="field"><label>Score</label><input type="number" min="0" max="100" x-model="workoutForm.score"></div>
-                                                            </div>
-                                                            <div class="dd-editor-row">
-                                                                <div class="field"><label>Calories</label><input type="number" min="0" x-model="workoutForm.calories"></div>
-                                                                <div class="field"><label>VO2 max</label><input type="number" min="0" step="0.1" x-model="workoutForm.vo2max"></div>
-                                                            </div>
-                                                            <div class="field"><label>Note</label><input type="text" x-model="workoutForm.note"></div>
-                                                            <div class="modal-actions">
-                                                                <button type="button" class="btn-text" @click="closeWorkoutEditor()">Cancel</button>
-                                                                <button type="button" class="btn btn-primary" @click="saveWorkoutEditor()">Save</button>
-                                                            </div>
-                                                        </div>
-                                                    </template>
                                                 </div>
                                             </template>
 
-                                            <!-- Checklist -->
-                                            <template x-if="selectedChecklist.length > 0">
+                                            <!-- Checklist: read-only status, hidden for future dates (nothing to
+                                                 mark "not logged" for a day that hasn't happened). No drill-down --
+                                                 checklist.js is hardcoded to today, no dated view exists yet. -->
+                                            <template x-if="selectedChecklist.length > 0 && !selectedIsFuture">
                                                 <div class="dd-section">
                                                     <div class="dd-section-head">
                                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('check')"></svg>
@@ -2353,41 +2299,22 @@
                                                         <span class="dd-section-meta" x-text="selectedMissedCount > 0 ? (selectedMissedCount + ' not logged') : ''"></span>
                                                     </div>
                                                     <template x-for="c in selectedChecklist" :key="c.item.id">
-                                                        <div>
-                                                            <template x-if="editingChecklistItemId !== c.item.id">
-                                                                <div class="dd-row-wrap">
-                                                                    <div class="dd-row" @click="openChecklistEditor(c.item.id)">
-                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('check')"></svg>
-                                                                        <span class="name" x-text="c.item.name"></span>
-                                                                        <span class="dd-chip" :class="{done: c.history && c.history.status==='done', skipped: c.history && c.history.status==='skipped'}" x-text="c.history ? (c.history.status[0].toUpperCase() + c.history.status.slice(1)) : 'Not logged'"></span>
-                                                                        <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
-                                                                    </div>
-                                                                </div>
-                                                            </template>
-                                                            <template x-if="editingChecklistItemId === c.item.id">
-                                                                <div class="dd-editor">
-                                                                    <div class="dd-editor-row">
-                                                                        <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="checklistLogForm.time"><select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div></div>
-                                                                    </div>
-                                                                    <div class="field"><label>Note (optional)</label><input type="text" x-model="checklistLogForm.note" placeholder="Optional note..."></div>
-                                                                    <div class="modal-actions" style="flex-wrap: wrap;">
-                                                                        <button type="button" class="btn btn-primary" style="flex:1;" @click="saveChecklistEditor('done')">✓ Done</button>
-                                                                        <button type="button" class="btn" style="flex:1;" @click="saveChecklistEditor('skipped')">Skip</button>
-                                                                        <button type="button" class="btn" style="flex:1;" @click="saveChecklistEditor('holiday')">🏖️ Holiday</button>
-                                                                    </div>
-                                                                    <div class="modal-actions">
-                                                                        <button type="button" class="btn-text" @click="closeChecklistEditor()">Cancel</button>
-                                                                        <button type="button" class="btn btn-danger" @click="undoChecklistEditor()">Undo / Clear</button>
-                                                                    </div>
-                                                                </div>
-                                                            </template>
+                                                        <div class="dd-row-wrap">
+                                                            <div class="dd-row">
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('check')"></svg>
+                                                                <span class="name" x-text="c.item.name"></span>
+                                                                <span class="dd-chip" :class="{done: c.history && c.history.status==='done', skipped: c.history && c.history.status==='skipped'}" x-text="c.history ? (c.history.status[0].toUpperCase() + c.history.status.slice(1)) : 'Not logged'"></span>
+                                                            </div>
                                                         </div>
                                                     </template>
                                                 </div>
                                             </template>
 
-                                            <!-- Tasks & Reminders -->
-                                            <template x-if="selectedTasks.length > 0">
+                                            <!-- Tasks & Reminders: past/today shows the real per-item list
+                                                 (click drills into the existing Task modal, confirm-gated inside
+                                                 openTaskDrillDown). Future collapses to grouped counts -- a
+                                                 glimpse, not a workspace -- with one "Go to" link per group. -->
+                                            <template x-if="selectedTasks.length > 0 && !selectedIsFuture">
                                                 <div class="dd-section">
                                                     <div class="dd-section-head">
                                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
@@ -2395,12 +2322,30 @@
                                                     </div>
                                                     <template x-for="t in selectedTasks" :key="t.id">
                                                         <div class="dd-row-wrap">
-                                                            <div class="dd-row" @click="openTaskDrillDown(t)">
+                                                            <div class="dd-row clickable" @click="openTaskDrillDown(t)">
                                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(t.kind === 'reminder' ? 'bell' : 'list')"></svg>
                                                                 <span class="name" x-text="t.name"></span>
                                                                 <span class="time" x-show="t.scheduled_time" x-text="window.formatTime12h ? window.formatTime12h(t.scheduled_time) : t.scheduled_time"></span>
                                                                 <span class="dd-project-dot" x-show="t.project_id"></span>
                                                                 <span class="dd-chip" :class="{done: taskStatus(t)==='done', overdue: taskStatus(t)==='overdue'}" x-text="taskStatus(t) === 'done' ? 'Done' : (taskStatus(t) === 'overdue' ? 'Overdue' : 'Upcoming')"></span>
+                                                                <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            <template x-if="selectedTasks.length > 0 && selectedIsFuture">
+                                                <div class="dd-section">
+                                                    <div class="dd-section-head">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
+                                                        Tasks &amp; Reminders
+                                                    </div>
+                                                    <template x-for="g in selectedTaskGroups" :key="g.project_id || 'none'">
+                                                        <div class="dd-row-wrap">
+                                                            <div class="dd-row clickable" @click="goToTaskGroup(g)">
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
+                                                                <span class="name" x-text="g.project_id ? projectName(g.project_id) : 'No project'"></span>
+                                                                <span class="dd-chip" x-text="taskGroupLabel(g)"></span>
                                                                 <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
                                                             </div>
                                                         </div>
@@ -2417,7 +2362,7 @@
                                                     </div>
                                                     <template x-for="p in selectedProjectWork" :key="p.id">
                                                         <div class="dd-row-wrap">
-                                                            <div class="dd-row" @click="openProjectWorkDrillDown(p)">
+                                                            <div class="dd-row clickable" @click="openProjectWorkDrillDown(p)">
                                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('note')"></svg>
                                                                 <span class="name" x-text="p.body"></span>
                                                                 <span class="dd-chip" x-text="projectName(p.project_id)"></span>
@@ -2436,7 +2381,7 @@
                                                         Journal
                                                     </div>
                                                     <div class="dd-row-wrap">
-                                                        <div class="dd-row" @click="openJournalDrillDown()">
+                                                        <div class="dd-row clickable" @click="openJournalDrillDown()">
                                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('pencil')"></svg>
                                                             <span class="name" x-text="'&quot;' + selectedJournal.body + '&quot;'"></span>
                                                             <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>

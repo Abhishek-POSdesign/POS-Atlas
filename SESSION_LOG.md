@@ -32,6 +32,31 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Claude Code (Sonnet 5) — Calendar + AI live-testing fix pass
+
+**Session scope:** Abhishek live-tested the freshly-shipped Calendar and AI history fix and reported 10 issues across both (AI: bare-topic health questions getting no data / a hallucinated "[Insert Sleep Duration Here]" placeholder reply, TTS reading markdown symbols aloud; Calendar: year-selector display bug, filter-chip contrast, cell text overflow, no dev logging; Calendar behavior: history needed to be fully read-only, drill-downs needed a confirm-before-leaving step, future dates needed to collapse to summary counts). Diagnosed every item against the actual code first (per the plan-before-code rule), reported root causes with file/line citations plus a before/after mockup Artifact, got explicit approval, then implemented.
+
+**Root causes confirmed (not guessed):**
+- The `[Insert Sleep Duration Here]` text does not exist anywhere in the codebase (grepped) -- it's the local Gemma4 model hallucinating a fill-in-the-blank because `_detectHistoryRange()` had no fallback for a bare "check my sleep data"-style question with no explicit range words, so it fell through to `explain_day`, which carries zero health fields by design.
+- The Calendar year dropdown showing 2024 while data was correctly 2026 was a pure Alpine.js `<select x-model>` + `x-for`-options race (browser defaults to the first option if it renders before Alpine's initial value-sync lands), not a data bug -- `viewYear` itself was always correct.
+- The cell text-overflow bug was `text-overflow:ellipsis` sitting on a flex row (`.cal-line`) instead of the actual text-bearing element -- ellipsis on a flex container has no effect on a nested child's overflowing text.
+- Checked whether Checklist could get a real drill-down like Tasks did (Abhishek assumed "Checklist Log" was an existing dated screen) -- confirmed via code that `checklist.js` is hardcoded to `todayKey()` with no arbitrary-date mode, same gap Sleep/Workout had. Flagged this honestly instead of building a drill-down that would only work for today.
+
+**What shipped:**
+- `Deploy/js/ui/aiPanel.js` -- fallback bare-topic branch in `_detectHistoryRange()` (defaults to last-14-days), markdown-stripping regexes added to `_speak()`.
+- `Deploy/index.html` -- explicit `:selected` on year `<option>`s; `.cal-line-text` truncation span; Sleep/Workout inline editors removed entirely; Checklist made read-only + hidden for future dates; Tasks & Reminders branches on `selectedIsFuture` (per-item list vs. grouped counts); `.dd-row.clickable` added to the 4 genuinely-interactive rows only.
+- `Deploy/css/components.css` -- `.filter-chip.on` switched from `--surface-2` to `--accent-blue-tint-hover` (matches `.range-chip.on`); `.cal-cell{overflow:hidden}` + `.cal-line-text` truncation fix; dead `.dd-editor`/`.dd-add-btn` CSS removed; `.dd-row` split into a plain-by-default + `.clickable` modifier.
+- `Deploy/js/pages/calendar.js` -- all three inline editors (state + 9 methods) deleted outright; `openTaskDrillDown`/`openProjectWorkDrillDown`/`openJournalDrillDown` now `await askConfirm(...)` before navigating; new `goToTaskGroup()` + `selectedTaskGroups` getter for the future-date grouped summary; one-line dev `console.log` at the end of `loadMonth()`. File is now genuinely read-only -- confirmed via grep, zero `.save(`/`.setStatus(`/`.undoStatus(` calls remain.
+- `Deploy/service-worker.js` cache bumped `v65` → `v66`.
+
+**What was verified locally:** `node --check` clean on both edited JS files. HTML tag balance re-checked via the same Node-script method from the prior session (div/template/svg/select/button all balanced). Grepped for every removed editor identifier (`editingSleep`, `sleepForm`, etc.) across `Deploy/` -- the only remaining matches are Today page's own unrelated Sleep card fields (same names, different `x-data` scope). Dev server booted, login screen rendered with zero console errors, then stopped (shared prod DB, no sign-in per project rule).
+
+**What's still open:** Abhishek explicitly deferred the day-cell "has data" background highlight -- he wants a 3-option color/hierarchy mockup (flat surface-2 lift / generic accent-tint wash / intensity-based light-vs-busy tint) before any `.cal-cell` background code is written. That mockup + implementation is the next step, not yet done as of this entry. Also still open: live confirmation of all of the above on the deployed app (year select, filter chip contrast, cell truncation, read-only Day Detail, confirm-before-leaving, future-date grouped summary, AI bare-sleep-question routing, TTS without markdown).
+
+**What NOT to do:** Don't add a Sleep/Workout/Checklist edit path back into Calendar -- read-only is now the deliberate, explicit rule (Abhishek: "the Calendar (past dates) is a read-only view... it must never be a place to add or edit"). Don't build a Checklist drill-down without first giving `checklist.js` a real arbitrary-date mode -- a fake one that only works for today is worse than none. Don't add `.cal-cell` has-data background color without checking which of the 3 mockup options got picked.
+
+---
+
 ## 2026-07-29 · Claude Code (Sonnet 5) — Calendar page shipped (mockup round 2 + full build)
 
 **Session scope:** Continuation of the same-day Calendar work. Abhishek live-tested the first mockup (3 options: spacious/balanced/dense) in Comet and asked for a real refinement round before any code: Day Detail moved from a right-side column to full-width below the grid (Atlas already has a right-side AI panel, two right panels would clash), a fixed 5-section Day Detail structure (Health/Checklist/Tasks & Reminders/Projects & Work Logs/Journal), a category filter bar, range-preset hints, drill-down links into existing modals/pages, and "Balanced" density picked as the sole base (Spacious/Dense dropped). Shipped that refined mockup, got "approved?" confirmation, then built the real page.

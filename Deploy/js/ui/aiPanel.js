@@ -160,6 +160,15 @@ export function atlasAi() {
             const text = msg.text;
             const clean = text
                 .replace(/\[System:.*?\]/g, '')
+                // Markdown formatting characters -- the model's reply is
+                // rendered as markdown on-screen but must be spoken as plain
+                // sentences, not have "asterisk asterisk" etc. read aloud.
+                .replace(/`{1,3}([^`]*)`{1,3}/g, '$1')
+                .replace(/\*\*(.*?)\*\*/g, '$1')
+                .replace(/\*(.*?)\*/g, '$1')
+                .replace(/_{1,2}([^_]*)_{1,2}/g, '$1')
+                .replace(/^#{1,6}\s+/gm, '')
+                .replace(/^\s*[-*•]\s+/gm, '')
                 .replace(/—[^\n]*/g, '')
                 .replace(/https?:\/\/\S+/g, '')
                 .trim();
@@ -764,6 +773,18 @@ export function atlasAi() {
             }
             if (/\b(last|past)\s+(two|2|three|3|couple(\s+of)?)\s+(workouts?|sessions?|nights?|days?)\b/.test(t)) {
                 return { startDate: addDays(today, -9), endDate: today, label: 'recent activity', compare: false };
+            }
+
+            // Fallback: a bare sleep/workout/health topic word with no range
+            // language at all ("check my sleep data", "how's my sleep",
+            // "what about my workouts") -- confirmed live 2026-07-29 that
+            // without this, these fall through to explain_day, which carries
+            // zero health fields by design, and a weak local model fills the
+            // gap with hallucinated placeholder text instead of admitting it
+            // has nothing. Defaults to the same 14-day window the "Health
+            // check-in" quick action already uses.
+            if (/\b(sle(ep|pt|eping)|nap(ped)?|deep\s*sleep|rem\b|resting\s*(heart\s*rate|hr)|hrv|heart\s*rate\s*variability|woke\s*up|bed\s*time|workout|exercise|training|cardio|gym|health)\b/.test(t)) {
+                return { startDate: addDays(today, -13), endDate: today, label: 'last 14 days', compare: false };
             }
 
             return null;
