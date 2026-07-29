@@ -32,6 +32,20 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 -- Antigravity (Gemini 3.1 Pro) -- History/Calendar Journal Overflow Hotfix
+
+**Session scope:** Fixed a horizontal overflow issue caused by very long journal entries on the History (Calendar) page without changing app logic or altering Phase 1 closure status.
+
+**What shipped (commits):**
+- `3609237` - fix(history): add min-width to dd-section to prevent horizontal blowout from long journal entries
+
+**What was implemented:**
+- Added `min-width: 0` to the base `.dd-section` class in `Deploy/css/components.css`. This ensures flex children (like the Journal row text with `text-overflow: ellipsis`) are forced to truncate rather than expanding the grid layout and causing a horizontal scrollbar.
+- Bumped `service-worker.js` cache to `v72` to deploy the CSS fix to the PWA immediately.
+- Ensured absolutely zero JS or logical changes; this was a purely cosmetic CSS patch to resolve an unreadable layout bug during testing.
+
+---
+
 ## 2026-07-29 · PHASE 1 FORMALLY CLOSED — testing phase begins, Phase 2 next week
 
 **Closed by Abhishek across both development tools** — Antigravity/Gemini and Claude Code. This entry (written by Claude Code) synthesizes the close-out; see the Antigravity entry immediately below for their own final session, and every Claude Code entry further below for the full round-by-round build story.
