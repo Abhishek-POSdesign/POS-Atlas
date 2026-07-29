@@ -572,6 +572,9 @@
     gap: var(--pad-md);
     margin-bottom: var(--pad-lg);
 }
+@media (max-width: 768px) {
+    .stat-row { grid-template-columns: 1fr; }
+}
 
 /* ---------- Task row ---------- */
 
@@ -1201,6 +1204,9 @@
 
 /* KPI cards: filled, not cornered */
 .kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--pad-md); }
+@media (max-width: 768px) {
+    .kpi-strip { grid-template-columns: 1fr; }
+}
 .kpi-card {
     padding: var(--pad-md) var(--pad-lg); display: flex; flex-direction: column; justify-content: space-between; gap: 10px; min-height: 210px;
     transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
