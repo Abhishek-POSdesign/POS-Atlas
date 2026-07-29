@@ -32,6 +32,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Live-testing round 4 (small fixes only, per explicit instruction)
 
 **Session scope:** Abhishek re-tested round 3's fixes live and reported which landed vs. which didn't, plus 2 new small items, with an explicit constraint: small/quick fixes only this round, anything needing a big round gets deferred to Phase 2. Went through each of his 8 numbered points:
@@ -55,6 +74,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Live-testing round 3, Phase 1 officially closed
 
 **Session scope:** Abhishek did a real desktop + mobile pass through the deployed app, reported 5 concrete bugs plus a mobile gap, and made explicit decisions on all 4 urgent audit findings from the earlier entry this same day. This closes Phase 1.
@@ -87,6 +125,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Calendar day-cell vivid pass (2 mockup rounds), Phase 1 close audit requested
 
 **Session scope:** Continuation of the same-day fix pass. Abhishek reviewed the "3 subtle color options" mockup and rejected all three as washed-out and too similar. Asked for a second round with genuinely distinct structures (referencing Dribbble/Bing-Rewards-style vivid calendar cards). Delivered 3 structurally different options (A: stacked category blocks, B: single agenda card with chips, C: heatmap wash); his reply was self-contradictory ("I like option B better" vs. "I only like category A, keep category A") so asked a direct clarifying question rather than guess -- confirmed Option A. Built one vivid pass on Option A (solid accent icon badges + stronger existing tint-hover block backgrounds, replacing the faint base tint) using only existing tokens -- explicitly named the real constraint (Atlas's 5 accents are muted by design, can't be made to look like a saturated illustration palette without inventing new tokens). Abhishek approved it as "not 100% satisfied, but let's agree to disagree, build it, next phase I'll have clearer direction" -- shipped as-is, flagged as an open design item, not a settled one.
@@ -115,6 +172,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Calendar + AI live-testing fix pass
 
 **Session scope:** Abhishek live-tested the freshly-shipped Calendar and AI history fix and reported 10 issues across both (AI: bare-topic health questions getting no data / a hallucinated "[Insert Sleep Duration Here]" placeholder reply, TTS reading markdown symbols aloud; Calendar: year-selector display bug, filter-chip contrast, cell text overflow, no dev logging; Calendar behavior: history needed to be fully read-only, drill-downs needed a confirm-before-leaving step, future dates needed to collapse to summary counts). Diagnosed every item against the actual code first (per the plan-before-code rule), reported root causes with file/line citations plus a before/after mockup Artifact, got explicit approval, then implemented.
@@ -140,6 +216,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Calendar page shipped (mockup round 2 + full build)
 
 **Session scope:** Continuation of the same-day Calendar work. Abhishek live-tested the first mockup (3 options: spacious/balanced/dense) in Comet and asked for a real refinement round before any code: Day Detail moved from a right-side column to full-width below the grid (Atlas already has a right-side AI panel, two right panels would clash), a fixed 5-section Day Detail structure (Health/Checklist/Tasks & Reminders/Projects & Work Logs/Journal), a category filter bar, range-preset hints, drill-down links into existing modals/pages, and "Balanced" density picked as the sole base (Spacious/Dense dropped). Shipped that refined mockup, got "approved?" confirmation, then built the real page.
@@ -163,6 +258,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” AI history/future blindness fixed; full-page Calendar planned (mockup pending)
 
 **Session scope:** Abhishek reported Atlas AI claiming it "doesn't see logs for yesterday" despite having logged sleep/workout data. Asked for a full debug + fix of AI history usage, plus a History Calendar page as the visual backbone. Used plan mode: 3 parallel Explore agents (AI context pipeline, db.js inventory, page architecture/design tokens) + 1 Plan agent to design the implementation, then two rounds of user feedback that substantially expanded scope before approval: (1) the calendar became a full-page "Calendar" (not "History"), past AND future, not a small widget; (2) a required first step of producing 3 named mockup options (A/B/C) via Artifact before any calendar code. This session shipped the AI-pipeline fix (Parts 1-5 of the approved plan); the Calendar UI itself (Part 6) is next, gated on the mockup round.
@@ -188,6 +302,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” TTS: removed truncation for hands-free full-reply reading
 
 **Session scope:** Follow-up to the same-day TTS fix. Abhishek confirmed the Indian voice works but wants hands-free use â€” Atlas should read the *whole* reply, not stop after ~900 characters. Direct implementation instructions given (not a diagnose-first task), implemented as specified.
@@ -208,6 +341,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Took over Google Cloud TTS from Gemini: fixed atlas-tts-proxy, TTS now live
 
 **Session scope:** Abhishek reported Cloud TTS (Atlas Calm/Clear) showing a spinner then "Voice failed to load" toast, while browser voices still worked. Gemini had already built the full frontend (Settings voice picker, Play/Stop/spinner, 900-char sentence-boundary truncation + hint, error toast with no fallback) and a first version of the `atlas-tts-proxy` Edge Function across commits `e878665`/`467af06`/`3e8de45`/`60b5dd2`, but never logged any of it in this file or `PLAN.md` â€” this session's first job was figuring out what was actually already there before touching anything. Diagnosed via the Supabase MCP tools directly (not guessed), reported findings, got explicit approval, then implemented.
@@ -233,6 +385,25 @@ Companion docs sit beside this one:
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Today Health row: fixed Sleep hover + Workout tooltip, removed dead dropdown, hardened SW cache
 
 **Session scope:** Real live bugs reported on Today's Health row: Sleep sparkline hover/tooltip did nothing; the 14/30-day dropdown looked decorative; Workout's 4-week consistency tooltips were inconsistent across reloads, sometimes showing odd labels. Also asked to explain and harden the service-worker/cache setup, since the last session's `v55`â†’`v56` bump ("Fix split-brain cache") didn't seem to fully fix reload inconsistency. Diagnosed first (no code), presented findings + a plan, got explicit approval, then implemented exactly what was approved. No AI write-flow files or Supabase schema touched.
@@ -493,6 +664,25 @@ The AI write-flow architecture (detect intent â†’ extract JSON â†’ confirm card 
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Opus 4.6/Sonnet 5) â€” Atlas AI Phase 1: planning, mockups, and build
 
 **Session scope:** A full cycle for Atlas's AI layer â€” read the four canonical AI architecture chapters (`Atlas/AI Chapters/19-22`) plus the sibling Task Manager app's real, shipped "Partner" AI reference implementation; wrote a structured Phase 1 plan (approved); built two mockup rounds (approved with named refinements); then built Phase 1 for real.
@@ -524,6 +714,25 @@ The AI write-flow architecture (detect intent â†’ extract JSON â†’ confirm card 
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Opus 4.6) â€” Atlas AI round 2: real model-pill bug + conversation-first persona rewrite
 
 **Session scope:** Abhishek retested after the first fix round and reported the model pill still didn't open, plus the much bigger issue: Atlas responded to plain greetings ("hello, how are you?") with task/checklist status reports and said "I don't have personal feelings" unprompted â€” the exact "data reader" behavior the whole project was meant to avoid.
@@ -545,6 +754,25 @@ The AI write-flow architecture (detect intent â†’ extract JSON â†’ confirm card 
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Opus 4.6) â€” Atlas AI live-testing fix round
 
 **Session scope:** Abhishek tested the Phase 1 build live and reported 9 items. Fixed the real bugs; answered the rest as plain explanations (no code needed).
@@ -571,6 +799,25 @@ The AI write-flow architecture (detect intent â†’ extract JSON â†’ confirm card 
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Repo cleanup: dead worktree + duplicate files, drag-to-complete deferred
 
 **Session scope:** Abhishek accepted the split-card Tasks layout + empty-state illustration as-is (no changes needed). He asked one question â€” is a "drag a task onto the Completed card to mark it done" gesture feasible, and how big a build â€” got a direct size answer (small-medium desktop-only, medium-large for real touch support) and chose to defer it. Then asked for two things before closing: (1) document the deferred drag-to-complete idea as a future item, (2) audit the Atlas folder for duplicate files/folders and remove them, keeping only what's current. No app code (`Deploy/`) touched this pass â€” pure docs + repo hygiene.
@@ -595,6 +842,25 @@ The AI write-flow architecture (detect intent â†’ extract JSON â†’ confirm card 
 
 ---
 
+## 2026-07-29 · Antigravity (Gemini 3.1 Pro) — Phase 1 close audit and mobile layout fix
+
+**Session scope:** Conducted a comprehensive read-only audit of the app to produce a final Phase 1 closing report, followed by a specific targeted fix for a mobile layout scrolling issue on the Calendar and Today pages.
+
+**What shipped (commits):**
+- 8ab817e — Fix mobile Today page horizontal scrolling (added media queries to stack .kpi-strip and .stat-row on screens < 768px, bumped cache to v71).
+- 35b1216 — Fix mobile calendar horizontal scrolling (added min-width: 0 to .dd-section on screens < 720px, bumped cache to v70).
+
+**What was verified live:**
+- Abhishek confirmed the targeted CSS fixes successfully eliminated the horizontal scrolling issue across the mobile app without affecting the desktop layout.
+
+**What's still open:**
+- **Phase 1 is now officially closed.** The app enters a 4-7 day live trial freeze (read-only/no development).
+- The Phase 1 Closing Report (phase1_closing_report.md) contains unresolved urgent bugs (AI still triggering write-flows, permanent workout session deletions) and 5 non-urgent issues that were deliberately deferred to Phase 2.
+
+**What NOT to do:**
+- Do not make any code changes or data modifications during the testing week unless explicitly authorized as an emergency hotfix.
+
+---
 ## 2026-07-29 Â· Claude Code (Sonnet 5) â€” Today Tasks split into Active/Completed cards + empty-state illustration
 
 **Session scope:** Abhishek wanted to use the horizontal space on Today's Tasks & Reminders card better and reduce its vertical height. Mockup-first (per this project's own rule for real layout weight): built two Artifact options â€” single card with a collapsed "Recently completed" section, vs. split into two cards (Active 65% / Completed today 35%). He picked the split, plus asked for a proper illustrated empty state on the Completed card (referencing Microsoft To Do screenshots) instead of dead space, recolored into Atlas' own palette â€” "not a cheap emoji."
