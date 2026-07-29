@@ -8,7 +8,56 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-29 (**Calendar vivid day-cell pass shipped** — day cells now render up to 3 colored blocks (sage=Health&Checklist, blue=Tasks&Reminders, lilac=Projects), solid full-strength accent icon badges on the app's existing stronger tint-hover background, replacing the old flat icon+text lines. Two design rounds preceded this: a first "3 subtle options" round was rejected as too washed-out/near-identical; Abhishek then asked for 3 genuinely distinct bold treatments referencing Dribbble/Bing-Rewards-style vivid cards, picked "Option A" (category blocks) as the structure, and approved a vivid pass on it despite not being 100% satisfied ("let's agree to disagree... build this, next phase I'll have clearer direction"). See "Atlas Calendar" below and SESSION_LOG.md 2026-07-29 entries. **Phase 1 closed 2026-07-29.** Of the 4 urgent audit findings, Abhishek made explicit calls on each: #1 (AI write-flows not actually disabled) is **deliberately left live** — "let it be, it's trial phase, I'll watch how it works" — this is a conscious choice, not an oversight, don't silently "fix" it by disabling the flows. #2 (workout-session hard-delete) — he explicitly does **not** want undo/soft-delete added ("logged on my phone anyway, I can re-edit"); confirmed separately that day-level workout data can't duplicate (`DB.Workout.save` upserts on `entry_date`, a real unique constraint). #3 and #4 (the `reopenProject()` false-failure bug and `Projects.getById`'s missing `deleted_at` filter) were both fixed. A large live-testing bug round also landed the same day — see "Live-testing round 3" below. A "locked workout day" feature was requested but explicitly deferred to Phase 2 by Abhishek himself (needs a schema change, he said skip it for now). -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v69` -- **Latest migration:** `016_ai_notebook.sql`
+**Last updated:** 2026-07-29
+
+## 🔒 PHASE 1 CLOSED — ATLAS IS NOW IN A ONE-WEEK TESTING PHASE
+
+**Abhishek closed Phase 1 of Atlas development on 2026-07-29, across both development tools he uses — Antigravity/Gemini and Claude Code.** This is not a Claude-only decision; treat it as final regardless of which agent/account picks this up next. Atlas now enters **one week of real-data testing** (starting 2026-07-29). **Phase 2 development begins the following week (week of ~2026-08-05).**
+
+**What this means for any agent working in this repo right now, on either tool:**
+- **Default to observing, not building.** This is a testing week, not a build week. Only genuine blockers, data-loss risks, or security issues should get code changes during this window — everything else waits for Phase 2, even if it looks small.
+- **If Abhishek reports a bug during testing:** fix it if it's small and clearly scoped (same standard the 2026-07-29 live-testing rounds used — see SESSION_LOG.md for what "small fix now" looked like in practice). If it needs real design/architecture work, log it under **Phase 2 backlog** below and tell him plainly, don't quietly attempt it.
+- **Phase 2 does not start on its own** — it begins when Abhishek explicitly reopens the conversation next week. Nothing in the backlog below should be started before that, even if it seems like the obvious next step.
+
+**Everything shipped across 2026-07-29's build/fix rounds is live and confirmed deployed** (Calendar page, AI history/future awareness, Cloud TTS, the vivid day-cell pass, four Claude Code live-testing rounds, plus two further mobile-scrolling fixes from Antigravity/Gemini after that — Today page's `.kpi-strip`/`.stat-row` stacking and Calendar's `.dd-section` min-width fix, both confirmed working live by Abhishek) — see "Atlas Calendar," "Atlas AI — history & future awareness," and "Atlas AI voice output" sections below for the full build detail, and `SESSION_LOG.md`'s 2026-07-29 entries for the round-by-round story from both tools. -- **Live at:** [atlas.abhisheksikka.com](https://atlas.abhisheksikka.com) -- **Current cache version:** `atlas-offline-shell-v71` -- **Latest migration:** `016_ai_notebook.sql`
+
+---
+
+## 📋 Phase 2 backlog (do not start until Abhishek reopens, week of ~2026-08-05)
+
+Everything below was explicitly deferred rather than built during Phase 1 close-out. Consolidated here as one list so Phase 2's first session doesn't have to go hunting through the rest of this file — each item still has its full detail in the relevant section further down.
+
+**Design work needing Abhishek's direction first (don't guess, mockup-first as always):**
+- **Calendar day-cell visual design is unfinished, by his own words.** He approved the current vivid block treatment to close Phase 1 but said explicitly "I'm not 100% satisfied... next phase I'll have clearer direction prepared." Expect a fresh mockup round, not a continuation of the current look. See "Calendar day-cell vivid pass" below.
+- **A full whole-app mobile-responsiveness pass.** Three targeted fixes landed during Phase 1 close-out (the shared header's overflow, Today's `.kpi-strip`/`.stat-row` stacking, Calendar's `.dd-section` min-width) — all confirmed working live by Abhishek, but all three were scoped as small, specific, common-cause fixes, not a real pass. Projects, Checklist, and anything not already covered above are still untouched and were explicitly named as Phase 2 scope by Abhishek.
+- Real priority system + real drag-and-drop reordering (Phase 6 carry-over, needs its own design pass).
+- Projects list + Notebook visual-hierarchy pass (deferred since Phase 5).
+
+**Features, scoped but not started:**
+- **Workout "lock this day" feature** — prevent further edit/delete once a workout day is finalized. Abhishek's own explicit gate: "if it needs a data set change, just leave it" — it does (new column), so it waits for Phase 2.
+- **A real dated Checklist view** — `checklist.js` is hardcoded to today with no arbitrary-date mode, which is why Calendar's Checklist section has no drill-down (flagged, not built, 2026-07-29).
+- Screenshot parsing (Garmin/ring app → Vertex AI reads it → confirm card) — placeholder buttons already exist in both Health panels, was Abhishek's stated next priority before the Calendar/audit work took over this session.
+- Pattern-of-life insights (sleep/workout correlations) — needs 30+ days of data, which the testing week helps build toward.
+- Phase 3 Targets (`count_toward_goal` progress-bar goals, alongside the streak kind that already ships).
+- Notebook floating/draggable window (currently a modal).
+- Workout day-type weekly pattern setter (e.g. "Sundays default to Full Rest").
+
+**AI layer:**
+- **The AI write-flow action layer remains FAILED/DEFERRED from 2026-07-28**, and separately, its trigger path was confirmed still live/reachable during the 2026-07-29 audit — Abhishek's explicit call was to leave it live and observe during the testing week rather than disable it. **This needs a real decision in Phase 2**: either the full architectural rewrite the original failure verdict called for, or an explicit permanent kill-switch if manual editing is the long-term answer. Don't let "he said leave it" from the testing-week context quietly become the permanent Phase 2 position without asking again.
+- Per-view Fact Package binding (every message currently carries `explain_day`/`explain_history` regardless of which page the panel was opened from).
+- Web search grounding citations (Cloud/Gemini) — deployed, unverified whether surfacing source links is worth doing.
+- TTS's em-dash strip can still cut off part of a spoken reply if the model uses an em-dash mid-sentence (non-urgent, found in the 2026-07-29 audit, not yet fixed).
+- AI's bare-topic health-question routing can false-positive on unrelated small talk containing words like "health"/"training" (non-urgent, same audit).
+- AI Memory's "Saved" confirmation can't actually detect a failed cloud push — `pushNotebook()` swallows its own errors (non-urgent, same audit; no data loss, just an overconfident message).
+
+**Cleanup / hygiene:**
+- `js/entities/*.js` — a folder of schema-definition files never actually imported anywhere, still gets precached on every install. Wire it in or delete it.
+- `WorkoutSessions` has no soft-delete infrastructure at all (ties to the hard-delete finding from the 2026-07-29 audit — Abhishek explicitly doesn't want undo added, but the deeper "give it the same infra everything else has" question is still open for Phase 2 if his answer ever changes).
+- A workout-progress chart on Today can go blank with no visible error if its data load fails silently (non-urgent, same audit).
+- Checklist item reordering does two separate non-atomic writes (non-urgent, same audit, self-heals on reload).
+- `handover-docs/CLAUDE.md` has one stale cache-version reference (cosmetic).
+- The GitHub Actions deploy workflow also deploys a `staging` branch into a staging subfolder — worth confirming whether that's intentional or leftover.
+- **PLAN.md itself has ~95 old mojibake corruption sequences** (em-dashes/quotes mis-decoded, found 2026-07-28) — still not repaired, flagged again here so it doesn't keep getting silently carried forward.
 
 ---
 
@@ -367,30 +416,16 @@ Standing "would want an answer before starting" items — these are not blocking
 
 ## Recommended next sequence
 
-**Phase 5 (Health + Insight Pills) is CLOSED as of 2026-07-27, per Abhishek's explicit sign-off.**
+**Phase 1 is CLOSED as of 2026-07-29 — see the banner at the top of this file.** Atlas is in a one-week real-data testing phase; Phase 2 starts when Abhishek reopens the conversation next week. The full consolidated Phase 2 backlog lives in the **"📋 Phase 2 backlog"** section at the top of this file — don't duplicate it here, that section is the current source of truth for what's next.
 
-**Phase 6 (Tasks & Reminders) is substantially closed as of 2026-07-28.** Gemini shipped a starter slice (time picker, compact row, muted project chip) on 2026-07-27; Claude Code took it over and closed out the remaining items the same round: the sparkline console-crash fix, the Upcoming modal for future-dated tasks, Tasks-card inner scroll, and removal of the inert priority-pill/drag-handle hooks. See the "Phase 6 status" note under Today's Tasks & Reminders card (above) and under PLANNED (below) for the full detail on each. What's left is genuinely new work, not a fix-up of this round: a real priority system, real drag-and-drop, and the full History/Calendar page -- none of those were built this round, all three need their own design pass before any code starts.
+History, for context on how we got here:
+- **Phase 5 (Health + Insight Pills)** closed 2026-07-27.
+- **Phase 6 (Tasks & Reminders)** substantially closed 2026-07-28 (Gemini starter slice + Claude close-out).
+- **Atlas AI Phase 1** (conversation panel, persona/PIN, hybrid routing, memory notebook) shipped 2026-07-29. The write-flow action layer failed real-use testing 2026-07-28 and remains deferred — see "AI Action Layer — FAILED / DEFERRED" below.
+- **Calendar page** (full past+future view) shipped 2026-07-29, through 4 live-testing rounds the same day.
+- **Google Cloud TTS** shipped 2026-07-29.
 
-**Atlas AI Phase 1 shipped 2026-07-29** (overlay, persona+PIN, hybrid routing, memory notebook). **The AI action layer (all 6 write flows) is FAILED / DEFERRED** — conversation and notebook features work, write flows do not. See "AI Action Layer — FAILED / DEFERRED" in the LIVE section for the full status.
-
-### Next workstreams (priority order as of 2026-07-28)
-
-**TRIAL FREEZE in effect: 4-7 days of real use starting 2026-07-28.** Only genuine blockers/data-loss/security fixes permitted during the freeze.
-
-After the freeze:
-1. **Screenshot parsing (Garmin/ring app)** -- upload a screenshot from the Garmin app, Atlas reads the image and fills the confirm card automatically. Gemini 2.5 Flash is multimodal, the Edge Function just needs an image payload added. The placeholder "Attach screenshot" buttons are already in both health panels. Medium build. **Abhishek's stated next priority.**
-2. **[SHIPPED 2026-07-29] Real TTS API for voice** -- Google Cloud TTS is live, see "Atlas AI voice output — Google Cloud TTS" above.
-3. **Real priority system + real drag-and-drop:** design pass needed before building either.
-4. **[SHIPPED 2026-07-29] Calendar page:** live, see "Atlas Calendar" section above.
-
-Older deferred items, still valid but not the stated priority:
-- Projects list visual-hierarchy pass.
-- Notebook layout pass.
-- Phase 3 Targets (`count_toward_goal`).
-- Per-view Fact Package binding in the AI panel (currently always `explain_day` regardless of which page the panel is open from).
-- **PLAN.md encoding corruption (found 2026-07-28, not yet fixed):** ~95 mojibake sequences throughout this file (em-dashes/curly-quotes/middle-dots corrupted into sequences like "—"/"·") -- confirmed via byte inspection to be UTF-8 text that got decoded as Windows-1252 and re-saved as UTF-8 at some point, most likely during Gemini's Phase 6 session (SESSION_LOG.md has zero instances of the same pattern, so it's isolated to this file). New content added in this session's edits uses plain ASCII punctuation (`--` instead of em-dash) specifically to avoid adding more of the same corruption on top. Needs a proper repair pass -- not attempted here, out of scope for a Phase 6 close-out.
-
-Nothing on this list starts without Abhishek re-opening the conversation.
+Nothing starts without Abhishek re-opening the conversation — that includes everything in the Phase 2 backlog above, even the small-looking items.
 
 ---
 
