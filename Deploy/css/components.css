@@ -3122,6 +3122,7 @@ body:has(.ai-panel-open) .content-area {
 
 @media (max-width: 720px) {
     .dd-sections { grid-template-columns: 1fr; }
+    .dd-section { min-width: 0; }
     /* Fixed 2026-07-29, live-testing bug: full 7-column month grid at
        phone width leaves ~45-50px per cell -- nowhere near enough room for
        a badge + two lines of text, which was forcing the whole page to
