@@ -27,6 +27,23 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-07-31 · Claude Code (Sonnet 5) — Session close: still Phase 1 testing week, not a Phase 2 kickoff
+
+**Not a new build round — a closing/framing note for whoever picks this up next**, per Abhishek's explicit instruction to update the docs before ending the day. Read this before the three 2026-07-31 entries below it.
+
+**What actually happened today, in order:** (1) a diagnosis-only pass on 5 reported issues (task/project mismatch, running-task overdue, checklist refresh, TTS fidelity, load speed), delivered as a report, approved before any code; (2) "correction round 2" fixing the task/project + overdue + checklist-refresh items properly after round-1 fixes proved incomplete; (3) a large build round covering several Phase-2-backlog items (Calendar Day Detail, Projects/Notebook hierarchy, task identity, dated checklist drill-down, a usability shortcut), explicitly requested by Abhishek mid-session as "one Phase 2 build pass"; (4) a third round of direct fixes on that build (density, a dead UI element removed, project colors expanded, Notebook hierarchy/dates) after live feedback with a real screenshot.
+
+**The framing that matters:** rounds 3-4 above used the words "Phase 2" throughout (in commit messages and `SESSION_LOG.md` entry titles) because that's the language Abhishek used when asking for them mid-session. **His own explicit closing instruction overrides that label:** "This is fixed under Phase 1 development itself... we are still in the testing phase... we close the day with this." Treat all of 2026-07-31 as an unusually large **testing-week correction/build session**, not as Phase 2 having formally started. `PLAN.md`'s top banner and Phase 2 backlog section have been updated accordingly — several backlog items shipped today, but the standing "Phase 2 starts when Abhishek explicitly reopens it, expected week of ~2026-08-05" rule is unchanged and still in force.
+
+**Docs updated this pass (all pushed):**
+- `PLAN.md` — top banner rewritten with the framing above, cache/migration versions corrected (`v76`, `017_project_delete_orphans_tasks_safely.sql`), Phase 2 backlog list updated to mark what shipped (Day Detail, the read-only dated-checklist drill-down, partial Projects/Notebook hierarchy) vs. what's still open (day-cell grid mockup, full mobile pass, screenshot parsing, pattern insights, monogram collisions, a whole-app date-format audit, the deferred load-speed fix).
+- `CLAUDE.md` (root) — new "Project-identity palette" subsection under the design token system documenting the 4→10 color expansion and its tokens, explicitly marked as project-identity-only (never a semantic accent). New "f)" locked-interaction-rule entry for Calendar's Day Detail (real card depth, grouped checklist not per-item rows, Health/Tasks 40/60 split, Checklist/Projects/Journal full-width, the removed "AI range" row). Updated the 2026-07-26 project-chip contrast rule to reflect the dot→`.id-chip` change, and flagged (not fixed) a real discrepancy noticed in passing between that rule's literal wording and the live CSS.
+- This entry.
+
+**What NOT to do:** Don't read the "Phase 2" label on the three entries below as Abhishek having reopened Phase 2 — he explicitly said otherwise, same day, in the same conversation that shipped the work. Don't start anything else from the Phase 2 backlog on your own initiative because "some of it already got built today" — the same testing-week observe-don't-build default still applies until he says otherwise.
+
+---
+
 ## 2026-07-31 · Claude Code (Sonnet 5) — Phase 2 round 3: Day Detail density, dead "AI range" row removed, project palette expanded, Notebook hierarchy + date format
 
 **Session scope:** Abhishek live-tested the Phase 2 build (round 2, entry below) and sent a real screenshot plus 4 more requests: the new Day Detail ledger had too much empty space around small numbers; a mysterious "AI range" control that visibly did nothing when clicked; only 4 project colors, explicitly asking to go beyond that; and a Notebook hierarchy/date-format request. All four addressed directly, no mockup round -- these are density/bug/content fixes on an already-approved layout, not new visual decisions.
