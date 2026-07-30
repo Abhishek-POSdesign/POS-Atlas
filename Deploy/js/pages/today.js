@@ -12,7 +12,7 @@ function minutesToHM(mins) {
     return `${h}h ${m}m`;
 }
 
-export function todayPage() {
+export function todayPage(nav) {
     return {
         tasks: [],
         projects: [],
@@ -268,6 +268,13 @@ export function todayPage() {
         },
         projectInitial(project) {
             return (project.monogram_letter || project.name?.[0] || '?').toUpperCase();
+        },
+        // Jump straight to a task's project workspace from its badge on the
+        // row (2026-07-31, Phase 2 usability pass) -- the badge used to be
+        // inert. @click.stop on the badge itself keeps the row's own click
+        // (open the task editor) from also firing.
+        goToProject(projectId) {
+            if (nav && nav.onOpenProject) nav.onOpenProject(projectId);
         },
 
         // ---- streaks ----

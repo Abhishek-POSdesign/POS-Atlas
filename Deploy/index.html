@@ -442,15 +442,38 @@
                                             <span x-text="savedState === 'saving' ? 'Saving...' : 'Save'"></span>
                                         </button>
                                     </div>
+                                    <!-- Compact by default, expand in place on click (2026-07-31,
+                                         Phase 2 -- mockup-approved). Every past entry used to render
+                                         with its full body showing all the time -- a two-sentence
+                                         entry from last week cost the same space as a long one, so
+                                         the list read as sparse regardless of what was actually in
+                                         it. Same interaction Atlas's own Project card already uses. -->
                                     <template x-if="pastEntries.length > 0">
                                         <div style="margin-top: var(--pad-lg);">
                                             <h3 class="system-text" style="margin-bottom: var(--pad-sm);">Previous entries</h3>
-                                            <div class="stack">
+                                            <div class="stack" style="gap: 8px;">
                                                 <template x-for="entry in pastEntries" :key="entry.id">
-                                                    <div class="card note-entry">
-                                                        <div class="note-date" x-text="entry.entry_date"></div>
-                                                        <p x-text="entry.body" style="white-space: pre-wrap;"></p>
-                                                        <button class="btn-text" @click="deleteEntry(entry)">Delete</button>
+                                                    <div>
+                                                        <template x-if="!isEntryExpanded(entry)">
+                                                            <div class="note-row" @click="toggleEntry(entry)" role="button" tabindex="0" @keydown.enter.prevent="toggleEntry(entry)" @keydown.space.prevent="toggleEntry(entry)">
+                                                                <span class="note-row-dot"></span>
+                                                                <div class="note-row-body">
+                                                                    <div class="note-date" x-text="entry.entry_date"></div>
+                                                                    <div class="note-row-preview" x-text="entryPreview(entry.body)"></div>
+                                                                </div>
+                                                                <svg class="note-row-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                                                            </div>
+                                                        </template>
+                                                        <template x-if="isEntryExpanded(entry)">
+                                                            <div class="card note-entry">
+                                                                <div class="note-entry-head" @click="toggleEntry(entry)" role="button" tabindex="0" @keydown.enter.prevent="toggleEntry(entry)">
+                                                                    <div class="note-date" x-text="entry.entry_date"></div>
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                                                                </div>
+                                                                <p x-text="entry.body" style="white-space: pre-wrap;"></p>
+                                                                <button class="btn-text" @click="deleteEntry(entry)">Delete</button>
+                                                            </div>
+                                                        </template>
                                                     </div>
                                                 </template>
                                             </div>
@@ -522,7 +545,7 @@
 
                 <!-- Today tab -->
                 <template x-if="tab==='today'">
-                    <div x-data="todayPage()">
+                    <div x-data="todayPage({ onOpenProject: (id) => { tab = 'projects'; openProject(id); } })">
                         <div class="section-header">
                             <!-- Today title block: H1 above its own date, so the page title
                                  clearly outranks the top-nav tabs (Today / Projects). Replaces
@@ -689,8 +712,8 @@
                                                                 <span class="trv2-kind task" x-text="projectFor(task) ? 'Task' : 'Task · Standalone'" style="flex-shrink: 0; margin-right: 6px;"></span>
                                                             </template>
                                                             <template x-if="projectFor(task)">
-                                                                <span class="trv2-project" :class="'color-' + projectFor(task).color_key" style="flex-shrink: 0; margin-right: 6px;">
-                                                                    <span class="trv2-project-dot"></span>
+                                                                <span class="trv2-project clickable" :class="'color-' + projectFor(task).color_key" style="flex-shrink: 0; margin-right: 6px;" @click.stop="goToProject(projectFor(task).id)" role="button" tabindex="0" :title="'Open ' + projectFor(task).name" @keydown.enter.stop.prevent="goToProject(projectFor(task).id)">
+                                                                    <span class="id-chip" :class="'color-' + projectFor(task).color_key" x-text="projectInitial(projectFor(task))"></span>
                                                                     <span x-text="projectFor(task).name"></span>
                                                                 </span>
                                                             </template>
@@ -1436,8 +1459,8 @@
                                                             <span class="trv2-kind task" x-text="projectFor(task) ? 'Task' : 'Task · Standalone'" style="flex-shrink: 0; margin-right: 6px;"></span>
                                                         </template>
                                                         <template x-if="projectFor(task)">
-                                                            <span class="trv2-project" :class="'color-' + projectFor(task).color_key" style="flex-shrink: 0; margin-right: 6px;">
-                                                                <span class="trv2-project-dot"></span>
+                                                            <span class="trv2-project clickable" :class="'color-' + projectFor(task).color_key" style="flex-shrink: 0; margin-right: 6px;" @click.stop="goToProject(projectFor(task).id)" role="button" tabindex="0" :title="'Open ' + projectFor(task).name" @keydown.enter.stop.prevent="goToProject(projectFor(task).id)">
+                                                                <span class="id-chip" :class="'color-' + projectFor(task).color_key" x-text="projectInitial(projectFor(task))"></span>
                                                                 <span x-text="projectFor(task).name"></span>
                                                             </span>
                                                         </template>
@@ -1718,7 +1741,7 @@
                                           <p class="project-focus" x-show="project.description" x-text="project.description"></p>
                                       </template>
                                       <template x-if="p.status === 'completed'">
-                                          <div class="system-text">Completed</div>
+                                          <span class="pstatus-chip">Completed</span>
                                       </template>
 
                                       <div class="project-meta" x-show="p.status !== 'completed'">
@@ -2321,162 +2344,210 @@
 
                                     <!-- ==================== Day Detail: full-width, below the
                                          grid, updates in place -- never a modal or right-side
-                                         drawer (Atlas already has a right-side AI panel). ==================== -->
-                                    <div class="day-detail-region" x-show="selectedDate">
-                                        <div class="dd-date" x-text="selectedDateLabel"></div>
-                                        <div class="dd-sub" x-text="selectedIsFuture ? 'Planned' : (selectedIsToday ? 'Today' : 'Logged')"></div>
+                                         drawer (Atlas already has a right-side AI panel).
+                                         Rebuilt 2026-07-31 (Phase 2, "Editorial Ledger" -- mockup
+                                         Option A, approved) -- big serif date + a bold KPI strip so
+                                         the day's shape reads before any row does, section titles in
+                                         serif italic with a solid top-edge in that section's real
+                                         locked accent (was one flat blue icon on every section
+                                         regardless of meaning), and the whole block finally has real
+                                         card depth like every other card in Atlas -- it previously had
+                                         none, just a thin top border floating on the page background. ==================== -->
+                                    <div class="dd-ledger" x-show="selectedDate">
+                                        <div class="dd-ledger-head">
+                                            <div class="dd-ledger-num" x-text="new Date(selectedDate + 'T00:00:00').getDate()"></div>
+                                            <div class="dd-ledger-headtext">
+                                                <div class="dd-ledger-day" x-text="new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })"></div>
+                                                <div class="dd-ledger-month" x-text="new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) + ' · ' + (selectedIsFuture ? 'Planned' : (selectedIsToday ? 'Today' : 'Logged'))"></div>
+                                            </div>
+                                        </div>
 
                                         <template x-if="!selectedHasAnything">
                                             <p class="dd-empty" x-text="selectedIsFuture ? 'Nothing planned yet for this day.' : 'Nothing logged for this day.'"></p>
                                         </template>
 
-                                        <div class="dd-sections" x-show="selectedHasAnything">
-                                            <!-- Health: Sleep + Workout -->
-                                            <template x-if="selectedSleep || selectedWorkout">
-                                                <div class="dd-section">
-                                                    <div class="dd-section-head">
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('health')"></svg>
-                                                        Health
+                                        <template x-if="selectedHasAnything">
+                                            <div>
+                                                <div class="dd-kpis">
+                                                    <div class="dd-kpi" x-show="selectedChecklist.length > 0 && !selectedIsFuture">
+                                                        <div class="dd-kpi-num sage" x-text="selectedChecklistGroups.done.length + '/' + selectedChecklist.length"></div>
+                                                        <div class="dd-kpi-label">Checklist</div>
                                                     </div>
+                                                    <div class="dd-kpi" x-show="selectedTasks.length > 0">
+                                                        <div class="dd-kpi-num blue" x-text="selectedTasks.length"></div>
+                                                        <div class="dd-kpi-label" x-text="selectedTasks.length === 1 ? 'Task' : 'Tasks'"></div>
+                                                    </div>
+                                                    <div class="dd-kpi" x-show="selectedProjectWork.length > 0">
+                                                        <div class="dd-kpi-num lilac" x-text="selectedProjectWork.length"></div>
+                                                        <div class="dd-kpi-label" x-text="selectedProjectWork.length === 1 ? 'Work log' : 'Work logs'"></div>
+                                                    </div>
+                                                </div>
 
-                                                    <template x-if="selectedSleep">
-                                                        <div>
-                                                            <div class="dd-sub-label">Sleep</div>
-                                                            <div class="dd-row-wrap">
-                                                                <div class="dd-row">
-                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('sleep')"></svg>
-                                                                    <span class="name" x-text="'Sleep' + (selectedSleep.duration_minutes != null ? ' · ' + Math.floor(selectedSleep.duration_minutes/60) + 'h ' + (selectedSleep.duration_minutes%60) + 'm' : '')"></span>
-                                                                    <span class="dd-chip" x-show="selectedSleep.sleep_score != null" x-text="'Score ' + selectedSleep.sleep_score"></span>
+                                                <div class="dd-body">
+                                                    <!-- Health: Sleep + Workout -->
+                                                    <template x-if="selectedSleep || selectedWorkout">
+                                                        <div class="dd-sec c-sage">
+                                                            <div class="dd-sec-title">Health</div>
+
+                                                            <template x-if="selectedSleep">
+                                                                <div>
+                                                                    <div class="dd-row">
+                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('sleep')"></svg>
+                                                                        <span class="name" x-text="'Sleep' + (selectedSleep.duration_minutes != null ? ' · ' + Math.floor(selectedSleep.duration_minutes/60) + 'h ' + (selectedSleep.duration_minutes%60) + 'm' : '')"></span>
+                                                                        <span class="dd-chip done" x-show="selectedSleep.sleep_score != null" x-text="'Score ' + selectedSleep.sleep_score"></span>
+                                                                    </div>
+                                                                    <div class="dd-fact-row" x-show="selectedSleep.deep_minutes != null"><span>Deep</span><span class="v" x-text="selectedSleep.deep_minutes + ' min'"></span></div>
+                                                                    <div class="dd-fact-row" x-show="selectedSleep.rem_minutes != null"><span>REM</span><span class="v" x-text="selectedSleep.rem_minutes + ' min'"></span></div>
+                                                                    <div class="dd-fact-row" x-show="selectedSleep.resting_hr != null"><span>Resting HR</span><span class="v" x-text="selectedSleep.resting_hr + ' bpm'"></span></div>
+                                                                    <div class="dd-fact-row" x-show="selectedSleep.hrv != null"><span>HRV</span><span class="v" x-text="selectedSleep.hrv + ' ms'"></span></div>
+                                                                    <div class="dd-note" x-show="selectedSleep.note" x-text="'&quot;' + selectedSleep.note + '&quot;'"></div>
                                                                 </div>
-                                                            </div>
-                                                            <div class="dd-fact-row" x-show="selectedSleep.deep_minutes != null"><span>Deep</span><span class="v" x-text="selectedSleep.deep_minutes + ' min'"></span></div>
-                                                            <div class="dd-fact-row" x-show="selectedSleep.rem_minutes != null"><span>REM</span><span class="v" x-text="selectedSleep.rem_minutes + ' min'"></span></div>
-                                                            <div class="dd-fact-row" x-show="selectedSleep.resting_hr != null"><span>Resting HR</span><span class="v" x-text="selectedSleep.resting_hr + ' bpm'"></span></div>
-                                                            <div class="dd-fact-row" x-show="selectedSleep.hrv != null"><span>HRV</span><span class="v" x-text="selectedSleep.hrv + ' ms'"></span></div>
-                                                            <div class="dd-note" x-show="selectedSleep.note" x-text="'&quot;' + selectedSleep.note + '&quot;'"></div>
-                                                        </div>
-                                                    </template>
-                                                    <template x-if="selectedWorkout">
-                                                        <div>
-                                                            <div class="dd-sub-label">Workout</div>
-                                                            <div class="dd-row-wrap">
-                                                                <div class="dd-row">
-                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('workout')"></svg>
-                                                                    <span class="name" x-text="(selectedWorkout.workout_type || selectedWorkout.day_type || 'Workout') + (selectedWorkoutSessions.length ? ' · ' + selectedWorkoutSessions.length + ' session' + (selectedWorkoutSessions.length===1?'':'s') : '')"></span>
-                                                                    <span class="dd-chip" x-show="selectedWorkout.workout_score != null" x-text="'Score ' + selectedWorkout.workout_score"></span>
+                                                            </template>
+                                                            <template x-if="selectedWorkout">
+                                                                <div>
+                                                                    <div class="dd-row">
+                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('workout')"></svg>
+                                                                        <span class="name" x-text="(selectedWorkout.workout_type || selectedWorkout.day_type || 'Workout') + (selectedWorkoutSessions.length ? ' · ' + selectedWorkoutSessions.length + ' session' + (selectedWorkoutSessions.length===1?'':'s') : '')"></span>
+                                                                        <span class="dd-chip done" x-show="selectedWorkout.workout_score != null" x-text="'Score ' + selectedWorkout.workout_score"></span>
+                                                                    </div>
+                                                                    <div class="dd-fact-row" x-show="selectedWorkout.calories != null"><span>Calories</span><span class="v" x-text="selectedWorkout.calories"></span></div>
+                                                                    <div class="dd-fact-row" x-show="selectedWorkout.vo2_max != null"><span>VO2 max</span><span class="v" x-text="selectedWorkout.vo2_max"></span></div>
+                                                                    <div class="dd-note" x-show="selectedWorkout.note" x-text="'&quot;' + selectedWorkout.note + '&quot;'"></div>
                                                                 </div>
-                                                            </div>
-                                                            <div class="dd-fact-row" x-show="selectedWorkout.calories != null"><span>Calories</span><span class="v" x-text="selectedWorkout.calories"></span></div>
-                                                            <div class="dd-fact-row" x-show="selectedWorkout.vo2_max != null"><span>VO2 max</span><span class="v" x-text="selectedWorkout.vo2_max"></span></div>
-                                                            <div class="dd-note" x-show="selectedWorkout.note" x-text="'&quot;' + selectedWorkout.note + '&quot;'"></div>
+                                                            </template>
                                                         </div>
                                                     </template>
-                                                </div>
-                                            </template>
 
-                                            <!-- Checklist: read-only status, hidden for future dates (nothing to
-                                                 mark "not logged" for a day that hasn't happened). No drill-down --
-                                                 checklist.js is hardcoded to today, no dated view exists yet. -->
-                                            <template x-if="selectedChecklist.length > 0 && !selectedIsFuture">
-                                                <div class="dd-section">
-                                                    <div class="dd-section-head">
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('check')"></svg>
-                                                        Checklist
-                                                        <span class="dd-section-meta" x-text="selectedMissedCount > 0 ? (selectedMissedCount + ' not logged') : ''"></span>
-                                                    </div>
-                                                    <template x-for="c in selectedChecklist" :key="c.item.id">
-                                                        <div class="dd-row-wrap">
-                                                            <div class="dd-row">
-                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('check')"></svg>
-                                                                <span class="name" x-text="c.item.name"></span>
-                                                                <span class="dd-chip" :class="{done: c.history && c.history.status==='done', skipped: c.history && c.history.status==='skipped'}" x-text="c.history ? (c.history.status[0].toUpperCase() + c.history.status.slice(1)) : 'Not logged'"></span>
+                                                    <!-- Checklist: grouped by outcome, not one row per item (2026-07-31
+                                                         rebuild -- direct feedback: nobody reads a per-item list, and the
+                                                         calendar exists for a quick spot-check + the AI's own history
+                                                         awareness, both of which this serves better). Still read-only,
+                                                         still hidden for future dates. -->
+                                                    <template x-if="selectedChecklist.length > 0 && !selectedIsFuture">
+                                                        <div class="dd-sec c-sage">
+                                                            <div class="dd-sec-title">Checklist</div>
+                                                            <div class="dd-cl-row done" x-show="selectedChecklistGroups.done.length">
+                                                                <span class="dd-cl-dot"></span><span class="dd-cl-label">Done</span><span class="dd-cl-names" x-text="selectedChecklistGroups.done.join(', ')"></span>
                                                             </div>
+                                                            <div class="dd-cl-row skipped" x-show="selectedChecklistGroups.skipped.length">
+                                                                <span class="dd-cl-dot"></span><span class="dd-cl-label">Skipped</span><span class="dd-cl-names" x-text="selectedChecklistGroups.skipped.join(', ')"></span>
+                                                            </div>
+                                                            <div class="dd-cl-row holiday" x-show="selectedChecklistGroups.holiday.length">
+                                                                <span class="dd-cl-dot"></span><span class="dd-cl-label">Holiday</span><span class="dd-cl-names" x-text="selectedChecklistGroups.holiday.join(', ')"></span>
+                                                            </div>
+                                                            <div class="dd-cl-row missed" x-show="selectedChecklistGroups.missed.length">
+                                                                <span class="dd-cl-dot"></span><span class="dd-cl-label">Missed</span><span class="dd-cl-names" x-text="selectedChecklistGroups.missed.join(', ')"></span>
+                                                            </div>
+                                                            <button type="button" class="dd-see-full" @click="openChecklistDrillDown()">See full routine →</button>
                                                         </div>
                                                     </template>
-                                                </div>
-                                            </template>
 
-                                            <!-- Tasks & Reminders: past/today shows the real per-item list
-                                                 (click drills into the existing Task modal, confirm-gated inside
-                                                 openTaskDrillDown). Future collapses to grouped counts -- a
-                                                 glimpse, not a workspace -- with one "Go to" link per group. -->
-                                            <template x-if="selectedTasks.length > 0 && !selectedIsFuture">
-                                                <div class="dd-section">
-                                                    <div class="dd-section-head">
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
-                                                        Tasks &amp; Reminders
-                                                    </div>
-                                                    <template x-for="t in selectedTasks" :key="t.id">
-                                                        <div class="dd-row-wrap">
-                                                            <div class="dd-row clickable" @click="openTaskDrillDown(t)">
-                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(t.kind === 'reminder' ? 'bell' : 'list')"></svg>
-                                                                <span class="name" x-text="t.name"></span>
-                                                                <span class="time" x-show="t.scheduled_time" x-text="window.formatTime12h ? window.formatTime12h(t.scheduled_time) : t.scheduled_time"></span>
-                                                                <span class="dd-project-dot" x-show="t.project_id"></span>
-                                                                <span class="dd-chip" :class="{done: taskStatus(t)==='done', overdue: taskStatus(t)==='overdue'}" x-text="taskStatus(t) === 'done' ? 'Done' : (taskStatus(t) === 'overdue' ? 'Overdue' : 'Upcoming')"></span>
+                                                    <!-- Tasks & Reminders: past/today shows the real per-item list
+                                                         (click drills into the existing Task modal, confirm-gated inside
+                                                         openTaskDrillDown). Future collapses to grouped counts -- a
+                                                         glimpse, not a workspace -- with one "Go to" link per group. -->
+                                                    <template x-if="selectedTasks.length > 0 && !selectedIsFuture">
+                                                        <div class="dd-sec c-blue">
+                                                            <div class="dd-sec-title">Tasks &amp; Reminders</div>
+                                                            <template x-for="t in selectedTasks" :key="t.id">
+                                                                <div class="dd-row clickable" @click="openTaskDrillDown(t)">
+                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(t.kind === 'reminder' ? 'bell' : 'list')"></svg>
+                                                                    <span class="name" x-text="t.name"></span>
+                                                                    <span class="time" x-show="t.scheduled_time" x-text="window.formatTime12h ? window.formatTime12h(t.scheduled_time) : t.scheduled_time"></span>
+                                                                    <template x-if="t.project_id">
+                                                                        <span class="id-chip" :class="'color-' + projectColorKey(t.project_id)" x-text="projectInitial(t.project_id)"></span>
+                                                                    </template>
+                                                                    <span class="dd-chip" :class="{done: taskStatus(t)==='done', overdue: taskStatus(t)==='overdue'}" x-text="taskStatus(t) === 'done' ? 'Done' : (taskStatus(t) === 'overdue' ? 'Overdue' : 'Upcoming')"></span>
+                                                                    <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="selectedTasks.length > 0 && selectedIsFuture">
+                                                        <div class="dd-sec c-blue">
+                                                            <div class="dd-sec-title">Tasks &amp; Reminders</div>
+                                                            <template x-for="g in selectedTaskGroups" :key="g.project_id || 'none'">
+                                                                <div class="dd-row clickable" @click="goToTaskGroup(g)">
+                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
+                                                                    <span class="name" x-text="g.project_id ? projectName(g.project_id) : 'No project'"></span>
+                                                                    <span class="dd-chip" x-text="taskGroupLabel(g)"></span>
+                                                                    <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Projects & Work Logs -->
+                                                    <template x-if="selectedProjectWork.length > 0">
+                                                        <div class="dd-sec c-lilac">
+                                                            <div class="dd-sec-title">Projects &amp; Work Logs</div>
+                                                            <template x-for="p in selectedProjectWork" :key="p.id">
+                                                                <div class="dd-row clickable" @click="openProjectWorkDrillDown(p)">
+                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('note')"></svg>
+                                                                    <span class="name" x-text="p.body"></span>
+                                                                    <span class="dd-chip" x-text="projectName(p.project_id)"></span>
+                                                                    <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+
+                                                    <!-- Journal -- deliberately no accent colour (no locked-accent
+                                                         home, same as the grid cell's own journal line). -->
+                                                    <template x-if="selectedJournal">
+                                                        <div class="dd-sec">
+                                                            <div class="dd-sec-title dd-sec-title-plain">Journal</div>
+                                                            <div class="dd-row clickable" @click="openJournalDrillDown()">
+                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('pencil')"></svg>
+                                                                <span class="name" x-text="'&quot;' + selectedJournal.body + '&quot;'"></span>
                                                                 <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
                                                             </div>
                                                         </div>
                                                     </template>
                                                 </div>
-                                            </template>
-                                            <template x-if="selectedTasks.length > 0 && selectedIsFuture">
-                                                <div class="dd-section">
-                                                    <div class="dd-section-head">
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
-                                                        Tasks &amp; Reminders
-                                                    </div>
-                                                    <template x-for="g in selectedTaskGroups" :key="g.project_id || 'none'">
-                                                        <div class="dd-row-wrap">
-                                                            <div class="dd-row clickable" @click="goToTaskGroup(g)">
-                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
-                                                                <span class="name" x-text="g.project_id ? projectName(g.project_id) : 'No project'"></span>
-                                                                <span class="dd-chip" x-text="taskGroupLabel(g)"></span>
-                                                                <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
-                                                            </div>
-                                                        </div>
-                                                    </template>
-                                                </div>
-                                            </template>
-
-                                            <!-- Projects & Work Logs -->
-                                            <template x-if="selectedProjectWork.length > 0">
-                                                <div class="dd-section">
-                                                    <div class="dd-section-head">
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('note')"></svg>
-                                                        Projects &amp; Work Logs
-                                                    </div>
-                                                    <template x-for="p in selectedProjectWork" :key="p.id">
-                                                        <div class="dd-row-wrap">
-                                                            <div class="dd-row clickable" @click="openProjectWorkDrillDown(p)">
-                                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('note')"></svg>
-                                                                <span class="name" x-text="p.body"></span>
-                                                                <span class="dd-chip" x-text="projectName(p.project_id)"></span>
-                                                                <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
-                                                            </div>
-                                                        </div>
-                                                    </template>
-                                                </div>
-                                            </template>
-
-                                            <!-- Journal -->
-                                            <template x-if="selectedJournal">
-                                                <div class="dd-section">
-                                                    <div class="dd-section-head">
-                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('pencil')"></svg>
-                                                        Journal
-                                                    </div>
-                                                    <div class="dd-row-wrap">
-                                                        <div class="dd-row clickable" @click="openJournalDrillDown()">
-                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('pencil')"></svg>
-                                                            <span class="name" x-text="'&quot;' + selectedJournal.body + '&quot;'"></span>
-                                                            <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </template>
-                                        </div>
+                                            </div>
+                                        </template>
                                     </div>
+
+                                    <!-- Dated Checklist drill-down (2026-07-31, Phase 2). Read-only
+                                         full block breakdown for the selected date -- same visual
+                                         language (.cl-block/.ck-row/.ck-status) Today's own Routine
+                                         uses, no Log button, no editing, no new fetch (derives from
+                                         the month data already loaded). Opened from the Checklist
+                                         section's "See full routine" link above. -->
+                                    <template x-if="checklistDrillOpen">
+                                        <div class="modal-overlay" @click.self="closeChecklistDrillDown()">
+                                            <div class="modal" style="max-width: 520px;">
+                                                <div class="section-header" style="margin-top: 0;">
+                                                    <h2 style="margin:0;" x-text="selectedDateLabel"></h2>
+                                                    <button class="btn-text" @click="closeChecklistDrillDown()">Close</button>
+                                                </div>
+                                                <div class="stack">
+                                                    <template x-for="group in selectedChecklistByBlock" :key="group.block.key">
+                                                        <div class="cl-block" :class="'color-' + group.block.colorKey">
+                                                            <div class="cl-block-header" style="cursor: default;">
+                                                                <span class="cl-block-icon" x-text="group.block.icon"></span>
+                                                                <span class="cl-block-title" x-text="group.block.label"></span>
+                                                            </div>
+                                                            <div class="cl-block-body">
+                                                                <template x-for="c in group.items" :key="c.item.id">
+                                                                    <div class="ck-row" :class="c.history && c.history.status==='done' ? 'is-done' : (c.history && c.history.status==='skipped' ? 'is-skipped' : '')">
+                                                                        <div class="ck-row-main">
+                                                                            <div class="ck-icon" x-text="c.item.icon || '📋'"></div>
+                                                                            <div class="ck-info"><div class="ck-title" x-text="c.item.name"></div></div>
+                                                                            <div class="ck-row-actions">
+                                                                                <span class="ck-status" :class="'ck-status-' + (c.history ? c.history.status : 'pending')" x-text="checklistStatusLabel(c)"></span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </div>

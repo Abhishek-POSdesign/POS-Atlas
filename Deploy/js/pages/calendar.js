@@ -25,6 +25,7 @@ import { DB } from '../db.js';
 import { todayIsoDate } from '../date-utils.js';
 import { setPendingTask } from '../features/pendingNav.js';
 import { askConfirm } from '../components/confirm-dialog.js';
+import { BLOCKS } from '../checklist-blocks.js';
 
 // Same x-html-into-<svg> injection pattern today.js's sessionIconSvg()
 // already uses -- a fixed lookup, never user-supplied, safe to inject.
@@ -50,6 +51,12 @@ export function calendarPage(nav) {
     return {
         loading: false,
         errorMsg: '',
+        // Dated Checklist drill-down (2026-07-31, Phase 2). Read-only, like
+        // every other Calendar surface -- "Calendar shows what happened, it
+        // is never where you change it" is a locked rule, so this reuses
+        // the already-loaded month data (no new fetch, no new Supabase call)
+        // rather than mounting a second, editable checklistPage() instance.
+        checklistDrillOpen: false,
 
         viewYear: new Date().getFullYear(),
         viewMonth: new Date().getMonth(), // 0-indexed
@@ -104,6 +111,20 @@ export function calendarPage(nav) {
         projectName(id) {
             const p = this._projects.find(pr => pr.id === id);
             return p ? p.name : 'Project';
+        },
+        // Small identity chip on Day Detail task rows (2026-07-31, Phase 2
+        // identity pass) -- same tinted-initial language the Project card's
+        // own monogram already uses, just at mini scale, so a task's project
+        // reads as the same thing everywhere it shows up, not a bare dot here
+        // and a full chip on the card.
+        projectColorKey(id) {
+            const p = this._projects.find(pr => pr.id === id);
+            return p ? p.color_key : 'blue';
+        },
+        projectInitial(id) {
+            const p = this._projects.find(pr => pr.id === id);
+            if (!p) return '?';
+            return (p.monogram_letter || p.name?.[0] || '?').toUpperCase();
         },
 
         async loadMonth() {
@@ -314,6 +335,25 @@ export function calendarPage(nav) {
             return applicable.map(item => ({ item, history: rowsByItem[item.id] || null }));
         },
         get selectedChecklistMarked() { return this.selectedChecklist.filter(c => c.history); },
+        // Grouped-by-outcome view of the same selectedChecklist data (2026-07-31,
+        // Phase 2 Day Detail rebuild). The old markup rendered one row per
+        // applicable item every time -- Abhishek's direct feedback: nobody reads
+        // a 6-item list one row at a time, the calendar exists so a stale check
+        // is fast and so the AI has real history, not to relitigate every mark.
+        // Same underlying data (selectedChecklist), just bucketed by outcome so
+        // a full day costs 2-4 short lines instead of N rows. 'holiday' gets its
+        // own bucket rather than folding into done/skipped -- it's a distinct,
+        // real status (see SCHEMA.md), not a synonym for either.
+        get selectedChecklistGroups() {
+            const done = [], skipped = [], holiday = [], missed = [];
+            for (const c of this.selectedChecklist) {
+                if (!c.history) missed.push(c.item.name);
+                else if (c.history.status === 'done') done.push(c.item.name);
+                else if (c.history.status === 'skipped') skipped.push(c.item.name);
+                else if (c.history.status === 'holiday') holiday.push(c.item.name);
+            }
+            return { done, skipped, holiday, missed };
+        },
         get selectedTasks() {
             return this._dayItems(this.selectedDate).sort((a, b) => {
                 const at = a.scheduled_time || '', bt = b.scheduled_time || '';
@@ -359,6 +399,22 @@ export function calendarPage(nav) {
                 this.selectedTasks.length || this.selectedProjectWork.length || this.selectedJournal);
         },
         get selectedMissedCount() { return this.selectedChecklist.filter(c => !c.history).length; },
+        // Full block breakdown for the dated Checklist drill-down (2026-07-31,
+        // Phase 2) -- same BLOCKS ordering and per-item data Today's own
+        // Routine uses, just derived from the already-loaded month data
+        // instead of a live fetch. Blocks with nothing applicable that day
+        // are omitted entirely rather than shown empty.
+        get selectedChecklistByBlock() {
+            return BLOCKS.map(block => ({
+                block,
+                items: this.selectedChecklist.filter(c => c.item.block === block.key)
+            })).filter(b => b.items.length > 0);
+        },
+        checklistStatusLabel(c) {
+            if (!c.history) return 'Not logged';
+            const s = c.history.status;
+            return s[0].toUpperCase() + s.slice(1);
+        },
 
         taskStatus(t) {
             if (t.status === 'done') return 'done';
@@ -393,6 +449,11 @@ export function calendarPage(nav) {
             const ok = await askConfirm('Open your journal? You\'ll leave the Calendar view.', { confirmLabel: 'Open', isDanger: false });
             if (!ok) return;
             nav.onOpenNotebook();
-        }
+        },
+        // Dated Checklist drill-down -- stays on the Calendar page (a modal,
+        // not a navigation), so unlike the drill-downs above it doesn't need
+        // askConfirm; nothing is lost by opening it.
+        openChecklistDrillDown() { this.checklistDrillOpen = true; },
+        closeChecklistDrillDown() { this.checklistDrillOpen = false; }
     };
 }

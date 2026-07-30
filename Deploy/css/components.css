@@ -360,6 +360,11 @@
     font-family: var(--font-serif);
     font-size: 17px;
     transition: background-color var(--dur-base) var(--ease-out);
+    /* Inner hairline (2026-07-31, Phase 2 identity pass) -- the tint fills
+       are quite pale in Paper Studio, so the chip's edge could get lost
+       against a light card background; a 1px inset border in the border
+       token gives it definition in both themes without changing the fill. */
+    box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .project-card:hover .monogram-chip {
@@ -1095,6 +1100,24 @@
     margin-bottom: 4px;
 }
 
+/* Notebook: collapsed preview row for a past entry (2026-07-31, Phase 2 --
+   mockup-approved). Click expands into the existing .note-entry card above;
+   .note-entry-head is the same click target to collapse it back. */
+.note-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: var(--top-edge), var(--shadow-card);
+    cursor: pointer; transition: background var(--dur-base) var(--ease-out);
+}
+.note-row:hover { background: var(--surface-1-hover); }
+.note-row-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-lilac); flex-shrink: 0; }
+.note-row-body { flex: 1; min-width: 0; }
+.note-row-body .note-date { margin-bottom: 2px; }
+.note-row-preview { font-size: 13.5px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-row-chevron { color: var(--text-muted); flex-shrink: 0; }
+.note-entry-head { display: flex; align-items: center; justify-content: space-between; cursor: pointer; margin-bottom: 4px; }
+.note-entry-head svg { color: var(--text-muted); flex-shrink: 0; }
+
 /* ---------- Toast ---------- */
 
 .toast-container {
@@ -1380,17 +1403,15 @@
     border: 1px solid transparent;
     white-space: nowrap;
 }
-.trv2-project-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent-blue);
-    flex-shrink: 0;
-}
-.trv2-project.color-sage .trv2-project-dot { background: var(--accent-sage); }
-.trv2-project.color-blue .trv2-project-dot { background: var(--accent-blue); }
-.trv2-project.color-lilac .trv2-project-dot { background: var(--accent-lilac); }
-.trv2-project.color-coral .trv2-project-dot { background: var(--accent-coral); }
+/* Clickable jump-to-project (2026-07-31, Phase 2 usability pass) -- this
+   badge used to be inert. transition/hover match the calm lift every other
+   interactive chip in Atlas already uses, nothing new invented. */
+.trv2-project.clickable { cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out); }
+.trv2-project.clickable:hover { background: var(--surface-1-hover); border-color: var(--border-hover); }
+.trv2-project.clickable:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 2px; }
+/* .trv2-project-dot retired 2026-07-31 -- replaced by the shared .id-chip
+   (tinted initial square) above, so a task's project reads the same way
+   here as it does on the Project card itself and in Calendar's Day Detail. */
 
 /* Inert row modifier (Round 2 build, item 3). Recently completed rows on
    Today are static history -- no click, no hover, no delete. Prevents
@@ -1773,11 +1794,19 @@
 .ws-status-pill.status-planned { background: var(--accent-blue-tint); color: var(--accent-blue); }
 .ws-status-pill.status-completed { background: var(--accent-lilac-tint); color: var(--accent-lilac); }
 
-.project-card-completed {
+/* Un-washed 2026-07-31 (Phase 2, mockup-approved) -- this card used to paint
+   both its own background AND the project name the same lilac, so the name
+   (the loudest thing on every other card) had almost no contrast against
+   its own card. Now a normal card body like every running project, with
+   lilac concentrated in one place -- the checkmark badge -- plus a small
+   tinted status chip (.pstatus-chip below) instead of a full-card wash. */
+.pstatus-chip {
+    display: inline-flex;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2.5px 9px;
+    border-radius: 100px;
     background: var(--accent-lilac-tint);
-    border-color: transparent;
-}
-.project-card-completed .project-name {
     color: var(--accent-lilac);
 }
 
@@ -3105,44 +3134,88 @@ body:has(.ai-panel-open) .content-area {
 .cal-journal-line { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); padding: 0 2px; }
 .cal-journal-line svg { flex-shrink: 0; }
 
-/* ---- Day Detail: full-width, below the grid ---- */
-.day-detail-region { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
-.dd-date { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
-.dd-sub { font-size: 11.5px; color: var(--text-muted); margin-bottom: 16px; }
-.dd-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
-.dd-sections { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-.dd-section { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; min-width: 0; }
-.dd-section-head { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 9px; }
-.dd-section-head svg { color: var(--accent-blue); flex-shrink: 0; }
-.dd-section-meta { margin-left: auto; text-transform: none; letter-spacing: normal; font-weight: 500; color: var(--text-muted); }
-.dd-sub-label { font-size: 11px; font-weight: 600; color: var(--text-muted); margin: 8px 0 4px; }
-.dd-sub-label:first-child { margin-top: 0; }
+/* ---- Day Detail: full-width, below the grid ----
+   Rebuilt 2026-07-31 (Phase 2, "Editorial Ledger" -- mockup Option A,
+   approved). Previously .day-detail-region had no card depth at all (just a
+   thin top border floating on the page background) and every section's icon
+   was hardcoded blue regardless of what it meant -- both fixed here. The
+   checklist section stopped being one row per item; see .dd-cl-* below. */
+.dd-ledger { margin-top: 16px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--top-edge), var(--shadow-card); overflow: hidden; }
+.dd-ledger-head { display: flex; align-items: flex-end; gap: 16px; padding: 20px var(--pad-lg) 16px; background: var(--accent-blue-tint); border-bottom: 1px solid var(--border); }
+.dd-ledger-num { font-family: var(--font-serif); font-size: 48px; line-height: .8; color: var(--accent-blue); }
+.dd-ledger-day { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.dd-ledger-month { font-family: var(--font-serif); font-size: 16px; color: var(--text-primary); margin-top: 1px; }
+.dd-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; padding: var(--pad-lg); }
+.dd-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); }
+.dd-kpi { background: var(--surface-1); padding: 12px var(--pad-md); min-width: 0; }
+.dd-kpi-num { font-family: var(--font-serif); font-size: 24px; line-height: 1; font-variant-numeric: tabular-nums; }
+.dd-kpi-num.sage { color: var(--accent-sage); }
+.dd-kpi-num.blue { color: var(--accent-blue); }
+.dd-kpi-num.lilac { color: var(--accent-lilac); }
+.dd-kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-top: 3px; }
+.dd-body { padding: var(--pad-lg); display: flex; flex-direction: column; gap: 18px; }
+.dd-sec { border-top: 2px solid var(--border); padding-top: 10px; min-width: 0; }
+.dd-sec.c-sage { border-top-color: var(--accent-sage); }
+.dd-sec.c-blue { border-top-color: var(--accent-blue); }
+.dd-sec.c-lilac { border-top-color: var(--accent-lilac); }
+.dd-sec-title { font-family: var(--font-serif); font-style: italic; font-size: 15px; color: var(--text-primary); margin-bottom: 8px; }
+.dd-sec-title-plain { font-family: var(--font-sans); font-style: normal; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); }
+/* Checklist grouped by outcome -- Done/Skipped/Holiday/Missed, each one
+   compact line naming the actual items, not one row per item. */
+.dd-cl-row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; padding: 3px 0; }
+.dd-cl-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.dd-cl-row.done .dd-cl-dot { background: var(--accent-sage); }
+.dd-cl-row.skipped .dd-cl-dot { background: var(--accent-amber); }
+.dd-cl-row.holiday .dd-cl-dot { background: var(--accent-lilac); }
+.dd-cl-row.missed .dd-cl-dot { background: var(--accent-coral); }
+.dd-cl-label { font-weight: 700; flex-shrink: 0; width: 52px; }
+.dd-cl-row.done .dd-cl-label { color: var(--accent-sage); }
+.dd-cl-row.skipped .dd-cl-label { color: var(--accent-amber); }
+.dd-cl-row.holiday .dd-cl-label { color: var(--accent-lilac); }
+.dd-cl-row.missed .dd-cl-label { color: var(--accent-coral); }
+.dd-cl-names { color: var(--text-secondary); }
+.dd-see-full { display: block; margin-top: 8px; background: none; border: none; padding: 0; font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--accent-sage); cursor: pointer; }
+.dd-see-full:hover { text-decoration: underline; }
 .dd-fact-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-secondary); padding: 2px 0; }
 .dd-fact-row .v { color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .dd-note { font-size: 12px; color: var(--text-secondary); font-style: italic; margin-top: 6px; }
-/* Plain, non-interactive by default -- Sleep/Workout/Checklist rows are
-   display-only facts (read-only pass, 2026-07-29). Rows that do drill into
-   a real page (Tasks, Projects, Journal, future task groups) add .clickable
-   for the pointer cursor and hover lift. */
+/* Plain, non-interactive by default -- Sleep/Workout rows are display-only
+   facts (read-only pass, 2026-07-29). Rows that do drill into a real page
+   (Tasks, Projects, Journal, future task groups) add .clickable for the
+   pointer cursor and hover lift. */
 .dd-row {
-    display: flex; align-items: center; gap: 7px; padding: 6px; margin: 0 -6px; border-radius: 6px;
-    font-size: 12.5px; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 7px; padding: 6px 0; border-bottom: 1px solid var(--border);
+    font-size: 13px; color: var(--text-secondary);
 }
-.dd-row.clickable { cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); }
+.dd-row:last-child { border-bottom: none; }
+.dd-row.clickable { cursor: pointer; transition: background-color var(--dur-fast) var(--ease-out); margin: 0 -8px; padding: 6px 8px; border-radius: 6px; }
 .dd-row.clickable:hover { background: var(--surface-1-hover); }
 .dd-row svg { flex-shrink: 0; color: var(--text-muted); }
-.dd-row .name { flex: 1; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dd-row .time { color: var(--text-muted); font-size: 11px; flex-shrink: 0; }
-.dd-chip { font-size: 10px; padding: 2px 7px; border-radius: 20px; background: var(--surface-1); border: 1px solid var(--border); color: var(--text-muted); flex-shrink: 0; }
-.dd-chip.done { color: var(--accent-sage); border-color: var(--accent-sage); }
-.dd-chip.skipped { color: var(--accent-amber); border-color: var(--accent-amber); }
-.dd-chip.overdue { color: var(--accent-coral); border-color: var(--accent-coral); }
-.dd-project-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-blue); flex-shrink: 0; }
+.dd-row .name { flex: 1; color: var(--text-primary); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-row .time { color: var(--text-muted); font-size: 11px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.dd-chip { font-size: 10px; font-weight: 600; padding: 2.5px 8px; border-radius: 20px; background: var(--surface-2); color: var(--text-muted); flex-shrink: 0; }
+.dd-chip.done { background: var(--accent-sage-tint); color: var(--accent-sage); }
+.dd-chip.skipped { background: var(--accent-amber-tint); color: var(--accent-amber); }
+.dd-chip.overdue { background: var(--accent-coral-tint); color: var(--accent-coral); }
+/* Identity mini-chip (2026-07-31, Phase 2 identity pass) -- same tinted-
+   initial language the Project card's own monogram uses, just at mini
+   scale, so a project reads as the same thing everywhere a task shows it:
+   Day Detail rows and Today's .trv2-project chip both use this now,
+   replacing what used to be a bare colour dot with no letter in either
+   place. */
+.id-chip { width: 16px; height: 16px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-size: 9px; font-weight: 700; flex-shrink: 0; }
+.id-chip.color-sage { background: var(--accent-sage-tint); color: var(--accent-sage); }
+.id-chip.color-blue { background: var(--accent-blue-tint); color: var(--accent-blue); }
+.id-chip.color-lilac { background: var(--accent-lilac-tint); color: var(--accent-lilac); }
+.id-chip.color-coral { background: var(--accent-coral-tint); color: var(--accent-coral); }
 .dd-chevron { color: var(--text-muted); flex-shrink: 0; }
 
 @media (max-width: 720px) {
-    .dd-sections { grid-template-columns: 1fr; }
-    .dd-section { min-width: 0; }
+    .dd-ledger-num { font-size: 36px; }
+    .dd-ledger-head { padding: 16px var(--pad-md) 14px; gap: 12px; }
+    .dd-kpi { padding: 10px 8px; }
+    .dd-kpi-num { font-size: 19px; }
+    .dd-body { padding: var(--pad-md); gap: 14px; }
     /* Fixed 2026-07-29, live-testing bug: full 7-column month grid at
        phone width leaves ~45-50px per cell -- nowhere near enough room for
        a badge + two lines of text, which was forcing the whole page to

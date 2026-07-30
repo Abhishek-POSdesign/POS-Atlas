@@ -52,6 +52,22 @@ export function notebookPage(nav) {
         get pastEntries() {
             return this.entries.filter(e => e.entry_date !== this.todayDate);
         },
+        // Past entries collapse to a compact preview row by default, expand
+        // in place on click (2026-07-31, Phase 2 -- mockup-approved). Reuses
+        // the same click-to-expand idea the Project card already uses,
+        // rather than showing every entry's full body all the time -- a
+        // two-sentence entry from last week used to cost the same vertical
+        // space as a long one. Plain object keyed by entry id (not a Set)
+        // so it's directly usable from x-show/:class in the template.
+        expandedEntries: {},
+        isEntryExpanded(entry) { return !!this.expandedEntries[entry.id]; },
+        toggleEntry(entry) {
+            this.expandedEntries = { ...this.expandedEntries, [entry.id]: !this.expandedEntries[entry.id] };
+        },
+        entryPreview(body) {
+            const oneLine = (body || '').replace(/\s+/g, ' ').trim();
+            return oneLine.length > 80 ? oneLine.slice(0, 80) + '…' : oneLine;
+        },
         close() {
             nav.onClose();
         },
