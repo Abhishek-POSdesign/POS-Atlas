@@ -697,6 +697,16 @@
                                                             <template x-if="isPendingComplete(task)">
                                                                 <span class="trv2-confirm-hint" style="flex-shrink: 0; margin-right: 6px;">Tap ✓ again to confirm</span>
                                                             </template>
+                                                            <!-- Paused tag (2026-07-31 correction round 2) -- reuses
+                                                                 the exact same neutral .task-edit-status pill the
+                                                                 Project workspace already shows for a paused task
+                                                                 (background: --surface-2, text: --text-secondary --
+                                                                 calm/muted, never coral), so a paused task in this
+                                                                 list reads clearly as Paused and can never be
+                                                                 mistaken for overdue. -->
+                                                            <template x-if="task.status === 'paused'">
+                                                                <span class="task-edit-status" style="flex-shrink: 0; margin-right: 6px;">Paused</span>
+                                                            </template>
                                                             <template x-if="task.status === 'paused' && task.running_note">
                                                                 <span class="trv2-pause-reason" x-text="task.running_note" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0; padding-top: 0; border: none; background: transparent; padding-left: 0; color: var(--text-secondary); font-size: 13px;"></span>
                                                             </template>

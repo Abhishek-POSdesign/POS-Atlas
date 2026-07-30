@@ -116,8 +116,14 @@ export function checklistPage() {
                 // separate Alpine component and only reads this data at its own load()
                 // time -- without this, the ring stayed frozen until a manual reload
                 // even though the mark above saved correctly (2026-07-31 correction
-                // pass). Reuses the same event today.js already listens for elsewhere.
-                window.dispatchEvent(new CustomEvent('atlas:data-changed'));
+                // pass). A dedicated event, not atlas:data-changed -- that one drives
+                // today.js's full load(), which flips this.loading and (since the
+                // Routine checklist is nested inside Today's own x-if="!loading"
+                // wrapper) tears down and rebuilds this very component on every mark,
+                // which is the "whole page refresh" that round caused (found and
+                // fixed 2026-07-31, round 2). today.js listens for this narrower
+                // event and only re-reads checklist data, never touching loading.
+                window.dispatchEvent(new CustomEvent('atlas:checklist-changed'));
             } catch (e) {
                 this.errorMsg = e.message;
             }
@@ -132,7 +138,7 @@ export function checklistPage() {
                 delete copy[this.logItem.id];
                 this.historyByItem = copy;
                 this.closeLog();
-                window.dispatchEvent(new CustomEvent('atlas:data-changed'));
+                window.dispatchEvent(new CustomEvent('atlas:checklist-changed'));
             } catch (e) {
                 this.errorMsg = e.message;
             }

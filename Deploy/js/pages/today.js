@@ -3,6 +3,7 @@ import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
 import { consumePendingTask } from '../features/pendingNav.js';
+import { isOverdue as computeOverdue } from '../features/taskStatus.js';
 
 function minutesToHM(mins) {
     if (mins === null || mins === undefined) return '';
@@ -89,6 +90,17 @@ export function todayPage() {
             await this.load();
             // Refresh when AI panel confirms a write (workout, sleep, task, checklist)
             window.addEventListener('atlas:data-changed', () => { this.load().catch(console.error); });
+            // Narrow refresh for the Routine checklist specifically (2026-07-31
+            // correction round 2). Deliberately NOT the same handler as
+            // atlas:data-changed above -- that one calls the full load(), which
+            // flips this.loading, and the *entire* Today page (including the
+            // Routine block itself, since it's nested inside the same
+            // x-if="!loading" wrapper) is destroyed and rebuilt on every call.
+            // Marking a checklist item doesn't need tasks/projects/sleep/
+            // workout/streaks/trend reloaded, and it must never tear down the
+            // very component the user is actively tapping inside of. See
+            // refreshChecklistCounts() below -- it never touches this.loading.
+            window.addEventListener('atlas:checklist-changed', () => { this.refreshChecklistCounts().catch(console.error); });
             // Calendar's Tasks & Reminders drill-down hands off a task here
             // (standalone tasks only -- project-linked ones go to the
             // Project workspace instead) so it opens Today's own real task
@@ -138,13 +150,8 @@ export function todayPage() {
                     this.workoutSessions = [];
                 }
                 this.streaks = streaks;
-                const todaysItems = checklistItems.filter(i => !i.days || i.days.includes(dow));
-                const doneIds = new Set(checklistHistory.filter(h => h.status === 'done').map(h => h.item_id));
-                const skippedIds = new Set(checklistHistory.filter(h => h.status === 'skipped').map(h => h.item_id));
-                this.checklistTotalToday = todaysItems.length;
-                this.checklistDoneToday = todaysItems.filter(i => doneIds.has(i.id)).length;
-                this.checklistSkippedToday = todaysItems.filter(i => skippedIds.has(i.id)).length;
-                
+                this._applyChecklistCounts(checklistItems, checklistHistory, dow);
+
                 this.loadTrend().catch(console.error);
                 this.loadWorkoutTargets().catch(console.error);
                 this.loadHealthTrend().catch(console.error);
@@ -153,6 +160,37 @@ export function todayPage() {
             }
             this.loading = false;
         },
+        // Shared by load() above and refreshChecklistCounts() below, so the
+        // counting logic itself only exists once (2026-07-31 correction
+        // round 2).
+        _applyChecklistCounts(checklistItems, checklistHistory, dow) {
+            const todaysItems = checklistItems.filter(i => !i.days || i.days.includes(dow));
+            const doneIds = new Set(checklistHistory.filter(h => h.status === 'done').map(h => h.item_id));
+            const skippedIds = new Set(checklistHistory.filter(h => h.status === 'skipped').map(h => h.item_id));
+            this.checklistTotalToday = todaysItems.length;
+            this.checklistDoneToday = todaysItems.filter(i => doneIds.has(i.id)).length;
+            this.checklistSkippedToday = todaysItems.filter(i => skippedIds.has(i.id)).length;
+        },
+        // In-place update for the checklist KPI ring (2026-07-31 correction
+        // round 2). Re-reads only today's checklist items + marks -- never
+        // sets this.loading, so the page-wide x-if="!loading" wrapper never
+        // flips and nothing on the page (least of all the Routine block the
+        // user is actively marking items inside of) gets torn down or
+        // rebuilt. Alpine's own fine-grained reactivity updates just the
+        // ring's bound numbers once these three fields change.
+        async refreshChecklistCounts() {
+            try {
+                const checklistDate = todayKey();
+                const dow = getLogicalDate().getDay();
+                const [checklistItems, checklistHistory] = await Promise.all([
+                    DB.Checklist.listItems(),
+                    DB.Checklist.listHistoryForDate(checklistDate)
+                ]);
+                this._applyChecklistCounts(checklistItems, checklistHistory, dow);
+            } catch (e) {
+                console.error('Checklist ring refresh failed:', e);
+            }
+        },
         // "Today" = due today, overdue-and-still-pending, or undated (always relevant).
         // Kept in sync with recentlyCompleted below so the KPI card's fraction and the two
         // panel sections always describe the same set of tasks -- these used to be two
@@ -160,8 +198,14 @@ export function todayPage() {
         // KPI number and the visible completed list could disagree (2026-07-25 bug).
         get upcomingTasks() {
             const today = todayIsoDate();
+            // Excludes 'in_progress' as of 2026-07-31 correction round 2 --
+            // a running task now lives only in the "Running now" section of
+            // the activity panel, never duplicated here too. Paused tasks
+            // deliberately stay in this list (they're still genuinely
+            // pending work, just not active right now) -- the row shows a
+            // Paused tag instead.
             return this.tasks
-                .filter(t => t.status !== 'done' && (!t.scheduled_date || t.scheduled_date <= today))
+                .filter(t => t.status !== 'done' && t.status !== 'in_progress' && (!t.scheduled_date || t.scheduled_date <= today))
                 .slice(0, 20);
         },
         get recentlyCompleted() {
@@ -407,29 +451,15 @@ export function todayPage() {
             }
         },
 
-        // Overdue = due in the past AND not yet done. Deliberately narrow
-        // definition so no future session guesses at edges:
-        //   - status === 'done'                            -> never overdue
-        //   - status === 'in_progress'                      -> never overdue (2026-07-31
-        //     correction pass -- a task actively being worked on isn't "overdue," it's
-        //     running; the two are different states and were being visually conflated,
-        //     which read as a running task falsely flagged as a problem)
-        //   - scheduled_date < today                        -> overdue (any time)
-        //   - scheduled_date == today && time set && time < now -> overdue
-        //   - undated or future-dated                       -> not overdue
-        // Applies to both tasks and reminders.
+        // Delegates to the one shared definition (features/taskStatus.js) so
+        // Today can never independently drift from any other page on what
+        // "overdue" means (2026-07-31 correction round 2 -- this used to be
+        // a private copy here that excluded 'done'/'in_progress' but not
+        // 'paused', so a paused task with a past date still read as
+        // overdue). Kept as a same-named method since the template calls
+        // isOverdue(task) directly on this component.
         isOverdue(task) {
-            if (!task || task.status === 'done' || task.status === 'in_progress') return false;
-            if (!task.scheduled_date) return false;
-            const today = todayIsoDate();
-            if (task.scheduled_date < today) return true;
-            if (task.scheduled_date === today && task.scheduled_time) {
-                const now = new Date();
-                const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-                const scheduled = task.scheduled_time.slice(0, 5);
-                return scheduled < hhmm;
-            }
-            return false;
+            return computeOverdue(task);
         },
 
         // ---- daily note ----
