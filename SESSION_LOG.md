@@ -25,6 +25,45 @@ Copy the template below, fill it in, put it at the **top** of the log (above the
 
 Do not rewrite past entries. Do not summarise-and-collapse older ones. This is an append-only log — old context is more useful than tidy.
 
+---
+
+## 2026-07-31 · Claude Code (Sonnet 5) — Phase 1 correction pass: diagnosis + fix bundle
+
+**Session scope:** Abhishek reported 5 real-use problems during the Phase 1 testing week (task/project identity mismatch, running tasks with no clear home on Today, checklist ring not refreshing live, TTS not faithfully reading replies, slow load). Ran a read-only diagnosis pass first (delivered as an Artifact, no code touched), got explicit decisions back, then built the agreed fix bundle. Loading was investigated but intentionally left out of the fix (see below).
+
+**Root causes confirmed (via code + a direct read-only Supabase query, not guessed):**
+- Deleting a project never touched its tasks' `project_id`. Confirmed live: 4 tasks across 2 already-deleted projects were still silently pointing at them -- Today (which only knows about active projects) showed them as "Standalone" with no way to re-link, since the deleted project was never offered as a dropdown option again.
+- `isOverdue()` in `today.js` excluded `status==='done'` but not `'in_progress'` -- a live example (`Candidate Resource Software`, in-progress, scheduled yesterday) was confirmed showing "Overdue" in red.
+- Today's checklist KPI ring and the nested Routine checklist are two separate Alpine components with no shared refresh signal -- the write itself was always correct and verified; the ring just never heard about it until a manual reload re-ran `today.js`'s own `load()`.
+- TTS's markdown-cleaning regex removed an em dash *and every character after it to the next newline* -- reproduced directly by running the actual cleaning chain against a sample reply (Node script, not just reading the regex): a closing sentence with a mid-sentence dash lost everything after the dash, including "Good luck this week!"-style endings.
+- Load-time: `main.js`/`supabase-client.js` import Alpine and `@supabase/supabase-js` directly from jsdelivr as unpinned ranges (`alpinejs@3.x.x`, `@supabase/supabase-js@2`), neither in `service-worker.js`'s `ASSETS_TO_CACHE` -- both block the very first paint and neither benefits from the offline shell. **Confirmed but intentionally NOT fixed this pass** -- doing it properly means either vendoring local copies or pinning exact versions, both bigger than "small and contained," and Abhishek's own instruction was to leave it out if it stopped being small/safe. Flagged for a dedicated follow-up.
+
+**What shipped (commit `db485ed`):**
+- `migrations/017_project_delete_orphans_tasks_safely.sql` -- `atlas_projects_soft_delete` rewritten `LANGUAGE sql` → `LANGUAGE plpgsql`, now nulls `project_id` on the project's own non-deleted tasks in the *same transaction* as the delete (atomic -- no window where the project's gone but its tasks haven't been reassigned). Applied live via the Supabase MCP, function definition re-read back to confirm. Restoring a deleted project does **not** re-link its old tasks -- that's a deliberate one-way conversion, not a suspend/resume.
+- One-time backfill (direct SQL, not a migration -- data fix, not a schema change): the 4 already-orphaned tasks found live were set to `project_id = NULL`, confirmed via `RETURNING`.
+- `Deploy/js/pages/today.js` -- `isOverdue()` now also excludes `status==='in_progress'`. New `runningTasks` getter (`this.tasks.filter(t => t.status==='in_progress')`), same plural-`.filter()` pattern already proven in `project-workspace.js`.
+- `Deploy/index.html` -- "Completed today" card becomes "Today's activity": a `runningTasks`-driven "Running now" section (blue check-circle, no strikethrough, absent entirely when nothing's running -- same no-empty-state convention `project-workspace.js`'s own Running Now section already uses) above the unchanged "Completed today" list. This was Abhishek's chosen Option B from the diagnosis report's two layout options.
+- `Deploy/css/components.css` -- `.mini-section-label`, `.mini-section-spaced`, `.mini-task-check.running` (accent-blue, matching the existing "live now" blue already used by the Project workspace's Running Now pill and the Projects list's mini "Running: X" pill), `.mini-task-name.running` (no line-through, primary text). No new tokens.
+- `Deploy/js/pages/checklist.js` -- `confirmLog()`/`clearLog()` now dispatch `atlas:data-changed` on success, the same event `today.js`'s `init()` already listens for (originally added for the AI write-flow refresh) -- reused, not a new mechanism.
+- `Deploy/js/ui/aiPanel.js` -- `_speak()`'s em-dash regex changed from `/—[^\n]*/g` (delete-to-end-of-line) to `/\s*—\s*/g` replaced with `, ` (just the dash, as a spoken pause). Also added `/^\s*\d+\.\s+/gm` to strip numbered-list prefixes, matching the design doc's own spec (Chapter 23) which was never fully implemented.
+- `Deploy/service-worker.js` -- cache bumped `v72` → `v73`.
+
+**What was verified:**
+- `node --check` clean on all 4 touched JS files.
+- CSS brace balance 818/818. HTML tag balance (div/template/select/button/label) all matched via a proper Node script (not the earlier inline regex, which gave nonsense counts due to escaping -- redid it as a real script file).
+- Ran the actual `_speak()` cleaning chain (before and after) against a realistic sample reply via Node -- confirmed the bug before the fix (conclusion sentence silently truncated) and confirmed the fix (full reply intact) with real output, not just code reading.
+- Re-queried the live DB after the migration + backfill: the migration's function body reads back correctly (`plpgsql`, nulls tasks then deletes), and the 4 previously-orphaned tasks now show `project_id = NULL`.
+- Did **not** sign into the deployed app or a local dev server this session (per the project's own local-dev-shares-prod-DB rule) -- all verification was static (code + syntax checks) or direct read-only/read-write SQL via the Supabase MCP. Abhishek's own testing on `atlas.abhisheksikka.com` after deploy is the real verification of the UI changes (Option B layout, checklist ring, TTS).
+
+**What's still open:**
+- Live confirmation by Abhishek: assign a standalone task to a project and confirm it sticks after reload; start two tasks at once and confirm both show under "Running now" with no false "Overdue"; mark a checklist item and confirm the ring updates without a reload; play a voice reply with a mid-sentence em dash and confirm the ending isn't cut.
+- **Loading speed was investigated, root-caused, but intentionally left unfixed this pass** (see above) -- flagged as a separate, contained follow-up: bring Alpine.js and `@supabase/supabase-js` into the app's own cached asset list instead of fetching them from jsdelivr on every cold load.
+- No new soft-deletable behavior was added; the project-delete reassignment is additive to an existing, already-verified-write RPC.
+
+**What NOT to do:** Don't revert `atlas_projects_soft_delete` back to `LANGUAGE sql` -- the plpgsql rewrite is what makes the task reassignment atomic with the delete. Don't add auto-re-linking of standalone-converted tasks on project restore -- that was a deliberate one-way decision, not an oversight. Don't reintroduce client-side truncation logic into `_speak()`'s em-dash handling -- the fix is narrowing the regex to just the dash character, not re-adding a smarter multi-step parser.
+
+---
+
 Companion docs sit beside this one:
 - [`CLAUDE.md`](CLAUDE.md) — the rules of the project (agent-agnostic)
 - [`PLAN.md`](PLAN.md) — current state of the world (what's live / mocked / planned)
