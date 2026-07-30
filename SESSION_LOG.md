@@ -27,6 +27,34 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-07-31 · Claude Code (Sonnet 5) — Phase 1 correction pass, round 2: shared overdue logic + in-place checklist refresh
+
+**Session scope:** Round 1's fixes (same day, entry below) were incomplete/regressed in two ways Abhishek caught in live testing: a running task still showed in both Tasks & Reminders and Running now; a paused task ("Form C," Falcon - Freight) showed as Overdue in Today despite being correctly shown Paused in the workspace; and the checklist refresh fix from round 1 caused a full-page teardown/flicker on every mark, not an in-place update. Diagnosed each root cause and got explicit plan approval before writing any code, per his instruction.
+
+**Root causes (confirmed, not guessed):**
+- `upcomingTasks` (Today's pending list) was never scoped by status beyond "not done" -- it included `in_progress` tasks too, so a running task appeared there *and* in Running now.
+- `isOverdue()` lived only inside `today.js` as a private copy and excluded `'done'`/`'in_progress'` but never `'paused'` -- a paused task with a past `scheduled_date` still tripped it.
+- Round 1's checklist fix dispatched the same `atlas:data-changed` event the AI write-flow uses, which drives `today.js`'s full `load()` -- and Today's *entire* page markup is wrapped in `<template x-if="!loading">`, which `load()` flips off/on every call. Since the Routine checklist is nested inside that same wrapper, every mark tore down and rebuilt the whole page, including the checklist component itself (collapsing sections, closing the Log popup) -- the "full-page refresh" Abhishek reported.
+
+**What shipped (commit `50177d9`):**
+- `Deploy/js/features/taskStatus.js` (new) -- single shared `isOverdue(task)`, excludes `done`/`in_progress`/`paused`. `today.js` now imports this instead of keeping its own copy, so there's exactly one definition anywhere in the app.
+- `Deploy/js/pages/today.js` -- `upcomingTasks` now also excludes `in_progress` (running tasks live only in `runningTasks`/"Running now," never duplicated). New `refreshChecklistCounts()` + shared `_applyChecklistCounts()` helper -- re-reads only today's checklist items/history and recomputes the ring's 3 numbers, **never touches `this.loading`**, so the page-wide loading gate never flips and nothing gets torn down.
+- `Deploy/index.html` -- Today's task row gets a calm "Paused" tag for `status==='paused'`, reusing the existing neutral `.task-edit-status` pill (`--surface-2`/`--text-secondary` -- confirmed no coral anywhere in its default state) rather than inventing new styling.
+- `Deploy/js/pages/checklist.js` -- `confirmLog()`/`clearLog()` now dispatch a new, narrower `atlas:checklist-changed` event instead of `atlas:data-changed`. The original event and its full-`load()` handler are completely untouched -- still exactly what the AI write-flow refresh uses.
+- `Deploy/service-worker.js` -- new file added to `ASSETS_TO_CACHE`, cache bumped `v73` → `v74`.
+
+**What was verified:**
+- Ran the actual shared `isOverdue()` against all 4 required cases via Node (not just read the code): not-started+future → false, not-started+past → **true**, running+past → false, paused+past → false. Matches the required behavior exactly.
+- Grepped `today.js` for every `this.loading` assignment -- confirmed it's set only inside `load()` (lines 112/161), never inside `refreshChecklistCounts()`.
+- `node --check` clean on all touched/new JS files. HTML tag balance (div/template/select/button/label) re-verified via the project's own Node-script method, all matched (template count 226→227, exactly the one new Paused-tag block added).
+- Did not sign into the app or a local dev server (shares prod DB) -- static/logic verification only, same as round 1. Abhishek's own live testing is the real check on the visual/interaction pieces.
+
+**What's still open:** Live confirmation by Abhishek of the 4 cases on the deployed app, plus marking several checklist items back-to-back to confirm no flicker/reset. Loading-speed work remains explicitly out of scope, per his instruction this round ("I want stability this week, not a new risk loop").
+
+**What NOT to do:** Don't merge `atlas:checklist-changed` back into `atlas:data-changed` -- they're deliberately separate because one must never flip `loading` and the other must. Don't move `isOverdue()` back into `today.js` as a private copy. Don't restyle the Paused tag with any coral/red -- that was an explicit visual requirement this round.
+
+---
+
 ## 2026-07-31 · Claude Code (Sonnet 5) — Phase 1 correction pass: diagnosis + fix bundle
 
 **Session scope:** Abhishek reported 5 real-use problems during the Phase 1 testing week (task/project identity mismatch, running tasks with no clear home on Today, checklist ring not refreshing live, TTS not faithfully reading replies, slow load). Ran a read-only diagnosis pass first (delivered as an Artifact, no code touched), got explicit decisions back, then built the agreed fix bundle. Loading was investigated but intentionally left out of the fix (see below).
