@@ -1510,6 +1510,20 @@
 .mini-task-name { flex: 1; min-width: 0; font-size: 13px; color: var(--text-muted); text-decoration: line-through; text-decoration-color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mini-task-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
+/* Today's activity panel (2026-07-31 correction pass, Option B) -- the
+   "Completed today" card grew a "Running now" section above it, so both
+   now sit inside one .mini-section per group. A running task is active,
+   not settled, so its row is deliberately NOT the muted/struck-through
+   treatment .mini-task-name uses by default -- full-strength text, no
+   line-through, and a blue check-circle instead of sage (blue already
+   reads as Atlas' "live/running now" colour -- same accent the Project
+   workspace's "Running now" Insight Pill and the Projects list's mini
+   "Running: X" pill both use). */
+.mini-section-label { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+.mini-section-spaced { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.mini-task-check.running { background: var(--accent-blue); }
+.mini-task-name.running { color: var(--text-primary); font-weight: 500; text-decoration: none; }
+
 /* Premium empty state for "Completed today" (2026-07-29) -- fills
    the card instead of leaving dead space on a day with nothing
    checked off yet. Custom illustration, single accent (sage, Atlas'

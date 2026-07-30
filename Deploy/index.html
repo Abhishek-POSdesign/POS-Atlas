@@ -713,15 +713,40 @@
                                         </div>
                                 </div>
 
-                                <!-- Completed today: its own quiet card, not sharing scroll space
-                                     with the active list anymore. Reuses recentlyCompleted, already
-                                     loaded -- no new query. Lighter row style than .trv2-row on
-                                     purpose (16px filled check, no chip, no kind label) so this
-                                     reads as a glance, not a second task list. -->
+                                <!-- Today's activity: its own quiet card, not sharing scroll space
+                                     with the active list anymore. Lighter row style than .trv2-row
+                                     on purpose (16px filled icon, no chip, no kind label) so this
+                                     reads as a glance, not a second task list.
+                                     Extended 2026-07-31 (correction pass, Option B) -- a running
+                                     task used to have no distinct home at all; it just sat in the
+                                     ordinary Active list looking identical to a not-started task.
+                                     "Running now" is a new top section here, reusing runningTasks
+                                     (same plural .filter() pattern already proven in the Project
+                                     workspace) -- absent entirely when nothing's running, same
+                                     no-empty-state convention that section already uses there.
+                                     "Completed today" below is unchanged, still recentlyCompleted,
+                                     no new query. -->
                                 <div class="card panel completed-today-card">
                                         <div class="panel-head" style="margin-bottom: 12px;">
-                                            <h2 style="margin:0; font-size: 14px;">Completed today</h2>
+                                            <h2 style="margin:0; font-size: 14px;">Today's activity</h2>
                                         </div>
+                                        <template x-if="runningTasks.length > 0">
+                                            <div class="mini-section">
+                                                <div class="mini-section-label">Running now</div>
+                                                <div class="mini-task-list">
+                                                    <template x-for="task in runningTasks" :key="task.id">
+                                                        <div class="mini-task-row">
+                                                            <span class="mini-task-check running">
+                                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                                                            </span>
+                                                            <span class="mini-task-name running" x-text="task.name"></span>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div class="mini-section" :class="{ 'mini-section-spaced': runningTasks.length > 0 }">
+                                        <div class="mini-section-label" x-show="runningTasks.length > 0 || recentlyCompleted.length > 0">Completed today</div>
                                         <template x-if="recentlyCompleted.length > 0">
                                             <div class="mini-task-list">
                                                 <template x-for="task in recentlyCompleted" :key="task.id">
@@ -763,6 +788,7 @@
                                                 <div class="p">Finished tasks will show up here.</div>
                                             </div>
                                         </template>
+                                        </div>
                                 </div>
                                 </div>
 

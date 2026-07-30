@@ -112,6 +112,12 @@ export function checklistPage() {
                 const row = await DB.Checklist.setStatus(item.id, this.today, status, extra);
                 this.historyByItem = { ...this.historyByItem, [item.id]: row };
                 this.closeLog();
+                // Today's own checklist KPI ring (checklistDoneToday/etc.) lives in a
+                // separate Alpine component and only reads this data at its own load()
+                // time -- without this, the ring stayed frozen until a manual reload
+                // even though the mark above saved correctly (2026-07-31 correction
+                // pass). Reuses the same event today.js already listens for elsewhere.
+                window.dispatchEvent(new CustomEvent('atlas:data-changed'));
             } catch (e) {
                 this.errorMsg = e.message;
             }
@@ -126,6 +132,7 @@ export function checklistPage() {
                 delete copy[this.logItem.id];
                 this.historyByItem = copy;
                 this.closeLog();
+                window.dispatchEvent(new CustomEvent('atlas:data-changed'));
             } catch (e) {
                 this.errorMsg = e.message;
             }

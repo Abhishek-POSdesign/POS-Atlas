@@ -169,7 +169,17 @@ export function atlasAi() {
                 .replace(/_{1,2}([^_]*)_{1,2}/g, '$1')
                 .replace(/^#{1,6}\s+/gm, '')
                 .replace(/^\s*[-*•]\s+/gm, '')
-                .replace(/—[^\n]*/g, '')
+                .replace(/^\s*\d+\.\s+/gm, '')
+                // Em dash is a pause in speech, not a delete-to-end-of-line marker.
+                // The old version here (/—[^\n]*/g) removed the dash AND every
+                // character after it up to the next newline -- since the model
+                // routinely uses an em dash mid-sentence, including in closing
+                // lines, this was silently amputating the rest of the reply
+                // (confirmed live, 2026-07-31 correction pass -- a known,
+                // previously-flagged, never-fixed gap from the 2026-07-29 audit).
+                // Replacing just the dash itself with a comma-like pause keeps
+                // every word of the actual reply intact.
+                .replace(/\s*—\s*/g, ', ')
                 .replace(/https?:\/\/\S+/g, '')
                 .trim();
             if (!clean) return;

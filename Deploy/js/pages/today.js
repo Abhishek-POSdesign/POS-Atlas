@@ -174,6 +174,17 @@ export function todayPage() {
         get tasksTodayTotal() {
             return this.upcomingTasks.length + this.recentlyCompleted.length;
         },
+        // Today's activity panel (2026-07-31 correction pass, Option B) --
+        // same plural .filter() pattern already proven in the Project
+        // workspace's own runningTasks getter (fixed 2026-07-29 there after
+        // a real bug where .find() only ever showed the first of several
+        // simultaneously-running tasks). A task can be in_progress and still
+        // appear in upcomingTasks above (that list isn't status-filtered
+        // beyond "not done") -- this getter doesn't remove it from there,
+        // it just also surfaces it in the activity panel for visibility.
+        get runningTasks() {
+            return this.tasks.filter(t => t.status === 'in_progress');
+        },
         // ---- future-dated tasks/reminders (Phase 6, Upcoming modal) ----
         // A clean partition of upcomingTasks above: that one only ever
         // includes scheduled_date <= today or undated, this one is strictly
@@ -399,12 +410,16 @@ export function todayPage() {
         // Overdue = due in the past AND not yet done. Deliberately narrow
         // definition so no future session guesses at edges:
         //   - status === 'done'                            -> never overdue
+        //   - status === 'in_progress'                      -> never overdue (2026-07-31
+        //     correction pass -- a task actively being worked on isn't "overdue," it's
+        //     running; the two are different states and were being visually conflated,
+        //     which read as a running task falsely flagged as a problem)
         //   - scheduled_date < today                        -> overdue (any time)
         //   - scheduled_date == today && time set && time < now -> overdue
         //   - undated or future-dated                       -> not overdue
         // Applies to both tasks and reminders.
         isOverdue(task) {
-            if (!task || task.status === 'done') return false;
+            if (!task || task.status === 'done' || task.status === 'in_progress') return false;
             if (!task.scheduled_date) return false;
             const today = todayIsoDate();
             if (task.scheduled_date < today) return true;
