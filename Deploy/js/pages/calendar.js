@@ -47,6 +47,12 @@ function fmtDur(mins) {
     return Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm';
 }
 
+// Readable label for atlas_workout_logs.day_type (2026-07-31 fix -- Day
+// Detail was showing the raw snake_case DB value, e.g. "full_rest", when
+// workout_type was empty; confirmed live from a real screenshot).
+const DAY_TYPE_LABELS = { workout: 'Workout', active_recovery: 'Active recovery', full_rest: 'Full rest' };
+function dayTypeLabel(key) { return DAY_TYPE_LABELS[key] || null; }
+
 export function calendarPage(nav) {
     return {
         loading: false,
@@ -73,15 +79,6 @@ export function calendarPage(nav) {
             { key: 'projects', label: 'Projects', icon: 'note' },
             { key: 'journal', label: 'Journal', icon: 'pencil' }
         ],
-        rangePresetDefs: [
-            { key: 'thisweek', label: 'This week' },
-            { key: 'lastweek', label: 'Last week' },
-            { key: 'last10', label: 'Last 10 days' },
-            { key: 'next10', label: 'Next 10 days' }
-        ],
-        // UI hint only for now -- the real range logic already lives in
-        // aiContext.js's buildExplainHistory / aiPanel.js's _detectHistoryRange.
-        rangePreset: 'last10',
         // Filter dropdown (2026-07-29, live-testing bug -- the always-open
         // 7-chip row read as cluttered and pushed the range row into a
         // second visual band). Closed by default, all categories on.
@@ -199,11 +196,11 @@ export function calendarPage(nav) {
         },
 
         iconSvg(name) { return ICON_PATHS[name] || ''; },
+        dayTypeLabel(key) { return dayTypeLabel(key); },
 
         toggleCategory(cat) { this.categories[cat] = !this.categories[cat]; },
         selectAllCategories() { this.categoryDefs.forEach(c => { this.categories[c.key] = true; }); },
         selectNoCategories() { this.categoryDefs.forEach(c => { this.categories[c.key] = false; }); },
-        setRangePreset(r) { this.rangePreset = r; },
 
         selectDate(dateStr) {
             this.selectedDate = dateStr;

@@ -45,6 +45,21 @@ window.formatTaskDateTime = function(dateStr, timeStr) {
     return out;
 };
 
+// Day-first "D Mon YYYY" date label (e.g. "29 Jul 2026") -- added 2026-07-31
+// after direct feedback that a raw ISO string (YYYY-MM-DD) reads in
+// year-month-day order, not the day-first order used in India. Day-first
+// with a written month name avoids the classic MM/DD vs DD/MM ambiguity a
+// pure numeric format would still carry. Currently used by the Notebook's
+// entry list; not yet a blanket replacement for every date display in the
+// app (most others already use a month-name format like formatTaskDateTime
+// above, which has no day/month ordering ambiguity to begin with).
+window.formatDateDMY = function(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         // updateViaCache: 'none' (2026-07-28 fix) -- without this, the

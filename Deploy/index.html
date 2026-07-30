@@ -432,7 +432,7 @@
                                 <div class="stack">
                                     <div class="card workspace-section">
                                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--pad-sm);">
-                                            <h2 x-text="todayDate" style="margin: 0;"></h2>
+                                            <h2 x-text="window.formatDateDMY(todayDate)" style="margin: 0;"></h2>
                                             <span class="system-text" x-show="savedState === 'saved'" style="color: var(--accent-sage);">✓ Saved</span>
                                         </div>
                                         <div class="field">
@@ -458,7 +458,7 @@
                                                             <div class="note-row" @click="toggleEntry(entry)" role="button" tabindex="0" @keydown.enter.prevent="toggleEntry(entry)" @keydown.space.prevent="toggleEntry(entry)">
                                                                 <span class="note-row-dot"></span>
                                                                 <div class="note-row-body">
-                                                                    <div class="note-date" x-text="entry.entry_date"></div>
+                                                                    <div class="note-date" x-text="window.formatDateDMY(entry.entry_date)"></div>
                                                                     <div class="note-row-preview" x-text="entryPreview(entry.body)"></div>
                                                                 </div>
                                                                 <svg class="note-row-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -467,7 +467,7 @@
                                                         <template x-if="isEntryExpanded(entry)">
                                                             <div class="card note-entry">
                                                                 <div class="note-entry-head" @click="toggleEntry(entry)" role="button" tabindex="0" @keydown.enter.prevent="toggleEntry(entry)">
-                                                                    <div class="note-date" x-text="entry.entry_date"></div>
+                                                                    <div class="note-date" x-text="window.formatDateDMY(entry.entry_date)"></div>
                                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
                                                                 </div>
                                                                 <p x-text="entry.body" style="white-space: pre-wrap;"></p>
@@ -2250,21 +2250,17 @@
                         <div class="card calendar-page">
                             <!-- Controls row (2026-07-29, live-testing bug): the always-open
                                  7-chip category row plus a separate range row read as
-                                 cluttered/two full bands. Now one row: range-preset hint
-                                 chips on the left, category filters collapsed into a
-                                 dropdown menu on the right -- all on by default, toggle
+                                 cluttered/two full bands. Now one row: category filters
+                                 collapsed into a dropdown menu -- all on by default, toggle
                                  whichever you want off. Grid-only; Day Detail always shows
-                                 the full truth regardless of these filters. -->
+                                 the full truth regardless of these filters.
+                                 The "AI range" preset row that used to sit here was removed
+                                 2026-07-31 -- confirmed genuinely decorative in effect (it set
+                                 a local rangePreset value nothing else in the app ever read;
+                                 already flagged as "a UI hint only, not wired to a live query"
+                                 in this repo's own docs before Abhishek asked about it directly
+                                 after finding clicking it did nothing to the grid). -->
                             <div class="cal-controls-row">
-                                <div class="range-bar-group">
-                                    <div class="range-bar">
-                                        <span class="range-label">AI range:</span>
-                                        <template x-for="r in rangePresetDefs" :key="r.key">
-                                            <button type="button" class="range-chip" :class="{on: rangePreset === r.key}" @click="setRangePreset(r.key)" x-text="r.label"></button>
-                                        </template>
-                                    </div>
-                                    <span class="range-note">Sets the range Atlas uses when you ask it for a summary -- ask it directly, these don't filter the grid.</span>
-                                </div>
                                 <div class="cal-filter-dropdown" @click.outside="filterMenuOpen = false">
                                     <button type="button" class="cal-filter-toggle" @click="filterMenuOpen = !filterMenuOpen" :aria-expanded="filterMenuOpen">
                                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('filter')"></svg>
@@ -2384,45 +2380,95 @@
                                                 </div>
 
                                                 <div class="dd-body">
-                                                    <!-- Health: Sleep + Workout -->
-                                                    <template x-if="selectedSleep || selectedWorkout">
-                                                        <div class="dd-sec c-sage">
-                                                            <div class="dd-sec-title">Health</div>
+                                                    <!-- Health + Tasks & Reminders share one row, 2026-07-31 round 3 --
+                                                         direct feedback: Health's own numbers/rows are naturally short,
+                                                         so giving it a full-width row the way Checklist/Projects/Journal
+                                                         get left a lot of visibly empty space next to short content.
+                                                         Health gets ~40% of the row, Tasks & Reminders ~60% (Abhishek's
+                                                         own instruction: "Tasks and Reminders can have more space and
+                                                         Health data can have less space") -- flexbox with flex-grow, not
+                                                         a fixed grid, so if only one of the two exists for a given day
+                                                         it naturally takes the full row instead of leaving a dead gap. -->
+                                                    <div class="dd-row-2col">
+                                                        <!-- Health: Sleep + Workout -->
+                                                        <template x-if="selectedSleep || selectedWorkout">
+                                                            <div class="dd-sec c-sage dd-flex-health">
+                                                                <div class="dd-sec-title">Health</div>
 
-                                                            <template x-if="selectedSleep">
-                                                                <div>
-                                                                    <div class="dd-row">
-                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('sleep')"></svg>
-                                                                        <span class="name" x-text="'Sleep' + (selectedSleep.duration_minutes != null ? ' · ' + Math.floor(selectedSleep.duration_minutes/60) + 'h ' + (selectedSleep.duration_minutes%60) + 'm' : '')"></span>
-                                                                        <span class="dd-chip done" x-show="selectedSleep.sleep_score != null" x-text="'Score ' + selectedSleep.sleep_score"></span>
+                                                                <template x-if="selectedSleep">
+                                                                    <div>
+                                                                        <div class="dd-row">
+                                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('sleep')"></svg>
+                                                                            <span class="name" x-text="'Sleep' + (selectedSleep.duration_minutes != null ? ' · ' + Math.floor(selectedSleep.duration_minutes/60) + 'h ' + (selectedSleep.duration_minutes%60) + 'm' : '')"></span>
+                                                                            <span class="dd-chip done" x-show="selectedSleep.sleep_score != null" x-text="'Score ' + selectedSleep.sleep_score"></span>
+                                                                        </div>
+                                                                        <div class="dd-fact-row" x-show="selectedSleep.deep_minutes != null"><span>Deep</span><span class="v" x-text="selectedSleep.deep_minutes + ' min'"></span></div>
+                                                                        <div class="dd-fact-row" x-show="selectedSleep.rem_minutes != null"><span>REM</span><span class="v" x-text="selectedSleep.rem_minutes + ' min'"></span></div>
+                                                                        <div class="dd-fact-row" x-show="selectedSleep.resting_hr != null"><span>Resting HR</span><span class="v" x-text="selectedSleep.resting_hr + ' bpm'"></span></div>
+                                                                        <div class="dd-fact-row" x-show="selectedSleep.hrv != null"><span>HRV</span><span class="v" x-text="selectedSleep.hrv + ' ms'"></span></div>
+                                                                        <div class="dd-note" x-show="selectedSleep.note" x-text="'&quot;' + selectedSleep.note + '&quot;'"></div>
                                                                     </div>
-                                                                    <div class="dd-fact-row" x-show="selectedSleep.deep_minutes != null"><span>Deep</span><span class="v" x-text="selectedSleep.deep_minutes + ' min'"></span></div>
-                                                                    <div class="dd-fact-row" x-show="selectedSleep.rem_minutes != null"><span>REM</span><span class="v" x-text="selectedSleep.rem_minutes + ' min'"></span></div>
-                                                                    <div class="dd-fact-row" x-show="selectedSleep.resting_hr != null"><span>Resting HR</span><span class="v" x-text="selectedSleep.resting_hr + ' bpm'"></span></div>
-                                                                    <div class="dd-fact-row" x-show="selectedSleep.hrv != null"><span>HRV</span><span class="v" x-text="selectedSleep.hrv + ' ms'"></span></div>
-                                                                    <div class="dd-note" x-show="selectedSleep.note" x-text="'&quot;' + selectedSleep.note + '&quot;'"></div>
-                                                                </div>
-                                                            </template>
-                                                            <template x-if="selectedWorkout">
-                                                                <div>
-                                                                    <div class="dd-row">
-                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('workout')"></svg>
-                                                                        <span class="name" x-text="(selectedWorkout.workout_type || selectedWorkout.day_type || 'Workout') + (selectedWorkoutSessions.length ? ' · ' + selectedWorkoutSessions.length + ' session' + (selectedWorkoutSessions.length===1?'':'s') : '')"></span>
-                                                                        <span class="dd-chip done" x-show="selectedWorkout.workout_score != null" x-text="'Score ' + selectedWorkout.workout_score"></span>
+                                                                </template>
+                                                                <template x-if="selectedWorkout">
+                                                                    <div>
+                                                                        <div class="dd-row">
+                                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('workout')"></svg>
+                                                                            <span class="name" x-text="(selectedWorkout.workout_type || dayTypeLabel(selectedWorkout.day_type) || 'Workout') + (selectedWorkoutSessions.length ? ' · ' + selectedWorkoutSessions.length + ' session' + (selectedWorkoutSessions.length===1?'':'s') : '')"></span>
+                                                                            <span class="dd-chip done" x-show="selectedWorkout.workout_score != null" x-text="'Score ' + selectedWorkout.workout_score"></span>
+                                                                        </div>
+                                                                        <div class="dd-fact-row" x-show="selectedWorkout.calories != null"><span>Calories</span><span class="v" x-text="selectedWorkout.calories"></span></div>
+                                                                        <div class="dd-fact-row" x-show="selectedWorkout.vo2_max != null"><span>VO2 max</span><span class="v" x-text="selectedWorkout.vo2_max"></span></div>
+                                                                        <div class="dd-note" x-show="selectedWorkout.note" x-text="'&quot;' + selectedWorkout.note + '&quot;'"></div>
                                                                     </div>
-                                                                    <div class="dd-fact-row" x-show="selectedWorkout.calories != null"><span>Calories</span><span class="v" x-text="selectedWorkout.calories"></span></div>
-                                                                    <div class="dd-fact-row" x-show="selectedWorkout.vo2_max != null"><span>VO2 max</span><span class="v" x-text="selectedWorkout.vo2_max"></span></div>
-                                                                    <div class="dd-note" x-show="selectedWorkout.note" x-text="'&quot;' + selectedWorkout.note + '&quot;'"></div>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </template>
+                                                                </template>
+                                                            </div>
+                                                        </template>
+
+                                                        <!-- Tasks & Reminders: past/today shows the real per-item list
+                                                             (click drills into the existing Task modal, confirm-gated
+                                                             inside openTaskDrillDown). Future collapses to grouped counts
+                                                             -- a glimpse, not a workspace -- with one "Go to" link per
+                                                             group. -->
+                                                        <template x-if="selectedTasks.length > 0 && !selectedIsFuture">
+                                                            <div class="dd-sec c-blue dd-flex-tasks">
+                                                                <div class="dd-sec-title">Tasks &amp; Reminders</div>
+                                                                <template x-for="t in selectedTasks" :key="t.id">
+                                                                    <div class="dd-row clickable" @click="openTaskDrillDown(t)">
+                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(t.kind === 'reminder' ? 'bell' : 'list')"></svg>
+                                                                        <span class="name" x-text="t.name"></span>
+                                                                        <span class="time" x-show="t.scheduled_time" x-text="window.formatTime12h ? window.formatTime12h(t.scheduled_time) : t.scheduled_time"></span>
+                                                                        <template x-if="t.project_id">
+                                                                            <span class="id-chip" :class="'color-' + projectColorKey(t.project_id)" x-text="projectInitial(t.project_id)"></span>
+                                                                        </template>
+                                                                        <span class="dd-chip" :class="{done: taskStatus(t)==='done', overdue: taskStatus(t)==='overdue'}" x-text="taskStatus(t) === 'done' ? 'Done' : (taskStatus(t) === 'overdue' ? 'Overdue' : 'Upcoming')"></span>
+                                                                        <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </template>
+                                                        <template x-if="selectedTasks.length > 0 && selectedIsFuture">
+                                                            <div class="dd-sec c-blue dd-flex-tasks">
+                                                                <div class="dd-sec-title">Tasks &amp; Reminders</div>
+                                                                <template x-for="g in selectedTaskGroups" :key="g.project_id || 'none'">
+                                                                    <div class="dd-row clickable" @click="goToTaskGroup(g)">
+                                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
+                                                                        <span class="name" x-text="g.project_id ? projectName(g.project_id) : 'No project'"></span>
+                                                                        <span class="dd-chip" x-text="taskGroupLabel(g)"></span>
+                                                                        <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </template>
+                                                    </div>
 
                                                     <!-- Checklist: grouped by outcome, not one row per item (2026-07-31
                                                          rebuild -- direct feedback: nobody reads a per-item list, and the
                                                          calendar exists for a quick spot-check + the AI's own history
-                                                         awareness, both of which this serves better). Still read-only,
-                                                         still hidden for future dates. -->
+                                                         awareness, both of which this serves better). Full-width row,
+                                                         per Abhishek's own layout instruction -- Checklist, Projects &
+                                                         Work Logs, and Journal all need "big space", not the 2-column
+                                                         squeeze Health/Tasks share. Still read-only, still hidden for
+                                                         future dates. -->
                                                     <template x-if="selectedChecklist.length > 0 && !selectedIsFuture">
                                                         <div class="dd-sec c-sage">
                                                             <div class="dd-sec-title">Checklist</div>
@@ -2439,41 +2485,6 @@
                                                                 <span class="dd-cl-dot"></span><span class="dd-cl-label">Missed</span><span class="dd-cl-names" x-text="selectedChecklistGroups.missed.join(', ')"></span>
                                                             </div>
                                                             <button type="button" class="dd-see-full" @click="openChecklistDrillDown()">See full routine →</button>
-                                                        </div>
-                                                    </template>
-
-                                                    <!-- Tasks & Reminders: past/today shows the real per-item list
-                                                         (click drills into the existing Task modal, confirm-gated inside
-                                                         openTaskDrillDown). Future collapses to grouped counts -- a
-                                                         glimpse, not a workspace -- with one "Go to" link per group. -->
-                                                    <template x-if="selectedTasks.length > 0 && !selectedIsFuture">
-                                                        <div class="dd-sec c-blue">
-                                                            <div class="dd-sec-title">Tasks &amp; Reminders</div>
-                                                            <template x-for="t in selectedTasks" :key="t.id">
-                                                                <div class="dd-row clickable" @click="openTaskDrillDown(t)">
-                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(t.kind === 'reminder' ? 'bell' : 'list')"></svg>
-                                                                    <span class="name" x-text="t.name"></span>
-                                                                    <span class="time" x-show="t.scheduled_time" x-text="window.formatTime12h ? window.formatTime12h(t.scheduled_time) : t.scheduled_time"></span>
-                                                                    <template x-if="t.project_id">
-                                                                        <span class="id-chip" :class="'color-' + projectColorKey(t.project_id)" x-text="projectInitial(t.project_id)"></span>
-                                                                    </template>
-                                                                    <span class="dd-chip" :class="{done: taskStatus(t)==='done', overdue: taskStatus(t)==='overdue'}" x-text="taskStatus(t) === 'done' ? 'Done' : (taskStatus(t) === 'overdue' ? 'Overdue' : 'Upcoming')"></span>
-                                                                    <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </template>
-                                                    <template x-if="selectedTasks.length > 0 && selectedIsFuture">
-                                                        <div class="dd-sec c-blue">
-                                                            <div class="dd-sec-title">Tasks &amp; Reminders</div>
-                                                            <template x-for="g in selectedTaskGroups" :key="g.project_id || 'none'">
-                                                                <div class="dd-row clickable" @click="goToTaskGroup(g)">
-                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
-                                                                    <span class="name" x-text="g.project_id ? projectName(g.project_id) : 'No project'"></span>
-                                                                    <span class="dd-chip" x-text="taskGroupLabel(g)"></span>
-                                                                    <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
-                                                                </div>
-                                                            </template>
                                                         </div>
                                                     </template>
 

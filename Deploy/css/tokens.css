@@ -52,6 +52,30 @@
   --accent-coral-tint-hover: rgba(221, 129, 112, 0.32);
   --accent-amber-tint: rgba(201, 160, 74, 0.17);
   --accent-amber-tint-hover: rgba(201, 160, 74, 0.32);
+
+  /* Deep shade variants (2026-07-31) -- offered as extra project colours
+     alongside the 5 base accents, so a project picker isn't limited to 4
+     options. Each is a darker/more-saturated shade of an existing accent
+     hue (sage->forest, blue->indigo, lilac->plum, coral->rust, amber->
+     bronze), not a new unrelated colour -- stays inside the same warm-
+     neutral family the rest of Atlas uses. Project identity only; none of
+     these carry any of the 5 locked semantic meanings (done/tasks/
+     projects/caution/skip). */
+  --accent-forest: #5c9e72;
+  --accent-indigo: #4078cb;
+  --accent-plum: #8169c5;
+  --accent-rust: #db5036;
+  --accent-bronze: #b78a2b;
+  --accent-forest-tint: rgba(92, 158, 114, 0.17);
+  --accent-forest-tint-hover: rgba(92, 158, 114, 0.32);
+  --accent-indigo-tint: rgba(64, 120, 203, 0.17);
+  --accent-indigo-tint-hover: rgba(64, 120, 203, 0.32);
+  --accent-plum-tint: rgba(129, 105, 197, 0.17);
+  --accent-plum-tint-hover: rgba(129, 105, 197, 0.32);
+  --accent-rust-tint: rgba(219, 80, 54, 0.17);
+  --accent-rust-tint-hover: rgba(219, 80, 54, 0.32);
+  --accent-bronze-tint: rgba(183, 138, 43, 0.17);
+  --accent-bronze-tint-hover: rgba(183, 138, 43, 0.32);
 }
 
 @media (prefers-color-scheme: light) {
@@ -83,6 +107,22 @@
     --accent-coral-tint-hover: rgba(181, 107, 93, 0.24);
     --accent-amber-tint: rgba(184, 154, 68, 0.14);
     --accent-amber-tint-hover: rgba(184, 154, 68, 0.24);
+
+    --accent-forest: #4c6e42;
+    --accent-indigo: #38598a;
+    --accent-plum: #5d4886;
+    --accent-rust: #8f4436;
+    --accent-bronze: #8c722a;
+    --accent-forest-tint: rgba(76, 110, 66, 0.14);
+    --accent-forest-tint-hover: rgba(76, 110, 66, 0.24);
+    --accent-indigo-tint: rgba(56, 89, 138, 0.14);
+    --accent-indigo-tint-hover: rgba(56, 89, 138, 0.24);
+    --accent-plum-tint: rgba(93, 72, 134, 0.14);
+    --accent-plum-tint-hover: rgba(93, 72, 134, 0.24);
+    --accent-rust-tint: rgba(143, 68, 54, 0.14);
+    --accent-rust-tint-hover: rgba(143, 68, 54, 0.24);
+    --accent-bronze-tint: rgba(140, 114, 42, 0.14);
+    --accent-bronze-tint-hover: rgba(140, 114, 42, 0.24);
   }
 }
 
@@ -118,6 +158,22 @@
   --accent-coral-tint-hover: rgba(181, 107, 93, 0.24);
   --accent-amber-tint: rgba(184, 154, 68, 0.14);
   --accent-amber-tint-hover: rgba(184, 154, 68, 0.24);
+
+  --accent-forest: #4c6e42;
+  --accent-indigo: #38598a;
+  --accent-plum: #5d4886;
+  --accent-rust: #8f4436;
+  --accent-bronze: #8c722a;
+  --accent-forest-tint: rgba(76, 110, 66, 0.14);
+  --accent-forest-tint-hover: rgba(76, 110, 66, 0.24);
+  --accent-indigo-tint: rgba(56, 89, 138, 0.14);
+  --accent-indigo-tint-hover: rgba(56, 89, 138, 0.24);
+  --accent-plum-tint: rgba(93, 72, 134, 0.14);
+  --accent-plum-tint-hover: rgba(93, 72, 134, 0.24);
+  --accent-rust-tint: rgba(143, 68, 54, 0.14);
+  --accent-rust-tint-hover: rgba(143, 68, 54, 0.24);
+  --accent-bronze-tint: rgba(140, 114, 42, 0.14);
+  --accent-bronze-tint-hover: rgba(140, 114, 42, 0.24);
 }
 
 /* Reduced Motion Fallback */

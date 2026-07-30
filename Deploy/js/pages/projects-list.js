@@ -3,7 +3,12 @@ import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
 import { groupByDate } from '../date-groups.js';
 
-const COLOR_KEYS = ['sage', 'blue', 'lilac', 'coral'];
+// Expanded 2026-07-31 -- was only 4 options, real complaint from live use
+// ("if I can get more colors don't put yourself in the boundary"). amber
+// was already a locked accent elsewhere but never offered here; the other
+// 5 are deep-shade variants of the original 5 hues (see tokens.css), not
+// new unrelated colours.
+const COLOR_KEYS = ['sage', 'blue', 'lilac', 'coral', 'amber', 'forest', 'indigo', 'plum', 'rust', 'bronze'];
 
 export function projectsListPage(nav) {
     return {
