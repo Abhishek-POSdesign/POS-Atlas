@@ -3214,43 +3214,42 @@ body:has(.ai-panel-open) .content-area {
    thin top border floating on the page background) and every section's icon
    was hardcoded blue regardless of what it meant -- both fixed here. The
    checklist section stopped being one row per item; see .dd-cl-* below. */
-.dd-ledger { margin-top: 16px; background: var(--surface-1); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--top-edge), var(--shadow-card); overflow: hidden; }
-.dd-ledger-head { display: flex; align-items: flex-end; gap: 16px; padding: 20px var(--pad-lg) 16px; background: var(--accent-blue-tint); border-bottom: 1px solid var(--border); }
-.dd-ledger-num { font-family: var(--font-serif); font-size: 48px; line-height: .8; color: var(--accent-blue); }
+.dd-ledger { margin-top: 16px; background: var(--surface-0); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.dd-ledger-head { display: flex; align-items: baseline; gap: 12px; padding: 16px var(--pad-lg); border-bottom: 1px solid var(--border); }
+.dd-ledger-num { font-family: var(--font-serif); font-size: 38px; line-height: 1; color: var(--text-primary); }
 .dd-ledger-day { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
-.dd-ledger-month { font-family: var(--font-serif); font-size: 16px; color: var(--text-primary); margin-top: 1px; }
+.dd-ledger-month { display: flex; align-items: center; gap: 8px; font-family: var(--font-serif); font-size: 15px; color: var(--text-primary); margin-top: 2px; }
+.dd-status-chip { font-family: var(--font-sans); font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: var(--surface-2); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-style: normal; }
 .dd-empty { font-size: 12.5px; color: var(--text-muted); font-style: italic; padding: var(--pad-lg); }
-.dd-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); }
-/* Numbers bumped 24px -> 34px, padding tightened (2026-07-31 round 3 --
-   direct feedback: "the numbers are too small and the space is too big,"
-   the old size left a lot of visibly empty tile around a 1-2 digit
-   number). */
-.dd-kpi { background: var(--surface-1); padding: 10px var(--pad-md) 12px; min-width: 0; }
-.dd-kpi-num { font-family: var(--font-serif); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
-.dd-kpi-num.sage { color: var(--accent-sage); }
-.dd-kpi-num.blue { color: var(--accent-blue); }
-.dd-kpi-num.lilac { color: var(--accent-lilac); }
-.dd-kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-top: 2px; }
-.dd-body { padding: var(--pad-lg); display: flex; flex-direction: column; gap: 14px; }
-/* Health + Tasks & Reminders share one row (2026-07-31 round 3, direct
-   layout instruction) -- flex-grow, not a fixed grid, so a day with only
-   one of the two present still fills the whole row instead of leaving a
-   dead gap where the other would have been. Ratio ~40/60 (Health smaller,
-   Tasks larger, per Abhishek's own words) via flex-grow weights, not
-   percentages, for the same reason. Checklist/Projects/Journal stay their
-   own full-width rows below -- "they need big space." */
-.dd-row-2col { display: flex; flex-wrap: wrap; gap: var(--pad-md); }
-.dd-row-2col:empty { display: none; }
-.dd-flex-health { flex: 2 1 220px; }
-.dd-flex-tasks { flex: 3 1 260px; }
-.dd-sec { border-top: 2px solid var(--border); padding-top: 10px; min-width: 0; }
-.dd-sec.c-sage { border-top-color: var(--accent-sage); }
-.dd-sec.c-blue { border-top-color: var(--accent-blue); }
-.dd-sec.c-lilac { border-top-color: var(--accent-lilac); }
-.dd-sec-title { font-family: var(--font-serif); font-style: italic; font-size: 16px; color: var(--text-primary); margin-bottom: 8px; }
-.dd-sec-title-plain { font-family: var(--font-sans); font-style: normal; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); }
-/* Checklist grouped by outcome -- Done/Skipped/Holiday/Missed, each one
-   compact line naming the actual items, not one row per item. */
+
+/* KPIs */
+.dd-kpis { display: flex; flex-wrap: wrap; gap: 12px; padding: var(--pad-lg) var(--pad-lg) 0; }
+.dd-kpi-pill { display: flex; align-items: center; gap: 6px; background: var(--surface-1); border: 1px solid var(--border); padding: 4px 10px 4px 6px; border-radius: 20px; box-shadow: var(--shadow-sm); }
+.dd-kpi-num { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--surface-2); padding: 2px 8px; border-radius: 16px; }
+.dd-kpi-num.sage { color: var(--accent-sage); background: var(--accent-sage-tint); }
+.dd-kpi-num.blue { color: var(--accent-blue); background: var(--accent-blue-tint); }
+.dd-kpi-num.lilac { color: var(--accent-lilac); background: var(--accent-lilac-tint); }
+.dd-kpi-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .03em; }
+
+/* Cards Layout */
+.dd-body { padding: var(--pad-lg); display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
+.dd-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; }
+/* Subtle accent on the left */
+.dd-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--border); }
+.dd-card.c-sage::before { background: var(--accent-sage); opacity: 0.7; }
+.dd-card.c-blue::before { background: var(--accent-blue); opacity: 0.7; }
+.dd-card.c-lilac::before { background: var(--accent-lilac); opacity: 0.7; }
+
+.dd-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin-bottom: 12px; }
+
+/* Health inner grid for desktop side-by-side */
+.dd-health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.dd-health-col { display: flex; flex-direction: column; gap: 6px; }
+.dd-fact-inline { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+.dd-fact-inline span { background: var(--surface-2); padding: 2px 6px; border-radius: 4px; }
+.dd-note { font-size: 12px; color: var(--text-secondary); font-style: italic; margin-top: 6px; }
+
+/* Checklist grouped */
 .dd-cl-row { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; padding: 3px 0; }
 .dd-cl-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
 .dd-cl-row.done .dd-cl-dot { background: var(--accent-sage); }
@@ -3265,9 +3264,6 @@ body:has(.ai-panel-open) .content-area {
 .dd-cl-names { color: var(--text-secondary); }
 .dd-see-full { display: block; margin-top: 8px; background: none; border: none; padding: 0; font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--accent-sage); cursor: pointer; }
 .dd-see-full:hover { text-decoration: underline; }
-.dd-fact-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-secondary); padding: 2px 0; }
-.dd-fact-row .v { color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.dd-note { font-size: 12px; color: var(--text-secondary); font-style: italic; margin-top: 6px; }
 /* Plain, non-interactive by default -- Sleep/Workout rows are display-only
    facts (read-only pass, 2026-07-29). Rows that do drill into a real page
    (Tasks, Projects, Journal, future task groups) add .clickable for the
@@ -3306,11 +3302,10 @@ body:has(.ai-panel-open) .content-area {
 .dd-chevron { color: var(--text-muted); flex-shrink: 0; }
 
 @media (max-width: 720px) {
-    .dd-ledger-num { font-size: 36px; }
+    .dd-ledger-num { font-size: 32px; }
     .dd-ledger-head { padding: 16px var(--pad-md) 14px; gap: 12px; }
-    .dd-kpi { padding: 10px 8px; }
-    .dd-kpi-num { font-size: 19px; }
-    .dd-body { padding: var(--pad-md); gap: 14px; }
+    .dd-kpis { padding: var(--pad-md) var(--pad-md) 0; gap: 8px; }
+    .dd-body { padding: var(--pad-md); gap: 14px; grid-template-columns: 1fr; }
     /* Fixed 2026-07-29, live-testing bug: full 7-column month grid at
        phone width leaves ~45-50px per cell -- nowhere near enough room for
        a badge + two lines of text, which was forcing the whole page to
