@@ -5,7 +5,7 @@
 // package -- Atlas-only, per the module-independence rule.
 
 import { DB } from '../db.js';
-import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
+import { getLogicalDate, todayKey, todayIsoDate, toLocalIsoDate } from '../date-utils.js';
 
 const SOURCE_VERSION = 'atlas-ai-v1';
 const READ_LIMITS = [
@@ -40,7 +40,7 @@ async function buildExplainDay() {
 
     const upcoming = tasks.filter(t => t.status !== 'done' && (!t.scheduled_date || t.scheduled_date <= today));
     const overdue = upcoming.filter(t => t.scheduled_date && t.scheduled_date < today);
-    const doneToday = tasks.filter(t => t.status === 'done' && t.completed_at && t.completed_at.slice(0, 10) === today);
+    const doneToday = tasks.filter(t => t.status === 'done' && t.completed_at && toLocalIsoDate(t.completed_at) === today);
 
     const todaysItems = checklistItems.filter(i => !i.days || i.days.includes(dow));
     const doneIds = new Set(checklistHistory.filter(h => h.status === 'done').map(h => h.item_id));
@@ -179,7 +179,7 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
     const tasksByDay = [];
     for (let d = startDate; d <= endDate; d = addDays(d, 1)) {
         const scheduled = tasksScheduled.filter(t => t.scheduled_date === d && t.status !== 'done');
-        const completed = tasksCompleted.filter(t => t.completed_at && t.completed_at.slice(0, 10) === d);
+        const completed = tasksCompleted.filter(t => t.completed_at && toLocalIsoDate(t.completed_at) === d);
         if (!scheduled.length && !completed.length) continue;
         const parts = [];
         if (scheduled.length) parts.push(`${scheduled.length} scheduled (${scheduled.map(t => `${t.name}${t.kind === 'reminder' ? ' [reminder]' : ''}`).join(', ')})`);
@@ -191,7 +191,7 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
     // ---- project logs / notes ----
     const projectWorkLines = [
         ...taskLogRows.slice(0, 20).map(l => `${l.entry_date}: work log -- ${(l.body || '').slice(0, 100)}`),
-        ...projectNoteRows.slice(0, 10).map(n => `${(n.created_at || '').slice(0, 10)}: note -- ${(n.body || '').slice(0, 100)}`)
+        ...projectNoteRows.slice(0, 10).map(n => `${toLocalIsoDate(n.created_at)}: note -- ${(n.body || '').slice(0, 100)}`)
     ];
 
     // ---- journal ----

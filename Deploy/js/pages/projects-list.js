@@ -2,6 +2,7 @@ import { DB } from '../db.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
 import { groupByDate } from '../date-groups.js';
+import { toLocalIsoDate } from '../date-utils.js';
 
 // Expanded 2026-07-31 -- was only 4 options, real complaint from live use
 // ("if I can get more colors don't put yourself in the boundary"). amber
@@ -136,7 +137,7 @@ export function projectsListPage(nav) {
             nav.onOpen(id);
         },
         get noteGroups() {
-            return groupByDate(this.notes, n => (n.created_at || '').slice(0, 10));
+            return groupByDate(this.notes, n => toLocalIsoDate(n.created_at));
         },
         isNoteDateExpanded(date) {
             return this.expandedNoteDates[date] !== false;

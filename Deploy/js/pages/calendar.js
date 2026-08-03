@@ -22,7 +22,7 @@
 // rows -- a glimpse, not a workspace.
 
 import { DB } from '../db.js';
-import { todayIsoDate } from '../date-utils.js';
+import { todayIsoDate, toLocalIsoDate } from '../date-utils.js';
 import { setPendingTask } from '../features/pendingNav.js';
 import { askConfirm } from '../components/confirm-dialog.js';
 import { BLOCKS } from '../checklist-blocks.js';
@@ -211,7 +211,7 @@ export function calendarPage(nav) {
         // finished today shows on today, not its original date.
         _dayItems(dateStr) {
             const scheduled = this._tasksScheduled.filter(t => t.scheduled_date === dateStr);
-            const completed = this._tasksCompleted.filter(t => t.completed_at && t.completed_at.slice(0, 10) === dateStr);
+            const completed = this._tasksCompleted.filter(t => t.completed_at && toLocalIsoDate(t.completed_at) === dateStr);
             const byId = {};
             scheduled.concat(completed).forEach(t => { byId[t.id] = t; });
             return Object.values(byId);
@@ -262,7 +262,7 @@ export function calendarPage(nav) {
             const remItems = items.filter(t => t.kind === 'reminder');
             const overdueCount = items.filter(t => t.status !== 'done' && dateStr < today).length;
             const projCount = this._taskLogRows.filter(l => l.entry_date === dateStr).length +
-                this._projectNoteRows.filter(n => (n.created_at || '').slice(0, 10) === dateStr).length;
+                this._projectNoteRows.filter(n => toLocalIsoDate(n.created_at) === dateStr).length;
             const journal = this._notebookRows.find(n => n.entry_date === dateStr);
 
             const showSleep = this.categories.sleep && sleep;
@@ -380,7 +380,7 @@ export function calendarPage(nav) {
                 .filter(l => l.entry_date === this.selectedDate)
                 .map(l => ({ kind: 'log', body: l.body, project_id: l.project_id, id: 'log-' + l.id }));
             const notes = this._projectNoteRows
-                .filter(n => (n.created_at || '').slice(0, 10) === this.selectedDate && n.project_id)
+                .filter(n => toLocalIsoDate(n.created_at) === this.selectedDate && n.project_id)
                 .map(n => ({ kind: 'note', body: n.body, project_id: n.project_id, id: 'note-' + n.id }));
             return logs.concat(notes);
         },

@@ -27,3 +27,14 @@ export function todayIsoDate() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+// Converts a UTC timestamp string (like "2026-08-04T02:11:00.000Z") to a local
+// calendar date string (like "2026-08-04"). Used to ensure that tasks completed
+// locally on August 4th are displayed as completed on August 4th, even if the
+// UTC timestamp was still August 3rd.
+export function toLocalIsoDate(timestampString) {
+    if (!timestampString) return '';
+    const d = new Date(timestampString);
+    if (isNaN(d.getTime())) return timestampString.slice(0, 10);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}

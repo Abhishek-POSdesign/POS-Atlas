@@ -1,5 +1,5 @@
 import { DB } from '../db.js';
-import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
+import { getLogicalDate, todayKey, todayIsoDate, toLocalIsoDate } from '../date-utils.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
 import { askNote } from '../components/note-prompt.js';
@@ -212,7 +212,7 @@ export function todayPage(nav) {
         get recentlyCompleted() {
             const today = todayIsoDate();
             return this.tasks
-                .filter(t => t.status === 'done' && t.completed_at && t.completed_at.slice(0, 10) === today)
+                .filter(t => t.status === 'done' && t.completed_at && toLocalIsoDate(t.completed_at) === today)
                 .sort((a, b) => (a.completed_at < b.completed_at ? 1 : -1))
                 .slice(0, 6);
         },
