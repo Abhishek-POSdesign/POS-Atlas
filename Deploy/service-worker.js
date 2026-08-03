@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v77';
+const CACHE_NAME = 'atlas-offline-shell-v78';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -107,7 +107,7 @@ self.addEventListener('push', (event) => {
     const options = {
         body: payload.body,
         icon: payload.icon || '/icon-192.png',
-        badge: '/favicon.svg',
+        requireInteraction: true,
         data: payload.data || { url: '/' },
         vibrate: [200, 100, 200]
     };

@@ -90,9 +90,12 @@ export const PushClient = {
                 body: { title: 'Atlas Push Test', body: 'This is a test notification from Atlas!', data: { url: '/' } }
             });
             if (error) throw error;
+            if (data && data.results && data.results.length > 0 && data.results[0].success === false) {
+                throw new Error('Push failed: ' + data.results[0].error);
+            }
             if(testBtn) { testBtn.textContent = 'Sent!'; setTimeout(() => { testBtn.textContent = 'Test Notification'; }, 2000); }
         } catch (err) {
-            console.error('Test push error:', err);
+            console.error('Test push error:', err); alert('Push failed: ' + err.message);
             if(testBtn) { testBtn.textContent = 'Failed'; setTimeout(() => { testBtn.textContent = 'Test Notification'; }, 2000); }
         }
     },
@@ -124,3 +127,5 @@ export const PushClient = {
 
 // Check on load
 setTimeout(() => PushClient.checkStatus(), 1000);
+
+
