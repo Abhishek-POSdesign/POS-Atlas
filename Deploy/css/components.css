@@ -2529,6 +2529,40 @@
     transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 .wo-session-row:hover { transform: translateY(-2px); box-shadow: var(--top-edge), var(--shadow-card-hover); }
+/* Right-side metrics column inside the session row.
+   Sits flush right, same card, separated by a hairline left border.
+   Each .wo-sm-item stacks value (bold) over label (muted) for instant scannability. */
+.wo-session-metrics {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+    padding-left: 14px;
+    border-left: 1px solid var(--border);
+    margin-left: 8px;
+}
+.wo-sm-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+.wo-sm-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+.wo-sm-lbl {
+    font-size: 10px;
+    color: var(--text-muted);
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
 .wo-session-info { min-width: 0; flex: 1; }
 .wo-session-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
 /* Muted, not colour-coded per activity type -- same restraint as the
