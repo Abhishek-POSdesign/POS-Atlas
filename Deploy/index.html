@@ -360,6 +360,14 @@
                                 <div class="settings-row-link" @click="view = 'persona'">
                                     <span>🔒 Persona &amp; PIN</span><span>→</span>
                                 </div>
+                                <div class="settings-block-label" style="margin-top:24px; margin-bottom:8px;">Push Notifications (Atlas)</div>
+                                <div class="settings-row-link" style="justify-content:space-between;" id="btn-push-toggle" @click="window.PushClient.toggle()">
+                                    <span>Enable Push Notifications</span>
+                                    <span id="push-status-text" style="color:var(--text-muted); font-size:12px;">Checking...</span>
+                                </div>
+                                <div class="settings-row-link" style="justify-content:center; color:var(--primary);" id="btn-push-test" style="display:none;" @click="window.PushClient.test()">
+                                    Test Notification
+                                </div>
                             </div>
                         </div>
                     </template>

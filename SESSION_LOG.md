@@ -27,6 +27,16 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-03 · Claude Code (Sonnet 5) — No Atlas code changes; referenced during sibling-app Gemini migration debugging
+
+**Session scope:** Not an Atlas build session. Abhishek's Gemini 3.x model migration (run via Antigravity) broke two other apps (Biz Research Hub, B.tech Learning Hub) sharing his GCP account. Atlas's `pos-partner` Edge Function was used as the known-working reference point during diagnosis (it was never broken, never edited) — a temporary debug field was added to and removed from `ai-teacher` (Finance Manager's function, different app/repo) to compare credentials, not to anything in this repo.
+
+**What shipped:** nothing in this repo. `pos-partner` (deployed via Supabase MCP, not tracked in this repo's git history per the existing pattern) is untouched — still `gemini-3.5-flash-lite`, regional Vertex endpoint (`us-central1`), confirmed working throughout.
+
+**What's still open:** nothing new for Atlas. Noted here only because the diagnostic trail is spread across four apps — see `D:\Calude\Biz Research Hub\handover\README.md`'s 2026-08-03 entry for the full story, in case a similar Vertex 404 ever shows up here: the fix that worked for the broken apps was switching to Vertex's *global* endpoint form instead of regional, for reasons never fully explained on Google's side.
+
+---
+
 ## 2026-07-31 · Claude Code (Sonnet 5) — Session close: still Phase 1 testing week, not a Phase 2 kickoff
 
 **Not a new build round — a closing/framing note for whoever picks this up next**, per Abhishek's explicit instruction to update the docs before ending the day. Read this before the three 2026-07-31 entries below it.

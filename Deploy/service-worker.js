@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v76';
+const CACHE_NAME = 'atlas-offline-shell-v77';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
     '/js/checklist-blocks.js',
     '/js/components/theme-switcher.js',
     '/js/components/login-form.js',
+    '/js/push-client.js',
     '/js/components/undo-toast.js',
     '/js/components/confirm-dialog.js',
     '/js/components/note-prompt.js',
@@ -86,6 +87,55 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
         caches.match(event.request).then((response) => {
             return response || fetch(event.request);
+        })
+    );
+});
+
+self.addEventListener('push', (event) => {
+    let payload = {};
+    if (event.data) {
+        try {
+            payload = event.data.json();
+        } catch (e) {
+            payload = { title: 'Atlas', body: event.data.text() };
+        }
+    } else {
+        payload = { title: 'Atlas', body: 'New notification' };
+    }
+
+    const title = payload.title || 'Atlas';
+    const options = {
+        body: payload.body,
+        icon: payload.icon || '/icon-192.png',
+        badge: '/favicon.svg',
+        data: payload.data || { url: '/' },
+        vibrate: [200, 100, 200]
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    
+    // Focus or open the target URL
+    const urlToOpen = new URL(event.notification.data.url || '/', self.location.origin).href;
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+            let matchingClient = null;
+            for (let i = 0; i < windowClients.length; i++) {
+                const windowClient = windowClients[i];
+                if (windowClient.url === urlToOpen) {
+                    matchingClient = windowClient;
+                    break;
+                }
+            }
+            if (matchingClient) {
+                return matchingClient.focus();
+            } else {
+                return clients.openWindow(urlToOpen);
+            }
         })
     );
 });

@@ -164,7 +164,7 @@ export async function callOllama(messages, cfg) {
 // with no app-specific logic baked in. `verify_jwt: true` on this function
 // means the platform itself requires a real signed-in user's access token,
 // not just the anon key -- Atlas already has one via its own Supabase Auth
-// session. Model defaults to gemini-2.5-flash server-side if omitted.
+// session. Model defaults to gemini-3.5-flash-lite server-side if omitted.
 const POS_PARTNER_FUNCTION_URL = 'https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/pos-partner';
 // `webSearch` is an opt-in flag (default false/omitted) -- pos-partner only
 // attaches Google Search grounding when it's explicitly true, so the Task
@@ -176,7 +176,7 @@ export async function callVertex(messages, webSearch) {
     const res = await fetch(POS_PARTNER_FUNCTION_URL, {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages, webSearch: !!webSearch })
+        body: JSON.stringify({ messages, webSearch: !!webSearch, model: 'gemini-3.5-flash-lite' })
     });
     const data = await res.json().catch(() => null);
     if (!res.ok || !data || data.error) throw new Error((data && data.error) || 'Cloud AI is unavailable right now');
