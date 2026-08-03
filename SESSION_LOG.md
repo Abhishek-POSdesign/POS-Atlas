@@ -27,6 +27,35 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-04 · Antigravity (Gemini) + Claude Code (Sonnet 4.6) QA
+
+**Session scope:** Antigravity shipped five UI/architecture commits; Claude Code ran a read-only stability check and applied three close-out fixes.
+
+**What shipped (commits):**
+- `79a1400` — Health: show Score/Calories/VO2 always + fix Active Play weekly dots
+- `f664c12` — Bump service worker to v82
+- `b7501b6` — Workout card: merge Score/Calories/VO2 inline into session row
+- `78dabd4` — Separate Notebook and Journal (new `atlas_journal_entries` table, DB.Journal, today.js + aiContext.js updated)
+- `97d60b0` — Hide journal pen button until placement is decided
+- `cb5c03d` — Redesign calendar day-detail: `.dd-ledger` card, KPI pills, clean header
+- Close-out: bump service worker v83→v84, fix two stale class-name references in CLAUDE.md
+
+**What was verified live:**
+- Not tested live by user this session — deployed via GitHub Actions on push to main
+
+**What's still open:**
+- **`calendar.js` reads `DB.Notebook` for journal dots** — dormant bug; safe while pen button is hidden, but must be fixed before journal is un-hidden (see stability report)
+- SESSION_LOG had no entry from Antigravity's session — added now
+- CLAUDE.md had stale class references (`.split-60-40`, `.dd-row-2col`, `.dd-flex-health`, `.dd-flex-tasks`) — corrected
+- REST API / n8n integration architecture — planned this session, not yet implemented
+- User decision pending: one product call required before REST API build can start (see plan)
+
+**What NOT to do:**
+- Do not unhide the journal pen button before fixing `calendar.js` to read `DB.Journal` instead of `DB.Notebook`
+- Do not reintroduce `.split-60-40`, `.dd-row-2col`, `.dd-flex-health`, or `.dd-flex-tasks` — these never existed; see corrected CLAUDE.md rules
+
+---
+
 ## 2026-08-03 · Claude Code (Sonnet 5) — No Atlas code changes; referenced during sibling-app Gemini migration debugging
 
 **Session scope:** Not an Atlas build session. Abhishek's Gemini 3.x model migration (run via Antigravity) broke two other apps (Biz Research Hub, B.tech Learning Hub) sharing his GCP account. Atlas's `pos-partner` Edge Function was used as the known-working reference point during diagnosis (it was never broken, never edited) — a temporary debug field was added to and removed from `ai-teacher` (Finance Manager's function, different app/repo) to compare credentials, not to anything in this repo.
