@@ -136,3 +136,65 @@ navigator.serviceWorker.addEventListener('message', event => {
     }
 });
 
+
+// Handle Push Actions from Service Worker
+navigator.serviceWorker.addEventListener('message', async (event) => {
+    if (event.data && event.data.type === 'ACTION_COMPLETE') {
+        await handlePushAction('complete', event.data.taskId);
+    } else if (event.data && event.data.type === 'ACTION_SNOOZE') {
+        await handlePushAction('snooze', event.data.taskId);
+    }
+});
+
+// Handle Push Actions from URL parameters (if app was closed)
+window.addEventListener('DOMContentLoaded', async () => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    const taskId = params.get('taskId');
+    if (action && taskId) {
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        await handlePushAction(action, taskId);
+    }
+});
+
+async function handlePushAction(action, taskId) {
+    if (!window.supabase) return; // DB not loaded
+    
+    if (action === 'complete') {
+        const { error } = await supabase.from('atlas_tasks')
+            .update({ status: 'completed', completed_at: new Date().toISOString() })
+            .eq('id', taskId);
+        
+        if (!error && window.undoToast) {
+            window.undoToast.show('Task marked as completed via Push');
+        }
+        // If the task list is active, we should refresh it
+        if (typeof window.loadTasks === 'function') {
+            window.loadTasks();
+        }
+    } else if (action === 'snooze') {
+        // Snooze adds 1 hour to scheduled_time
+        const { data: task } = await supabase.from('atlas_tasks').select('scheduled_time').eq('id', taskId).single();
+        if (task && task.scheduled_time) {
+            const timeParts = task.scheduled_time.split(':');
+            let date = new Date();
+            date.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), parseInt(timeParts[2] || 0));
+            date.setHours(date.getHours() + 1); // Add 1 hour
+            
+            const newTime = date.getHours().toString().padStart(2, '0') + ':' + 
+                            date.getMinutes().toString().padStart(2, '0') + ':00';
+            
+            const { error } = await supabase.from('atlas_tasks')
+                .update({ scheduled_time: newTime })
+                .eq('id', taskId);
+                
+            if (!error && window.undoToast) {
+                window.undoToast.show('Task snoozed for 1 hour');
+            }
+            if (typeof window.loadTasks === 'function') {
+                window.loadTasks();
+            }
+        }
+    }
+}
