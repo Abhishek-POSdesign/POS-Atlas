@@ -2,6 +2,7 @@ import { DB } from '../db.js';
 import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
+import { askNote } from '../components/note-prompt.js';
 import { consumePendingTask } from '../features/pendingNav.js';
 import { isOverdue as computeOverdue } from '../features/taskStatus.js';
 
@@ -453,8 +454,8 @@ export function todayPage(nav) {
         },
         async pauseTask() {
             if (!this.editingTaskId) return;
-            const reason = window.prompt('Why are you pausing? (optional)');
-            if (reason === null) return; // User canceled
+            const reason = await askNote('Why are you pausing? (optional)', { submitLabel: 'Pause', skipLabel: 'Just pause' });
+            if (reason === false) return; // User canceled
             try {
                 const updated = await DB.Tasks.update(this.editingTaskId, { status: 'paused', running_note: reason || null });
                 this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);

@@ -706,11 +706,7 @@
                                                         <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
                                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                         </button>
-                                                        <template x-if="task.project_id && task.status !== 'in_progress' && task.status !== 'done'">
-                                                            <button class="trv2-check" style="opacity: 1;" @click.stop="startTaskOnToday(task)" title="Start task" aria-label="Start task">
-                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                                                            </button>
-                                                        </template>
+
                                                     </div>
                                                     <div class="trv2-body" style="min-width: 0;">
                                                         <div style="display: flex; align-items: center; gap: 6px;">
@@ -760,7 +756,7 @@
                                                             </template>
                                                         </div>
                                                         <template x-if="task.project_id && task.status !== 'in_progress' && task.status !== 'done'">
-                                                            <button class="icon-btn" style="width: 28px; height: 28px; color: var(--accent-blue);" @click.stop="startTaskOnToday(task)" title="Start task" aria-label="Start task">
+                                                            <button style="color: var(--text-tertiary); background: transparent; border: none; padding: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; outline: none; opacity: 0.8;" @click.stop="startTaskOnToday(task)" title="Start task" aria-label="Start task" onmouseover="this.style.opacity='1'; this.style.color='var(--accent-blue)'" onmouseout="this.style.opacity='0.8'; this.style.color='var(--text-tertiary)'">
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
                                                             </button>
                                                         </template>
@@ -1420,7 +1416,7 @@
                                                 <label>Project</label>
                                                 <select x-model="taskForm.projectId">
                                                     <option value="">Standalone</option>
-                                                    <template x-for="p in projects" :key="p.id"><option :value="p.id" x-text="p.name"></option></template>
+                                                    <template x-for="p in projects" :key="p.id"><option :value="p.id" :selected="p.id === taskForm.projectId" x-text="p.name"></option></template>
                                                 </select>
                                             </div>
                                         </div>
@@ -1430,7 +1426,7 @@
                                         <template x-if="editingTaskId">
                                             <div style="display: flex; gap: 16px;">
                                                 <button class="task-edit-delete" @click="deleteFromEditModal()" x-text="taskForm.kind==='reminder' ? 'Delete reminder' : 'Delete task'"></button>
-                                                <button class="btn-text" style="color: var(--text-secondary);" x-show="taskForm.kind==='task' && (tasks.find(t => t.id === editingTaskId) || {}).status === 'in_progress'" @click="pauseTask()">Pause task</button>
+                                                <button class="btn-text" style="color: var(--text-secondary);" x-show="(tasks.find(t => t.id === editingTaskId) || {}).status === 'in_progress'" @click="pauseTask()" x-text="taskForm.kind==='reminder' ? 'Pause reminder' : 'Pause task'"></button>
                                             </div>
                                         </template>
                                         <template x-if="!editingTaskId"><span></span></template>
