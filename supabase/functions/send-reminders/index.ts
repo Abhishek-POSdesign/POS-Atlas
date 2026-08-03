@@ -44,7 +44,7 @@ serve(async (req) => {
     const { data: tasks, error: taskError } = await adminClient
       .from('atlas_tasks')
       .select('*, atlas_push_history(id)')
-      .eq('status', 'active')
+      .in('status', ['not_started', 'in_progress'])
       .eq('notify_enabled', true)
       .eq('scheduled_date', dateStr)
       .lte('scheduled_time', timeStr)

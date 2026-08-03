@@ -702,9 +702,16 @@
                                             </template>
                                             <template x-for="task in upcomingTasks" :key="task.id">
                                                 <div class="trv2-row" :class="{ 'is-overdue': isOverdue(task), 'is-done': task.status==='done' }" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit ' + (task.kind==='reminder' ? 'reminder' : 'task') + ': ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto;">
-                                                    <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
-                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                                                    </button>
+                                                    <div style="display: flex; gap: 6px; align-items: center;">
+                                                        <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                        </button>
+                                                        <template x-if="task.project_id && task.status !== 'in_progress' && task.status !== 'done'">
+                                                            <button class="trv2-check" style="opacity: 1;" @click.stop="startTaskOnToday(task)" title="Start task" aria-label="Start task">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                                                            </button>
+                                                        </template>
+                                                    </div>
                                                     <div class="trv2-body" style="min-width: 0;">
                                                         <div style="display: flex; align-items: center; gap: 6px;">
                                                             <div class="trv2-name" x-text="task.name"></div>
@@ -776,11 +783,40 @@
                                                 <div class="mini-section-label">Running now</div>
                                                 <div class="mini-task-list">
                                                     <template x-for="task in runningTasks" :key="task.id">
-                                                        <div class="mini-task-row">
-                                                            <span class="mini-task-check running">
-                                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
-                                                            </span>
-                                                            <span class="mini-task-name running" x-text="task.name"></span>
+                                                        <div class="trv2-row" :class="{ 'is-overdue': isOverdue(task) }" @click="openTaskEditModal(task)" role="button" tabindex="0" @keydown.enter.prevent="openTaskEditModal(task)" @keydown.space.prevent="openTaskEditModal(task)" :aria-label="'Edit running task: ' + task.name" style="grid-template-columns: auto minmax(0, 1fr) auto; padding-left: 0; padding-right: 0; background: transparent; box-shadow: none; border-bottom: 1px solid var(--border);">
+                                                            <button class="trv2-check" :class="{ 'is-pending': isPendingComplete(task) }" @click.stop="handleCompleteClick(task)" :aria-label="isPendingComplete(task) ? ('Confirm mark ' + task.name + ' done') : ('Mark ' + task.name + ' done')" :title="isPendingComplete(task) ? 'Tap again to confirm' : 'Mark done'">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                                            </button>
+                                                            <div class="trv2-body" style="min-width: 0;">
+                                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                                    <div class="trv2-name" style="color: var(--text-primary); font-weight: 500;" x-text="task.name"></div>
+                                                                </div>
+                                                                <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
+                                                                    <template x-if="projectFor(task)">
+                                                                        <span class="trv2-project clickable" :class="'color-' + projectFor(task).color_key" style="flex-shrink: 0; margin-right: 6px;" @click.stop="goToProject(projectFor(task).id)" role="button" tabindex="0" :title="'Open ' + projectFor(task).name" @keydown.enter.stop.prevent="goToProject(projectFor(task).id)">
+                                                                            <span class="id-chip" :class="'color-' + projectFor(task).color_key" x-text="projectInitial(projectFor(task))"></span>
+                                                                            <span x-text="projectFor(task).name"></span>
+                                                                        </span>
+                                                                    </template>
+                                                                    <template x-if="isPendingComplete(task)">
+                                                                        <span class="trv2-confirm-hint" style="flex-shrink: 0; margin-right: 6px;">Tap again to confirm</span>
+                                                                    </template>
+                                                                    <span class="task-edit-status" style="flex-shrink: 0; margin-right: 6px; background: var(--accent-sage-bg); color: var(--accent-sage);">Running</span>
+                                                                </div>
+                                                            </div>
+                                                            <div class="trv2-time-col" style="flex-direction: row; align-items: center; gap: 8px;">
+                                                                <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                                                                    <template x-if="task.scheduled_date || task.scheduled_time">
+                                                                        <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="window.formatTaskDateTime(task.scheduled_date, task.scheduled_time)"></div>
+                                                                    </template>
+                                                                    <template x-if="isOverdue(task)">
+                                                                        <div class="trv2-time-tag">Overdue</div>
+                                                                    </template>
+                                                                </div>
+                                                                <button class="icon-btn" style="width: 28px; height: 28px; color: var(--text-tertiary);" @click.stop="openTaskEditModal(task)" title="Edit/Snooze" aria-label="Snooze task">
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </template>
                                                 </div>

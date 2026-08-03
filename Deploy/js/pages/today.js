@@ -1,7 +1,7 @@
 import { DB } from '../db.js';
 import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
 import { showUndoToast } from '../components/undo-toast.js';
-import { askConfirm } from '../components/confirm-dialog.js';
+import { askConfirm, askNote } from '../components/confirm-dialog.js';
 import { consumePendingTask } from '../features/pendingNav.js';
 import { isOverdue as computeOverdue } from '../features/taskStatus.js';
 
@@ -407,6 +407,18 @@ export function todayPage(nav) {
                 this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
             } catch (e) {
                 this.errorMsg = e.message;
+            }
+        },
+        async startTaskOnToday(task) {
+            const note = await askNote(`What are you doing right now on "${task.name}"?`, {
+                submitLabel: 'Start', skipLabel: 'Just start'
+            });
+            if (note === false) return; // User canceled
+            try {
+                const updated = await DB.Tasks.start(task.id, note);
+                this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
+            } catch (e) {
+                this.errorMsg = 'Start failed: ' + e.message;
             }
         },
         async deleteTaskOnToday(task) {
