@@ -1,7 +1,7 @@
 import { DB } from '../db.js';
 import { getLogicalDate, todayKey, todayIsoDate } from '../date-utils.js';
 import { showUndoToast } from '../components/undo-toast.js';
-import { askConfirm, askNote } from '../components/confirm-dialog.js';
+import { askConfirm } from '../components/confirm-dialog.js';
 import { consumePendingTask } from '../features/pendingNav.js';
 import { isOverdue as computeOverdue } from '../features/taskStatus.js';
 
@@ -410,12 +410,8 @@ export function todayPage(nav) {
             }
         },
         async startTaskOnToday(task) {
-            const note = await askNote(`What are you doing right now on "${task.name}"?`, {
-                submitLabel: 'Start', skipLabel: 'Just start'
-            });
-            if (note === false) return; // User canceled
             try {
-                const updated = await DB.Tasks.start(task.id, note);
+                const updated = await DB.Tasks.start(task.id, null);
                 this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
             } catch (e) {
                 this.errorMsg = 'Start failed: ' + e.message;
@@ -457,10 +453,8 @@ export function todayPage(nav) {
         },
         async pauseTask() {
             if (!this.editingTaskId) return;
-            const reason = await askNote('Why are you pausing?', {
-                submitLabel: 'Pause', skipLabel: 'Just pause'
-            });
-            if (reason === false) return;
+            const reason = window.prompt('Why are you pausing? (optional)');
+            if (reason === null) return; // User canceled
             try {
                 const updated = await DB.Tasks.update(this.editingTaskId, { status: 'paused', running_note: reason || null });
                 this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);

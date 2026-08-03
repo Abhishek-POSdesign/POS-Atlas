@@ -1559,7 +1559,7 @@
    active list. Stacks to one column under 900px, same
    breakpoint the Health row already uses.
    ========================================================= */
-.tasks-row { display: grid; grid-template-columns: 65fr 35fr; gap: var(--pad-md); margin-bottom: var(--pad-md); }
+.tasks-row { display: grid; grid-template-columns: 55fr 45fr; gap: var(--pad-md); margin-bottom: var(--pad-md); }
 @media (max-width: 900px) { .tasks-row { grid-template-columns: 1fr; } }
 .completed-today-card { display: flex; flex-direction: column; }
 

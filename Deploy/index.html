@@ -750,10 +750,19 @@
                                                             </template>
                                                         </div>
                                                     </div>
-                                                    <div class="trv2-time-col">
-                                                        <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="window.formatTaskDateTime(task.scheduled_date, task.scheduled_time)"></div>
-                                                        <template x-if="isOverdue(task)">
-                                                            <div class="trv2-time-tag">Overdue</div>
+                                                    <div class="trv2-time-col" style="flex-direction: row; align-items: center; gap: 8px;">
+                                                        <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                                                            <template x-if="task.scheduled_date || task.scheduled_time">
+                                                                <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="window.formatTaskDateTime(task.scheduled_date, task.scheduled_time)"></div>
+                                                            </template>
+                                                            <template x-if="isOverdue(task)">
+                                                                <div class="trv2-time-tag">Overdue</div>
+                                                            </template>
+                                                        </div>
+                                                        <template x-if="task.project_id && task.status !== 'in_progress' && task.status !== 'done'">
+                                                            <button class="icon-btn" style="width: 28px; height: 28px; color: var(--accent-blue);" @click.stop="startTaskOnToday(task)" title="Start task" aria-label="Start task">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                                                            </button>
                                                         </template>
                                                     </div>
                                                 </div>
@@ -804,18 +813,13 @@
                                                                     <span class="task-edit-status" style="flex-shrink: 0; margin-right: 6px; background: var(--accent-sage-bg); color: var(--accent-sage);">Running</span>
                                                                 </div>
                                                             </div>
-                                                            <div class="trv2-time-col" style="flex-direction: row; align-items: center; gap: 8px;">
-                                                                <div style="display: flex; flex-direction: column; align-items: flex-end;">
-                                                                    <template x-if="task.scheduled_date || task.scheduled_time">
-                                                                        <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="window.formatTaskDateTime(task.scheduled_date, task.scheduled_time)"></div>
-                                                                    </template>
-                                                                    <template x-if="isOverdue(task)">
-                                                                        <div class="trv2-time-tag">Overdue</div>
-                                                                    </template>
-                                                                </div>
-                                                                <button class="icon-btn" style="width: 28px; height: 28px; color: var(--text-tertiary);" @click.stop="openTaskEditModal(task)" title="Edit/Snooze" aria-label="Snooze task">
-                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                                                                </button>
+                                                            <div class="trv2-time-col">
+                                                                <template x-if="task.scheduled_date || task.scheduled_time">
+                                                                    <div class="trv2-time" :class="{ overdue: isOverdue(task) }" x-text="window.formatTaskDateTime(task.scheduled_date, task.scheduled_time)"></div>
+                                                                </template>
+                                                                <template x-if="isOverdue(task)">
+                                                                    <div class="trv2-time-tag">Overdue</div>
+                                                                </template>
                                                             </div>
                                                         </div>
                                                     </template>
@@ -837,34 +841,7 @@
                                                 </template>
                                             </div>
                                         </template>
-                                        <!-- Premium empty state (2026-07-29) -- fills the quiet card
-                                             instead of leaving dead space when nothing's done yet
-                                             today. Custom illustration, not an emoji: a checklist
-                                             sheet in --surface-2/--border-hover with sage "done" dots
-                                             (sage = Atlas' locked "done/positive" accent everywhere
-                                             else -- KPI ring, trend charts, Health chips), two small
-                                             sage sparkle accents for a touch of polish. Single accent
-                                             color throughout, no new tokens. -->
-                                        <template x-if="recentlyCompleted.length === 0">
-                                            <div class="completed-empty">
-                                                <svg class="completed-empty-art" width="76" height="76" viewBox="0 0 80 80" fill="none" aria-hidden="true">
-                                                    <circle cx="40" cy="42" r="30" fill="var(--accent-sage-tint)"/>
-                                                    <path class="sparkle" d="M62 20l1.3 3.7L67 25l-3.7 1.3L62 30l-1.3-3.7L57 25l3.7-1.3z" fill="var(--accent-sage)" opacity="0.55"/>
-                                                    <path class="sparkle" d="M17 46l0.9 2.6L20.5 49.5 17.9 50.4 17 53l-0.9-2.6L13.5 49.5 16.1 48.6z" fill="var(--accent-sage)" opacity="0.4"/>
-                                                    <g transform="rotate(-4 40 42)">
-                                                        <rect x="21" y="18" width="38" height="48" rx="6" fill="var(--surface-2)" stroke="var(--border-hover)" stroke-width="1.5"/>
-                                                        <circle cx="30" cy="30" r="3" fill="var(--accent-sage)"/>
-                                                        <line x1="37" y1="30" x2="52" y2="30" stroke="var(--border-hover)" stroke-width="2" stroke-linecap="round"/>
-                                                        <circle cx="30" cy="40" r="3" fill="var(--accent-sage)"/>
-                                                        <line x1="37" y1="40" x2="52" y2="40" stroke="var(--border-hover)" stroke-width="2" stroke-linecap="round"/>
-                                                        <circle cx="30" cy="50" r="3" fill="none" stroke="var(--border-hover)" stroke-width="1.5"/>
-                                                        <line x1="37" y1="50" x2="48" y2="50" stroke="var(--border-hover)" stroke-width="2" stroke-linecap="round"/>
-                                                    </g>
-                                                </svg>
-                                                <div class="h">Nothing completed yet</div>
-                                                <div class="p">Finished tasks will show up here.</div>
-                                            </div>
-                                        </template>
+
                                         </div>
                                 </div>
                                 </div>
