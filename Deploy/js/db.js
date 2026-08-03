@@ -313,6 +313,39 @@ export const DB = {
         hardDelete(id) { return verifiedHardDelete('atlas_notebook_entries', id); }
     },
 
+    // Journal: personal reflections/feelings linked to a calendar day.
+    // Separate from Notebook (which is the freeform working scratchpad).
+    // AI reads Journal; AI does NOT read Notebook.
+    // Table: atlas_journal_entries (created 2026-08-04 separation pass).
+    Journal: {
+        async listForDateRange(startDate, endDate) {
+            const { data, error } = await supabase
+                .from('atlas_journal_entries')
+                .select('*')
+                .gte('entry_date', startDate)
+                .lte('entry_date', endDate)
+                .is('deleted_at', null)
+                .order('entry_date', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async getByDate(entryDate) {
+            const { data, error } = await supabase
+                .from('atlas_journal_entries')
+                .select('*')
+                .eq('entry_date', entryDate)
+                .is('deleted_at', null)
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        create(row) { return verifiedInsert('atlas_journal_entries', row); },
+        update(id, patch) { return verifiedUpdate('atlas_journal_entries', id, patch); },
+        async softDelete(id) { return (await verifiedRpc('atlas_journal_entries_soft_delete'))(id); },
+        async restoreFromTrash(id) { return (await verifiedRpc('atlas_journal_entries_restore_trash'))(id); },
+        hardDelete(id) { return verifiedHardDelete('atlas_journal_entries', id); }
+    },
+
     Checklist: {
         async listItems() {
             const { data, error } = await supabase

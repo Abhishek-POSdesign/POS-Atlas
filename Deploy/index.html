@@ -569,8 +569,8 @@
                         </div>
                         <template x-if="journalOpen">
                             <div class="card panel" style="margin-bottom: var(--pad-md);">
-                                <div class="field"><textarea x-model="noteDraft" rows="3" placeholder="Log an emotion, a thought, anything…" autofocus></textarea></div>
-                                <button class="btn btn-primary" @click="saveNote()" :disabled="noteSaving">Save</button>
+                                <div class="field"><textarea x-model="journalDraft" rows="3" placeholder="Log a thought, feeling, or reflection about today…" autofocus></textarea></div>
+                                <button class="btn btn-primary" @click="saveJournal()" :disabled="journalSaving">Save journal</button>
                             </div>
                         </template>
                         <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>

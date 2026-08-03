@@ -123,7 +123,7 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
     const fetchStart = compare ? prevStart : startDate;
 
     const [sleepRows, workoutRows, sessionRows, checklistRows, tasksScheduled,
-        tasksCompleted, taskLogRows, projectNoteRows, notebookRows, streaks] =
+        tasksCompleted, taskLogRows, projectNoteRows, journalRows, streaks] =
         await Promise.all([
             DB.Sleep.listForDateRange(fetchStart, endDate),
             DB.Workout.listForDateRange(fetchStart, endDate),
@@ -133,7 +133,7 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
             DB.Tasks.listCompletedInRange(startDate, endDate),
             DB.TaskLogs.listForDateRange(startDate, endDate),
             DB.ProjectNotes.listForDateRange(startDate, endDate),
-            DB.Notebook.listForDateRange(startDate, endDate),
+            DB.Journal.listForDateRange(startDate, endDate),
             DB.Targets.listStreaks()
         ]);
 
@@ -194,8 +194,9 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
         ...projectNoteRows.slice(0, 10).map(n => `${toLocalIsoDate(n.created_at)}: note -- ${(n.body || '').slice(0, 100)}`)
     ];
 
-    // ---- journal ----
-    const journalLines = notebookRows.map(n => `${n.entry_date}: ${(n.body || '').slice(0, 150)}`);
+    // ---- journal (atlas_journal_entries -- personal reflections, AI-readable) ----
+    // Note: Notebook (atlas_notebook_entries) is intentionally excluded from AI context.
+    const journalLines = journalRows.map(n => `${n.entry_date}: ${(n.body || '').slice(0, 150)}`);
 
     // ---- comparison: always "requested period vs. the period immediately
     // before it" -- direction-agnostic by construction, so this correctly
@@ -259,7 +260,7 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
         checklist: { summary: checklistPct != null ? `${checklistPct}% of marked routine items completed this range (${doneCount} done, ${skippedCount} skipped).` : 'No checklist marks in this range.' },
         tasks: { summary: `${tasksCompleted.length} task(s) completed in this range, ${overdueNow.length} currently overdue, ${tasksScheduled.filter(t => t.status !== 'done').length} scheduled/planned in this range.`, byDay: tasksByDay },
         projectWork: { summary: `${taskLogRows.length + projectNoteRows.length} project log/note entr${(taskLogRows.length + projectNoteRows.length) === 1 ? 'y' : 'ies'} in this range.`, entries: projectWorkLines },
-        journal: { summary: `${notebookRows.length} journal entr${notebookRows.length === 1 ? 'y' : 'ies'} in this range.`, entries: journalLines },
+        journal: { summary: `${journalRows.length} journal entr${journalRows.length === 1 ? 'y' : 'ies'} in this range.`, entries: journalLines },
         streaks: streaks.map(s => s.name),
         comparison,
         recentContext
@@ -270,7 +271,7 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
         sleep: curSleep.length, workout: curWorkout.length, sessions: curSessions.length,
         checklist: curChecklist.length, tasksCompleted: tasksCompleted.length,
         tasksScheduled: tasksScheduled.length, taskLogs: taskLogRows.length,
-        projectNotes: projectNoteRows.length, journal: notebookRows.length
+        projectNotes: projectNoteRows.length, journal: journalRows.length
     };
     return pkg;
 }
@@ -417,11 +418,11 @@ export const WRITE_FLOWS = {
         async write(fields) {
             if (!fields.body) throw new Error('No reflection text');
             const today = todayIsoDate();
-            const existing = await DB.Notebook.getByDate(today);
+            const existing = await DB.Journal.getByDate(today);
             if (existing) {
-                return DB.Notebook.update(existing.id, { body: existing.body + '\n\n' + fields.body });
+                return DB.Journal.update(existing.id, { body: existing.body + '\n\n' + fields.body });
             }
-            return DB.Notebook.create({ entry_date: today, body: fields.body });
+            return DB.Journal.create({ entry_date: today, body: fields.body });
         }
     }
 };

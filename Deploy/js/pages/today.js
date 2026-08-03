@@ -20,17 +20,16 @@ export function todayPage(nav) {
         loading: true,
         errorMsg: '',
 
-        // ---- daily note (same atlas_notebook_entries table Notebook uses) ----
-        // Hidden by default -- a small toggle near the header opens/closes it, rather than
-        // a permanent card taking up space at the bottom of the page (2026-07-25 feedback).
-        // Midnight calendar date, same as the Notebook overlay -- see date-rule split in
-        // CLAUDE.md (locked 2026-07-26). Was regressed onto todayKey() briefly and reverted.
-        noteDate: todayIsoDate(),
-        noteEntry: null,
-        noteDraft: '',
-        noteSaving: false,
+        // ---- daily journal (atlas_journal_entries -- separate from the header Notebook) ----
+        // Personal reflections/feelings linked to today's date. AI reads this;
+        // AI does NOT read the header Notebook. Separated 2026-08-04.
+        // Hidden by default -- the pen toggle in the Today header opens/closes it.
+        // Midnight calendar date (locked 2026-07-26, same rule as sleep/workout).
+        journalDate: todayIsoDate(),
+        journalEntry: null,
+        journalDraft: '',
+        journalSaving: false,
         journalOpen: false,
-
 
         // ---- sleep ----
         sleepEntry: null,
@@ -124,10 +123,10 @@ export function todayPage(nav) {
                 // For Dashboard lag optimization, we can pull the trend load out of the blocking Promise.all.
                 // We'll address that in the lag optimization step. For now, just fix the checklist math.
                 
-                // noteEntry is hidden by default behind the journalOpen toggle, so it can load asynchronously without flashing
-                DB.Notebook.getByDate(this.noteDate).then(entry => {
-                    this.noteEntry = entry;
-                    this.noteDraft = entry ? entry.body : '';
+                // journalEntry is hidden by default behind the journalOpen toggle, so it can load asynchronously without flashing
+                DB.Journal.getByDate(this.journalDate).then(entry => {
+                    this.journalEntry = entry;
+                    this.journalDraft = entry ? entry.body : '';
                 }).catch(console.error);
 
                 const [tasks, projects, sleepEntry, workoutEntry, streaks, checklistItems, checklistHistory] = await Promise.all([
@@ -477,21 +476,21 @@ export function todayPage(nav) {
             return computeOverdue(task);
         },
 
-        // ---- daily note ----
-        async saveNote() {
-            const body = this.noteDraft.trim();
+        // ---- daily journal ----
+        async saveJournal() {
+            const body = this.journalDraft.trim();
             if (!body) return;
-            this.noteSaving = true;
+            this.journalSaving = true;
             try {
-                if (this.noteEntry) {
-                    this.noteEntry = await DB.Notebook.update(this.noteEntry.id, { body });
+                if (this.journalEntry) {
+                    this.journalEntry = await DB.Journal.update(this.journalEntry.id, { body });
                 } else {
-                    this.noteEntry = await DB.Notebook.create({ entry_date: this.noteDate, body });
+                    this.journalEntry = await DB.Journal.create({ entry_date: this.journalDate, body });
                 }
             } catch (e) {
                 this.errorMsg = e.message;
             }
-            this.noteSaving = false;
+            this.journalSaving = false;
         },
 
         // ---- sleep ----
