@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v78';
+const CACHE_NAME = 'atlas-offline-shell-v79';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
@@ -112,7 +112,13 @@ self.addEventListener('push', (event) => {
         vibrate: [200, 100, 200]
     };
 
+    
+    // Tell the clients we received a push
+    self.clients.matchAll().then(clients => {
+        clients.forEach(client => client.postMessage({ type: 'PUSH_RECEIVED', payload }));
+    });
     event.waitUntil(self.registration.showNotification(title, options));
+
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -139,3 +145,4 @@ self.addEventListener('notificationclick', (event) => {
         })
     );
 });
+

@@ -129,3 +129,10 @@ export const PushClient = {
 setTimeout(() => PushClient.checkStatus(), 1000);
 
 
+
+navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data && event.data.type === 'PUSH_RECEIVED') {
+        alert('SUCCESS! The browser Service Worker received the push notification from the server! If you don\'t see a popup, Windows is blocking Chrome notifications (check Action Center / Do Not Disturb).');
+    }
+});
+
