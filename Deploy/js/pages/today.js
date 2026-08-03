@@ -584,17 +584,28 @@ export function todayPage(nav) {
         },
         async loadWorkoutTargets() {
             let targets = await DB.WorkoutTargets.list();
-            // Seed defaults if table is empty
+            // Full defaults list -- used both for first-time seeding (DB upsert)
+            // and for client-side merge when some types are missing (no DB write).
+            const defaults = [
+                { activity_type: 'strength',    target_days_per_week: 4 },
+                { activity_type: 'active_play', target_days_per_week: 7 },
+                { activity_type: 'yoga_stretch', target_days_per_week: 2 },
+                { activity_type: 'cleaning',    target_days_per_week: 1 }
+            ];
             if (!targets || targets.length === 0) {
-                const defaults = [
-                    { activity_type: 'strength', target_days_per_week: 4 },
-                    { activity_type: 'active_play', target_days_per_week: 7 },
-                    { activity_type: 'yoga_stretch', target_days_per_week: 2 },
-                    { activity_type: 'cleaning', target_days_per_week: 1 }
-                ];
+                // Table is completely empty -- seed with DB upserts so defaults persist.
                 targets = await Promise.all(
                     defaults.map(d => DB.WorkoutTargets.upsert(d.activity_type, { target_days_per_week: d.target_days_per_week }))
                 );
+            } else {
+                // Table has some rows -- merge any missing default types as
+                // client-side-only fallback rows (no DB write).  A real saved
+                // target always wins; we only inject when the type is absent.
+                const existingTypes = new Set(targets.map(t => t.activity_type));
+                const fallbacks = defaults
+                    .filter(d => !existingTypes.has(d.activity_type))
+                    .map(d => ({ activity_type: d.activity_type, target_days_per_week: d.target_days_per_week, _fallback: true }));
+                targets = [...targets, ...fallbacks];
             }
             this.workoutTargets = targets;
             // Also load this week's sessions for the dot grid

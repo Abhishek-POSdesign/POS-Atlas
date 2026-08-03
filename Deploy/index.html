@@ -1072,6 +1072,29 @@
                                                                  row gets a muted per-activity-type icon -- not colour-
                                                                  coded, matching the app-wide "no colored left bars"
                                                                  rule. -->
+                                                            <!-- Compact metrics strip: always visible when parent
+                                                                 entry has any of score/calories/vo2_max, regardless
+                                                                 of whether child sessions exist. Each pill only
+                                                                 renders when the value is non-null (x-show).
+                                                                 2026-08-04 fix: was completely hidden whenever
+                                                                 workoutSessions.length > 0. -->
+                                                            <template x-if="workoutEntry && (workoutEntry.workout_score != null || workoutEntry.calories != null || workoutEntry.vo2_max != null)">
+                                                                <div class="wo-log-metrics">
+                                                                    <span class="wo-metric-pill" x-show="workoutEntry.workout_score != null">
+                                                                        <span class="wo-metric-val" x-text="workoutEntry.workout_score"></span>
+                                                                        <span class="wo-metric-lbl">Score</span>
+                                                                    </span>
+                                                                    <span class="wo-metric-pill" x-show="workoutEntry.calories != null">
+                                                                        <span class="wo-metric-val" x-text="workoutEntry.calories"></span>
+                                                                        <span class="wo-metric-lbl">kcal</span>
+                                                                    </span>
+                                                                    <span class="wo-metric-pill" x-show="workoutEntry.vo2_max != null">
+                                                                        <span class="wo-metric-val" x-text="workoutEntry.vo2_max"></span>
+                                                                        <span class="wo-metric-lbl">VO2 max</span>
+                                                                    </span>
+                                                                </div>
+                                                            </template>
+
                                                             <template x-if="workoutSessions.length > 0">
                                                                 <div class="wo-session-stack">
                                                                     <template x-for="session in workoutSessions" :key="session.id">
@@ -1098,15 +1121,22 @@
                                                                     </template>
                                                                 </div>
                                                             </template>
+                                                            <!-- No sessions + old-style duration entry: show duration only -->
                                                             <template x-if="workoutSessions.length === 0 && workoutEntry && workoutEntry.duration_minutes != null">
-                                                                <div class="metric-grid">
-                                                                    <div class="metric"><span class="v" x-text="workoutEntry.workout_score ?? '—'"></span><span class="l">Score</span></div>
-                                                                    <div class="metric"><span class="v" x-text="workoutEntry.workout_type || '—'"></span><span class="l">Type</span></div>
-                                                                    <div class="metric"><span class="v" x-text="workoutEntry.duration_minutes != null ? workoutEntry.duration_minutes+'m' : '—'"></span><span class="l">Minutes</span></div>
-                                                                    <div class="metric"><span class="v" x-text="workoutEntry.calories ?? '—'"></span><span class="l">Calories</span></div>
-                                                                    <div class="metric"><span class="v" x-text="workoutEntry.vo2_max ?? '—'"></span><span class="l">VO2 max</span></div>
+                                                                <div class="wo-log-metrics">
+                                                                    <span class="wo-metric-pill">
+                                                                        <span class="wo-metric-val" x-text="workoutEntry.duration_minutes + 'm'"></span>
+                                                                        <span class="wo-metric-lbl">Duration</span>
+                                                                    </span>
+                                                                    <template x-if="workoutEntry.workout_type">
+                                                                        <span class="wo-metric-pill">
+                                                                            <span class="wo-metric-val" x-text="workoutEntry.workout_type"></span>
+                                                                            <span class="wo-metric-lbl">Type</span>
+                                                                        </span>
+                                                                    </template>
                                                                 </div>
                                                             </template>
+
                                                         </div>
                                                     </template>
                                                 </div>

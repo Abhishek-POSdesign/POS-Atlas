@@ -3295,3 +3295,31 @@ body:has(.ai-panel-open) .content-area {
     .cal-badge, .cal-block-text, .cal-flag { display: none; }
     .cal-journal-line { display: none; }
 }
+
+/* ---- Workout: compact parent-log metrics strip (2026-08-04) ----
+   Shown above session pills regardless of whether sessions exist.
+   Each .wo-metric-pill collapses via x-show when its value is null. */
+.wo-log-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin-bottom: 6px;
+}
+.wo-metric-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    background: var(--surface-2);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 12px;
+}
+.wo-metric-val {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.wo-metric-lbl {
+    color: var(--text-muted);
+    font-size: 11px;
+}
