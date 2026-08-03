@@ -2597,7 +2597,7 @@
             <!-- Confirm dialog host: replaces browser confirm() everywhere -->
             <div x-data="confirmDialogHost()">
                 <template x-if="dialog">
-                    <div class="modal-overlay" @click.self="respond(false)">
+                    <div class="modal-overlay" style="z-index: 200;" @click.self="respond(false)">
                         <div class="modal">
                             <h2>Are you sure?</h2>
                             <p class="project-focus" x-text="dialog.message"></p>
@@ -2613,7 +2613,7 @@
             <!-- Note prompt host: replaces browser prompt() everywhere -->
             <div x-data="notePromptHost()">
                 <template x-if="dialog">
-                    <div class="modal-overlay" @click.self="cancel()">
+                    <div class="modal-overlay" style="z-index: 200;" @click.self="cancel()">
                         <div class="modal">
                             <h2 x-text="dialog.message"></h2>
                             <div class="field">

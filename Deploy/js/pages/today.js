@@ -453,11 +453,12 @@ export function todayPage(nav) {
             if (this.tasks !== before) this.closeTaskModal();
         },
         async pauseTask() {
-            if (!this.editingTaskId) return;
+            const taskId = this.editingTaskId;
+            if (!taskId) return;
             const reason = await askNote('Why are you pausing? (optional)', { submitLabel: 'Pause', skipLabel: 'Just pause' });
             if (reason === false) return; // User canceled
             try {
-                const updated = await DB.Tasks.update(this.editingTaskId, { status: 'paused', running_note: reason || null });
+                const updated = await DB.Tasks.update(taskId, { status: 'paused', running_note: reason || null });
                 this.tasks = this.tasks.map(t => t.id === updated.id ? updated : t);
                 this.closeTaskModal();
             } catch (e) {
