@@ -201,6 +201,7 @@ Alpine.data('familyApp', () => ({
         if (!confirm('Remove this routine item? This will also delete its history.')) return;
         try {
             await DB.Family.deleteChecklistItem(id);
+            this.showRoutineModal = false;
             await this.load();
         } catch (e) {
             console.error('Failed to delete routine item:', e);
@@ -352,3 +353,13 @@ Alpine.data('familyApp', () => ({
 
 window.Alpine = Alpine;
 Alpine.start();
+
+// Register family-scoped service worker for PWA install
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/family/service-worker.js', {
+            scope: '/family/',
+            updateViaCache: 'none'
+        }).catch(err => console.error('Family SW registration failed:', err));
+    });
+}
