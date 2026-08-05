@@ -1,5 +1,8 @@
-function familyApp() {
-    return {
+import { supabase } from '../js/supabase-client.js';
+import { DB } from '../js/db.js';
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('familyApp', () => ({
         session: null,
         authEmail: '',
         authPassword: '',
@@ -198,5 +201,5 @@ function familyApp() {
                 icon: '/apple-touch-icon.png' // Adjust if needed
             });
         }
-    };
-}
+    }));
+});
