@@ -715,6 +715,10 @@ export const DB = {
         },
         createChecklistItem(row) { return verifiedInsert('atlas_family_checklist_items', row); },
         updateChecklistItem(id, patch) { return verifiedUpdate('atlas_family_checklist_items', id, patch); },
+        async deleteChecklistItem(id) {
+            const { error } = await supabase.from('atlas_family_checklist_items').delete().eq('id', id);
+            if (error) throw new Error(error.message);
+        },
         
         async listTasks() {
             const { data, error } = await supabase
@@ -736,6 +740,11 @@ export const DB = {
             return data;
         },
         createTask(row) { return verifiedInsert('atlas_family_tasks', row); },
+        updateTask(id, patch) { return verifiedUpdate('atlas_family_tasks', id, patch); },
+        async deleteTask(id) {
+            const { error } = await supabase.from('atlas_family_tasks').delete().eq('id', id);
+            if (error) throw new Error(error.message);
+        },
         async completeTask(id) {
             const payload = { status: 'done', completed_at: new Date().toISOString() };
             return verifiedUpdate('atlas_family_tasks', id, payload);

@@ -4,298 +4,494 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Atlas Family</title>
-    <!-- Same fonts and base styles as Atlas -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../css/components.css">
     <script type="module" src="app.js"></script>
 
     <style>
+        /* ── Variables ────────────────────────────────── */
         :root {
-            --pad-sm: 8px;
-            --pad-md: 16px;
-            --pad-lg: 24px;
-            --bg-primary: #FAFAFA;
-            --bg-secondary: #FFFFFF;
+            --bg-primary:    #F5F5F7;
+            --bg-secondary:  #FFFFFF;
+            --text-primary:  #1A1A1A;
+            --text-secondary:#555;
+            --text-tertiary: #999;
+            --border-color:  #E5E5EA;
+            --accent-blue:   #007AFF;
+            --accent-green:  #34C759;
+            --accent-amber:  #FF9F0A;
+            --accent-red:    #FF3B30;
+            --accent-purple: #AF52DE;
+            --pad-sm:  8px;
+            --pad-md:  16px;
+            --pad-lg:  24px;
+            --radius:  12px;
         }
+
+        /* ── Base ─────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; }
         body {
             margin: 0;
-            padding: 0;
+            padding-bottom: 100px;
             background: var(--bg-primary);
             font-family: 'Inter', -apple-system, sans-serif;
             color: var(--text-primary);
-            padding-bottom: 80px;
+            -webkit-font-smoothing: antialiased;
         }
+
+        /* ── Header ───────────────────────────────────── */
         .header {
-            padding: var(--pad-md);
+            padding: var(--pad-md) var(--pad-md) 12px;
             background: var(--bg-secondary);
             border-bottom: 1px solid var(--border-color);
-            position: sticky;
-            top: 0;
-            z-index: 10;
+            position: sticky; top: 0; z-index: 10;
         }
-        .header h1 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 600;
-        }
-        .date-label {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin-top: 4px;
-        }
+        .header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+        .date-label { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+        /* ── Note Banner ──────────────────────────────── */
         .note-banner {
-            background: var(--accent-amber);
+            background: linear-gradient(135deg, var(--accent-amber), #FF6B00);
             color: #fff;
-            padding: 12px var(--pad-md);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-            font-weight: 500;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
+            padding: 14px var(--pad-md);
+            display: flex; justify-content: space-between; align-items: flex-start;
+            font-size: 14px; gap: 12px;
         }
-        .note-banner button {
-            background: transparent;
-            border: none;
-            color: #fff;
-            cursor: pointer;
-            padding: 4px;
-            opacity: 0.8;
+        .note-banner-body { flex: 1; line-height: 1.4; }
+        .note-banner strong { display: block; font-size: 11px; opacity: 0.85; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .note-banner-close {
+            background: rgba(255,255,255,0.25); border: none; color: #fff;
+            border-radius: 50%; width: 28px; height: 28px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
-        .section {
-            padding: var(--pad-md);
+
+        /* ── Sections ─────────────────────────────────── */
+        .section { padding: var(--pad-md); }
+        .section-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px;
         }
         .section-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-tertiary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-            margin-top: 24px;
+            font-size: 11px; font-weight: 700;
+            color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.8px;
         }
-        
-        .ck-block { margin-bottom: 24px; }
+        .section-action {
+            background: none; border: none; color: var(--accent-blue);
+            font-size: 14px; font-weight: 500; cursor: pointer; padding: 0;
+        }
+
+        /* ── Routine Block ────────────────────────────── */
+        .ck-block { margin-bottom: 20px; }
         .ck-block-title {
-            font-size: 15px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--text-secondary);
+            font-size: 13px; font-weight: 600; color: var(--text-secondary);
+            margin-bottom: 8px; padding-left: 4px;
+            display: flex; align-items: center; gap: 6px;
         }
-        
-        .task-row, .ck-row {
+        .ck-row {
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 10px;
+            padding: 12px 12px 12px 14px;
             margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+            display: flex; align-items: center; gap: 10px;
         }
-        
-        .ck-actions {
-            display: flex;
-            gap: 6px;
-        }
+        .ck-name { flex: 1; font-size: 15px; font-weight: 500; }
+        .ck-status-btns { display: flex; gap: 5px; }
         .ck-btn {
-            background: var(--bg-primary);
+            background: var(--bg-primary); border: 1px solid var(--border-color);
+            border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 500;
+            color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
+        }
+        .ck-btn:hover { border-color: #bbb; }
+        .ck-btn.done   { background: var(--accent-green); color: #fff; border-color: var(--accent-green); }
+        .ck-btn.skipped{ background: var(--text-tertiary); color: #fff; border-color: var(--text-tertiary); }
+        .ck-btn.holiday{ background: var(--accent-amber);  color: #fff; border-color: var(--accent-amber); }
+        .ck-btn.missed { background: var(--accent-red);   color: #fff; border-color: var(--accent-red); }
+        .ck-edit-btn {
+            background: none; border: none; color: var(--text-tertiary);
+            cursor: pointer; padding: 4px; border-radius: 4px;
+            display: flex; align-items: center;
+        }
+        .ck-edit-btn:hover { color: var(--text-secondary); background: var(--bg-primary); }
+
+        /* ── Task Row ─────────────────────────────────── */
+        .task-row {
+            background: var(--bg-secondary);
             border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 6px 10px;
-            font-size: 12px;
-            color: var(--text-secondary);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .task-info { flex: 1; min-width: 0; }
+        .task-name { font-size: 15px; font-weight: 500; }
+        .task-meta { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+        .task-tag {
+            display: flex; align-items: center; gap: 4px;
+            font-size: 12px; color: var(--text-secondary);
+        }
+        .task-tag svg { flex-shrink: 0; }
+        .task-actions { display: flex; gap: 6px; align-items: center; }
+        .btn-complete {
+            background: var(--accent-green); color: #fff; border: none;
+            border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600;
             cursor: pointer;
         }
-        .ck-btn.active {
-            background: var(--accent-blue);
-            color: #fff;
-            border-color: var(--accent-blue);
+        .btn-icon {
+            background: none; border: 1px solid var(--border-color); color: var(--text-tertiary);
+            border-radius: 6px; width: 32px; height: 32px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
-        .ck-btn.active.skipped { background: var(--text-tertiary); border-color: var(--text-tertiary); }
-        .ck-btn.active.holiday { background: var(--accent-amber); border-color: var(--accent-amber); }
-        .ck-btn.active.missed { background: var(--accent-red); border-color: var(--accent-red); }
+        .btn-icon:hover { color: var(--text-secondary); border-color: #bbb; }
+        .btn-icon.danger:hover { color: var(--accent-red); border-color: var(--accent-red); }
 
+        /* ── Empty State ──────────────────────────────── */
+        .empty-state {
+            text-align: center; padding: 28px 16px;
+            color: var(--text-tertiary); font-size: 14px; line-height: 1.5;
+        }
+        .empty-state svg { margin-bottom: 8px; opacity: 0.3; }
+
+        /* ── Floating Add Button ──────────────────────── */
+        .fab {
+            position: fixed; bottom: 28px; right: 20px;
+            display: flex; align-items: center; gap: 8px;
+            background: var(--accent-blue); color: #fff;
+            border: none; border-radius: 28px; padding: 14px 20px;
+            font-size: 15px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0,122,255,0.4);
+            transition: box-shadow 0.2s, transform 0.1s;
+            z-index: 20;
+        }
+        .fab:active { transform: scale(0.97); }
+
+        /* ── Auth ─────────────────────────────────────── */
         .auth-overlay {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
+            position: fixed; inset: 0;
             background: var(--bg-primary);
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100; padding: var(--pad-md);
         }
         .auth-box {
             background: var(--bg-secondary);
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            width: 300px;
+            border-radius: var(--radius);
+            padding: 28px 24px;
+            width: 100%; max-width: 360px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.08);
         }
-        
-        .floating-add {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            width: 56px;
-            height: 56px;
-            border-radius: 28px;
-            background: var(--text-primary);
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            cursor: pointer;
-            z-index: 20;
+        .auth-box h2 { margin: 0 0 6px; font-size: 24px; }
+        .auth-box p  { margin: 0 0 24px; color: var(--text-secondary); font-size: 14px; }
+        .field { margin-bottom: 12px; }
+        .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .field input { width: 100%; padding: 12px; border: 1.5px solid var(--border-color); border-radius: 8px; font-size: 16px; font-family: inherit; outline: none; transition: border-color 0.15s; }
+        .field input:focus { border-color: var(--accent-blue); }
+
+        /* ── Buttons ──────────────────────────────────── */
+        .btn { 
+            background: var(--bg-primary); color: var(--text-primary);
+            border: 1px solid var(--border-color); border-radius: 8px;
+            padding: 11px 18px; font-size: 15px; font-weight: 500;
+            cursor: pointer; font-family: inherit;
         }
-        
-        /* Modals */
+        .btn-primary {
+            background: var(--accent-blue); color: #fff; border-color: var(--accent-blue);
+        }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-danger {
+            background: var(--accent-red); color: #fff; border-color: var(--accent-red);
+        }
+        .btn-full { width: 100%; text-align: center; margin-top: 6px; }
+        .error-msg { color: var(--accent-red); font-size: 13px; margin-top: 8px; }
+
+        /* ── Modal / Bottom Sheet ─────────────────────── */
         .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5); z-index: 50;
-            display: flex; align-items: flex-end; /* Bottom sheet on mobile */
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            z-index: 50; display: flex; align-items: flex-end;
         }
         .modal-sheet {
-            background: var(--bg-secondary);
-            width: 100%;
-            border-radius: 16px 16px 0 0;
-            padding: 24px;
-            box-sizing: border-box;
+            background: var(--bg-secondary); width: 100%;
+            border-radius: 20px 20px 0 0; padding: 20px 20px 36px;
+            max-height: 92vh; overflow-y: auto;
         }
-        .modal-sheet input {
-            width: 100%; box-sizing: border-box; padding: 12px;
-            border: 1px solid var(--border-color); border-radius: 8px;
-            font-size: 16px; margin-bottom: 12px;
+        .modal-handle {
+            width: 36px; height: 4px; background: var(--border-color);
+            border-radius: 2px; margin: 0 auto 20px;
         }
-        .modal-actions {
-            display: flex; justify-content: flex-end; gap: 8px;
+        .modal-title { font-size: 18px; font-weight: 700; margin: 0 0 20px; }
+        .modal-field { margin-bottom: 14px; }
+        .modal-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .modal-field input,
+        .modal-field select {
+            width: 100%; padding: 12px; border: 1.5px solid var(--border-color);
+            border-radius: 8px; font-size: 16px; font-family: inherit; outline: none;
+            background: var(--bg-secondary); color: var(--text-primary);
+            transition: border-color 0.15s;
         }
+        .modal-field input:focus,
+        .modal-field select:focus { border-color: var(--accent-blue); }
+        .modal-hint { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+        .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+        .modal-actions .btn { flex: 1; }
+        .modal-delete { margin-top: 12px; }
+
+        /* ── Segment pills for block color ───────────── */
+        .block-morning { border-left: 3px solid var(--accent-amber); }
+        .block-afternoon { border-left: 3px solid var(--accent-blue); }
+        .block-evening { border-left: 3px solid var(--accent-purple); }
+        .block-sleep { border-left: 3px solid #6E6E73; }
+
+        /* ── Loading ──────────────────────────────────── */
+        .loading-state { text-align: center; padding: 60px 20px; color: var(--text-tertiary); font-size: 15px; }
     </style>
 </head>
+
 <body x-data="familyApp()">
 
-    <!-- Auth Guard -->
+    <!-- ══ AUTH SCREEN ══════════════════════════════════ -->
     <template x-if="!session">
         <div class="auth-overlay">
             <div class="auth-box">
-                <h2 style="margin-top:0;">Sign in to Atlas</h2>
-                <div class="field" style="margin-bottom: 12px;">
-                    <input type="email" x-model="authEmail" placeholder="Email" style="width: 100%; box-sizing: border-box; padding: 8px;">
+                <h2>Atlas</h2>
+                <p>Sign in to your family workspace</p>
+                <div class="field">
+                    <label>Email</label>
+                    <input type="email" x-model="authEmail" placeholder="you@example.com"
+                           @keydown.enter="$refs.passwordInput.focus()">
                 </div>
-                <div class="field" style="margin-bottom: 16px;">
-                    <input type="password" x-model="authPassword" placeholder="Password" style="width: 100%; box-sizing: border-box; padding: 8px;">
+                <div class="field">
+                    <label>Password</label>
+                    <input type="password" x-model="authPassword" x-ref="passwordInput"
+                           placeholder="••••••••"
+                           @keydown.enter="login()">
                 </div>
-                <button class="btn btn-primary" style="width: 100%;" @click="login()">Sign in</button>
-                <div x-show="authError" x-text="authError" style="color: var(--accent-red); margin-top: 8px; font-size: 13px;"></div>
+                <button class="btn btn-primary btn-full" @click="login()" :disabled="authLoading">
+                    <span x-text="authLoading ? 'Signing in…' : 'Sign in'"></span>
+                </button>
+                <div class="error-msg" x-show="authError" x-text="authError"></div>
             </div>
         </div>
     </template>
 
+    <!-- ══ LOADING ════════════════════════════════════════ -->
     <template x-if="session && loading">
-        <div style="padding: 24px; text-align: center; color: var(--text-secondary);">Loading...</div>
+        <div class="loading-state">Loading your day…</div>
     </template>
 
+    <!-- ══ MAIN APP ═══════════════════════════════════════ -->
     <template x-if="session && !loading">
         <div>
-            <!-- Note Banner -->
+
+            <!-- Message from Abhishek -->
             <template x-if="note && !note.is_read && note.body">
                 <div class="note-banner">
-                    <span x-text="'Message from Abhishek: ' + note.body"></span>
-                    <button @click="dismissNote()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                    <div class="note-banner-body">
+                        <strong>Message from Abhishek</strong>
+                        <span x-text="note.body"></span>
+                    </div>
+                    <button class="note-banner-close" @click="dismissNote()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
                     </button>
                 </div>
             </template>
 
+            <!-- Header -->
             <div class="header">
                 <h1>My Day</h1>
                 <div class="date-label" x-text="todayLabel"></div>
             </div>
 
-            <!-- Routine Section -->
+            <!-- ── ROUTINE ──────────────────────────────── -->
             <div class="section">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; margin-top: 0;">
-                    <div class="section-title" style="margin: 0;">Routine</div>
-                    <button style="background: transparent; border: none; color: var(--accent-blue); font-size: 13px; font-weight: 500; cursor: pointer;" @click="showRoutineModal = true">+ Add Item</button>
+                <div class="section-header">
+                    <span class="section-title">Routine</span>
+                    <button class="section-action" @click="openAddRoutine()">+ Add Item</button>
                 </div>
-                
-                <div x-show="checklistItems.length === 0" style="color: var(--text-tertiary); font-size: 14px; text-align: center; padding: 24px;">No routine items yet.</div>
+
+                <!-- Empty state -->
+                <template x-if="checklistItems.length === 0">
+                    <div class="empty-state">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><path d="M20 6a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                        <br>No routine items yet.<br>Tap "+ Add Item" to start building your day.
+                    </div>
+                </template>
+
+                <!-- Blocks: Morning → Afternoon → Evening → Sleep -->
                 <template x-for="blockName in ['Morning', 'Afternoon', 'Evening', 'Sleep']" :key="blockName">
-                    <div class="ck-block" x-show="checklistItems.filter(i => i.block === blockName).length > 0">
-                        <div class="ck-block-title" x-text="blockName"></div>
+                    <div class="ck-block"
+                         x-show="checklistItems.filter(i => i.block === blockName).length > 0">
+                        <div class="ck-block-title">
+                            <span x-text="blockName === 'Morning' ? '🌅' : blockName === 'Afternoon' ? '☀️' : blockName === 'Evening' ? '🌆' : '🌙'"></span>
+                            <span x-text="blockName"></span>
+                        </div>
                         <template x-for="item in checklistItems.filter(i => i.block === blockName)" :key="item.id">
-                            <div class="ck-row">
-                                <div x-text="item.name"></div>
-                                <div class="ck-actions">
-                                    <button class="ck-btn" :class="{active: getItemStatus(item.id) === 'done'}" @click="setItemStatus(item.id, 'done')">Done</button>
-                                    <button class="ck-btn" :class="{active: getItemStatus(item.id) === 'skipped', skipped: true}" @click="setItemStatus(item.id, 'skipped')">Skip</button>
+                            <div class="ck-row" :class="'block-' + blockName.toLowerCase()">
+                                <div class="ck-name" x-text="item.name"></div>
+                                <div class="ck-status-btns">
+                                    <button class="ck-btn" :class="getItemStatus(item.id) === 'done' ? 'done' : ''"
+                                            @click="setItemStatus(item.id, 'done')">Done</button>
+                                    <button class="ck-btn" :class="getItemStatus(item.id) === 'skipped' ? 'skipped' : ''"
+                                            @click="setItemStatus(item.id, 'skipped')">Skip</button>
+                                    <button class="ck-btn" :class="getItemStatus(item.id) === 'holiday' ? 'holiday' : ''"
+                                            @click="setItemStatus(item.id, 'holiday')">Off</button>
                                 </div>
+                                <!-- Edit button -->
+                                <button class="ck-edit-btn" @click="openEditRoutine(item)" title="Edit or delete">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                                </button>
                             </div>
                         </template>
                     </div>
                 </template>
             </div>
 
-            <!-- Tasks Section -->
+            <!-- ── TASKS ────────────────────────────────── -->
             <div class="section">
-                <div class="section-title">Tasks</div>
-                
-                <template x-for="task in pendingTasks" :key="task.id">
-                    <div class="task-row">
-                        <div>
-                            <div x-text="task.name" style="font-weight: 500;"></div>
-                            <div x-show="task.scheduled_date" style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" x-text="formatDate(task.scheduled_date)"></div>
-                        </div>
-                        <button class="ck-btn" @click="completeTask(task.id)">Done</button>
+                <div class="section-header">
+                    <span class="section-title">Tasks</span>
+                </div>
+
+                <template x-if="pendingTasks.length === 0">
+                    <div class="empty-state">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 12l2 2 4-4"/></svg>
+                        <br>No pending tasks.<br>Add a task using the button below.
                     </div>
                 </template>
-                <div x-show="pendingTasks.length === 0" style="color: var(--text-tertiary); font-size: 14px; text-align: center; padding: 24px;">No tasks right now.</div>
-            </div>
 
-            <button class="floating-add" @click="showTaskModal = true">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-            </button>
-
-            <!-- Add Task Modal -->
-            <template x-if="showTaskModal">
-                <div class="modal-overlay" @click.self="showTaskModal = false">
-                    <div class="modal-sheet">
-                        <h3 style="margin-top:0; margin-bottom: 16px;">New Task</h3>
-                        <input type="text" x-model="newTask.name" placeholder="What needs to be done?" autofocus>
-                        <div class="modal-actions">
-                            <button class="btn" @click="showTaskModal = false">Cancel</button>
-                            <button class="btn btn-primary" @click="addTask()" :disabled="!newTask.name">Add Task</button>
+                <template x-for="task in pendingTasks" :key="task.id">
+                    <div class="task-row">
+                        <div class="task-info">
+                            <div class="task-name" x-text="task.name"></div>
+                            <div class="task-meta">
+                                <template x-if="task.scheduled_date">
+                                    <span class="task-tag">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                        <span x-text="formatDate(task.scheduled_date)"></span>
+                                    </span>
+                                </template>
+                                <template x-if="task.reminder_time">
+                                    <span class="task-tag">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                                        <span x-text="formatTime(task.reminder_time)"></span>
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                        <div class="task-actions">
+                            <!-- Edit -->
+                            <button class="btn-icon" @click="openEditTask(task)" title="Edit">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                            <!-- Delete -->
+                            <button class="btn-icon danger" @click="deleteTask(task.id)" title="Delete">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                            </button>
+                            <!-- Done -->
+                            <button class="btn-complete" @click="completeTask(task.id)">Done</button>
                         </div>
                     </div>
-                </div>
-            </template>
+                </template>
+            </div>
 
-            <!-- Add Routine Modal -->
+            <!-- Floating Add Task button -->
+            <button class="fab" @click="openAddTask()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                Add Task
+            </button>
+
+            <!-- ══ ROUTINE MODAL (add / edit) ════════════ -->
             <template x-if="showRoutineModal">
                 <div class="modal-overlay" @click.self="showRoutineModal = false">
                     <div class="modal-sheet">
-                        <h3 style="margin-top:0; margin-bottom: 16px;">New Routine Item</h3>
-                        <input type="text" x-model="newRoutine.name" placeholder="e.g. Drink water" autofocus>
-                        <select x-model="newRoutine.block" style="width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 16px; margin-bottom: 12px; background: var(--bg-primary); font-family: inherit;">
-                            <option value="Morning">Morning</option>
-                            <option value="Afternoon">Afternoon</option>
-                            <option value="Evening">Evening</option>
-                            <option value="Sleep">Sleep</option>
-                        </select>
+                        <div class="modal-handle"></div>
+                        <div class="modal-title" x-text="routineModalMode === 'add' ? 'New Routine Item' : 'Edit Routine Item'"></div>
+
+                        <div class="modal-field">
+                            <label>Item Name</label>
+                            <input type="text" x-model="routineForm.name"
+                                   placeholder="e.g. Drink a glass of water"
+                                   x-ref="routineInput"
+                                   x-init="$nextTick(() => $refs.routineInput?.focus())"
+                                   @keydown.enter="saveRoutineItem()">
+                        </div>
+
+                        <div class="modal-field">
+                            <label>Block</label>
+                            <select x-model="routineForm.block">
+                                <option value="Morning">🌅 Morning</option>
+                                <option value="Afternoon">☀️ Afternoon</option>
+                                <option value="Evening">🌆 Evening</option>
+                                <option value="Sleep">🌙 Sleep</option>
+                            </select>
+                        </div>
+
                         <div class="modal-actions">
                             <button class="btn" @click="showRoutineModal = false">Cancel</button>
-                            <button class="btn btn-primary" @click="addRoutineItem()" :disabled="!newRoutine.name">Add</button>
+                            <button class="btn btn-primary" @click="saveRoutineItem()"
+                                    :disabled="!routineForm.name.trim()"
+                                    x-text="routineModalMode === 'add' ? 'Add' : 'Save'"></button>
                         </div>
+
+                        <!-- Delete (only in edit mode) -->
+                        <template x-if="routineModalMode === 'edit'">
+                            <div class="modal-delete">
+                                <button class="btn btn-danger btn-full" @click="deleteRoutineItem(editingRoutineId)">
+                                    Delete This Item
+                                </button>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </template>
+
+            <!-- ══ TASK MODAL (add / edit) ═══════════════ -->
+            <template x-if="showTaskModal">
+                <div class="modal-overlay" @click.self="showTaskModal = false">
+                    <div class="modal-sheet">
+                        <div class="modal-handle"></div>
+                        <div class="modal-title" x-text="taskModalMode === 'add' ? 'New Task' : 'Edit Task'"></div>
+
+                        <div class="modal-field">
+                            <label>Task Name</label>
+                            <input type="text" x-model="taskForm.name"
+                                   placeholder="What needs to be done?"
+                                   x-ref="taskInput"
+                                   x-init="$nextTick(() => $refs.taskInput?.focus())"
+                                   @keydown.enter="saveTask()">
+                        </div>
+
+                        <div class="modal-field">
+                            <label>Due Date <span style="font-weight:400;text-transform:none;">(optional)</span></label>
+                            <input type="date" x-model="taskForm.scheduled_date">
+                        </div>
+
+                        <div class="modal-field">
+                            <label>Reminder Time <span style="font-weight:400;text-transform:none;">(optional)</span></label>
+                            <input type="time" x-model="taskForm.reminder_time">
+                            <div class="modal-hint">You'll get a push notification at this time as a reminder.</div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button class="btn" @click="showTaskModal = false">Cancel</button>
+                            <button class="btn btn-primary" @click="saveTask()"
+                                    :disabled="!taskForm.name.trim()"
+                                    x-text="taskModalMode === 'add' ? 'Add Task' : 'Save'"></button>
+                        </div>
+
+                        <!-- Delete (only in edit mode) -->
+                        <template x-if="taskModalMode === 'edit'">
+                            <div class="modal-delete">
+                                <button class="btn btn-danger btn-full" @click="deleteTask(editingTaskId); showTaskModal = false">
+                                    Delete This Task
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
         </div>
     </template>
 
-    <!-- Scripts are loaded in head -->
 </body>
 </html>
