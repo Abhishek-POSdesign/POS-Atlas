@@ -20,6 +20,9 @@ Alpine.data('familyApp', () => ({
         showTaskModal: false,
         newTask: { name: '' },
         
+        showRoutineModal: false,
+        newRoutine: { name: '', block: 'Morning' },
+        
         reminderInterval: null,
 
         async init() {
@@ -121,6 +124,24 @@ Alpine.data('familyApp', () => ({
             } catch (e) {
                 console.error("Failed to update status", e);
                 this.load(); // rollback on failure
+            }
+        },
+
+        async addRoutineItem() {
+            if (!this.newRoutine.name.trim()) return;
+            const payload = {
+                name: this.newRoutine.name.trim(),
+                block: this.newRoutine.block,
+                active: true,
+                order_index: this.checklistItems.length
+            };
+            try {
+                await DB.Family.createChecklistItem(payload);
+                this.newRoutine.name = '';
+                this.showRoutineModal = false;
+                await this.load();
+            } catch (e) {
+                console.error("Failed to add routine item", e);
             }
         },
 
