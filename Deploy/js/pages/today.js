@@ -86,6 +86,11 @@ export function todayPage(nav) {
         // ---- trend (last 30 days, checklist done/skipped/missed) ----
         trendDays: [],
 
+        // ---- Family Companion App Integration ----
+        familySummary: { morning: '0/0', afternoon: '0/0', evening: '0/0', sleep: '0/0' },
+        familyNoteDraft: '',
+        familyNoteSaving: false,
+
         async init() {
             await this.load();
             // Refresh when AI panel confirms a write (workout, sleep, task, checklist)
@@ -155,6 +160,7 @@ export function todayPage(nav) {
                 this.loadTrend().catch(console.error);
                 this.loadWorkoutTargets().catch(console.error);
                 this.loadHealthTrend().catch(console.error);
+                this.loadFamilyData().catch(console.error);
             } catch (e) {
                 this.errorMsg = 'Could not load Today: ' + e.message;
             }
@@ -190,6 +196,50 @@ export function todayPage(nav) {
             } catch (e) {
                 console.error('Checklist ring refresh failed:', e);
             }
+        },
+        async loadFamilyData() {
+            try {
+                const calendarDate = todayIsoDate();
+                const [items, history, note] = await Promise.all([
+                    DB.Family.listChecklistItems(),
+                    DB.Family.listChecklistHistoryForDate(calendarDate), // family uses strict midnight calendar date
+                    DB.Family.getNote()
+                ]);
+                
+                if (note) this.familyNoteDraft = note.body;
+
+                const blocks = { morning: {t:0,d:0}, afternoon: {t:0,d:0}, evening: {t:0,d:0}, sleep: {t:0,d:0} };
+                const doneIds = new Set(history.filter(h => h.status === 'done').map(h => h.item_id));
+
+                items.forEach(i => {
+                    const block = (i.block || '').toLowerCase();
+                    if (blocks[block]) {
+                        blocks[block].t++;
+                        if (doneIds.has(i.id)) blocks[block].d++;
+                    }
+                });
+
+                this.familySummary = {
+                    morning: `${blocks.morning.d}/${blocks.morning.t}`,
+                    afternoon: `${blocks.afternoon.d}/${blocks.afternoon.t}`,
+                    evening: `${blocks.evening.d}/${blocks.evening.t}`,
+                    sleep: `${blocks.sleep.d}/${blocks.sleep.t}`
+                };
+            } catch (e) {
+                console.error('Failed to load family data:', e);
+            }
+        },
+        async sendFamilyNote() {
+            if (!this.familyNoteDraft.trim()) return;
+            this.familyNoteSaving = true;
+            try {
+                await DB.Family.setNote(this.familyNoteDraft.trim());
+                this.familyNoteDraft = '';
+            } catch (e) {
+                console.error('Failed to send note:', e);
+                alert('Could not send note.');
+            }
+            this.familyNoteSaving = false;
         },
         // "Today" = due today, overdue-and-still-pending, or undated (always relevant).
         // Kept in sync with recentlyCompleted below so the KPI card's fraction and the two

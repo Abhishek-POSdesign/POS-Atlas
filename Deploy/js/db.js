@@ -683,5 +683,86 @@ export const DB = {
             if (!data || data.length === 0) throw new Error('Log relapse affected zero rows');
             return data[0];
         }
+    },
+
+    Family: {
+        async listChecklistItems() {
+            const { data, error } = await supabase
+                .from('atlas_family_checklist_items')
+                .select('*')
+                .eq('active', true)
+                .order('order_index', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async listChecklistHistoryForDate(entryDate) {
+            const { data, error } = await supabase
+                .from('atlas_family_checklist_history')
+                .select('*')
+                .eq('entry_date', entryDate);
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async setChecklistStatus(itemId, entryDate, status) {
+            const payload = { item_id: itemId, entry_date: entryDate, status };
+            const { data, error } = await supabase
+                .from('atlas_family_checklist_history')
+                .upsert(payload, { onConflict: 'item_id,entry_date' })
+                .select()
+                .single();
+            if (error || !data) throw new Error(error?.message || 'Checklist status update was not confirmed');
+            return data;
+        },
+        createChecklistItem(row) { return verifiedInsert('atlas_family_checklist_items', row); },
+        updateChecklistItem(id, patch) { return verifiedUpdate('atlas_family_checklist_items', id, patch); },
+        
+        async listTasks() {
+            const { data, error } = await supabase
+                .from('atlas_family_tasks')
+                .select('*')
+                .eq('status', 'pending')
+                .order('created_at', { ascending: false });
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async listCompletedTasks(limit = 20) {
+            const { data, error } = await supabase
+                .from('atlas_family_tasks')
+                .select('*')
+                .eq('status', 'done')
+                .order('completed_at', { ascending: false })
+                .limit(limit);
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        createTask(row) { return verifiedInsert('atlas_family_tasks', row); },
+        async completeTask(id) {
+            const payload = { status: 'done', completed_at: new Date().toISOString() };
+            return verifiedUpdate('atlas_family_tasks', id, payload);
+        },
+        
+        async getNote() {
+            const { data, error } = await supabase
+                .from('atlas_family_notes')
+                .select('*')
+                .eq('id', 1)
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async setNote(body) {
+            const payload = { id: 1, body, is_read: false, updated_at: new Date().toISOString() };
+            const { data, error } = await supabase
+                .from('atlas_family_notes')
+                .upsert(payload, { onConflict: 'id' })
+                .select()
+                .single();
+            if (error || !data) throw new Error(error?.message || 'Note update was not confirmed');
+            return data;
+        },
+        async markNoteRead() {
+            const payload = { is_read: true, updated_at: new Date().toISOString() };
+            return verifiedUpdate('atlas_family_notes', 1, payload);
+        }
     }
 };

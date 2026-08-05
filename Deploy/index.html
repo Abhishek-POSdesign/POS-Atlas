@@ -577,6 +577,18 @@
                         <template x-if="loading"><p>Loading…</p></template>
                         <template x-if="!loading">
                             <div class="stack">
+                                
+                                <!-- Family Health Strip -->
+                                <div class="card panel" style="padding: 12px; margin-bottom: var(--pad-md); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); flex-wrap: wrap; gap: 8px;">
+                                    <div style="font-size: 13px; color: var(--text-secondary);">
+                                        <strong style="color: var(--text-primary);">Ritu:</strong>
+                                        <span x-text="'Morning ' + familySummary.morning + ', Afternoon ' + familySummary.afternoon + ', Evening ' + familySummary.evening + ', Sleep ' + familySummary.sleep"></span>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; flex: 1; max-width: 300px;">
+                                        <input type="text" x-model="familyNoteDraft" placeholder="Note to Ritu..." style="font-size: 13px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); flex: 1;">
+                                        <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;" @click="sendFamilyNote()" :disabled="!familyNoteDraft || familyNoteSaving">Send</button>
+                                    </div>
+                                </div>
 
                                 <!-- Hero band: streaks flank the KPI strip -->
                                 <div class="hero-band">
