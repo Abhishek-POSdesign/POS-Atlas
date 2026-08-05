@@ -1,8 +1,8 @@
+import Alpine from 'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/+esm';
 import { supabase } from '../js/supabase-client.js';
 import { DB } from '../js/db.js';
 
-document.addEventListener('alpine:init', () => {
-    Alpine.data('familyApp', () => ({
+Alpine.data('familyApp', () => ({
         session: null,
         authEmail: '',
         authPassword: '',
@@ -202,4 +202,6 @@ document.addEventListener('alpine:init', () => {
             });
         }
     }));
-});
+
+window.Alpine = Alpine;
+Alpine.start();
