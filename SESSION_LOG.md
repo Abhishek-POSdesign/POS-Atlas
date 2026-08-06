@@ -27,6 +27,18 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-08 · Claude Code (Sonnet 5) — third live-testing round: reminder-completion trigger, stale persona text, incomplete workout writes
+
+**Session scope:** Same day, third round of real bugs from continued live testing (screenshots): "mark this reminder done" got refused, the workout card lost its score/calories/notes display after a conversational log, and he asked a substantive question about whether the browser's native mic is reliable enough at all.
+
+**What shipped (commit `d4c28c7`):** (1) `complete_task`'s trigger regex only matched the word "task", not "reminder" — broadened, reminders already resolved fine through the existing cache once triggered. (2) `DEFAULT_PERSONA.instructions` in `aiConfig.js` still said "you cannot take actions in the app or log anything" — leftover from before any write flow existed, and the actual cause of the "denied" behavior: when a trigger regex doesn't match, the message falls through to plain chat, which was reading this stale instruction and confidently claiming no capability at all. Rewritten to describe real current capability and to never claim a save happened without an actual confirm. (3) Confirmed via schema inspection (`atlas_workout_sessions` columns) that the Today page's workout card only shows score/calories/vo2 once a real session row exists — `log_workout`'s write only touched the day-level `atlas_workout_logs` row, so a conversational log always rendered as a bare duration+type pill. `write()` now also creates a linked session row (added an `intensity` enum field to the registry, a deterministic `classifyActivityType()` mapping free text to the constrained `activity_type` enum), mirroring the manual "Log workout" form exactly. Cache → `v94`.
+
+**Also answered, not a bug:** chat history is deliberately local-only/24h-ephemeral (`aiConfig.js`'s own comment predates this session) — that's why a phone conversation doesn't appear on desktop; a real fix means a new synced table, not attempted this session. The Insight Ticker not showing was checked directly against `atlas_ai_insights` — no row for today yet, the digest only runs once around noon IST via cron, this was checked at ~3am; not a bug. Researched STT reliability alternatives (OpenAI Whisper ~$0.006/min, Google Cloud STT 60 free min/month then ~$0.016/min, reusing existing GCP infra) as a genuine architecture option to replace the flaky browser SpeechRecognition API with a record-then-transcribe flow — presented as a decision for Abhishek, not built.
+
+**What's still open:** GitHub Actions deploy still stuck (run #161 queued, no new run has started for any commit since — same outage as earlier today, confirmed via githubstatus.com); none of today's fixes are confirmed live yet. Cross-device AI chat sync and the STT provider decision are both real, undecided next steps.
+
+---
+
 ## 2026-08-08 · Claude Code (Sonnet 5) — Conversational Actions live-testing fixes: real mic reliability + a model-driven skip bug
 
 **Session scope:** Abhishek live-tested Phase 1 the same day it shipped and hit three real problems, reported with screenshots: the mic button getting stuck listening (and seeming to pick up Atlas's own voice), REM sleep/notes never being asked about despite the earlier ask:true fix, and a scare where he thought a saved reminder had vanished. Two rounds of fixes shipped in this session; see commits below. Also answered (not a bug): whether the AI can start/complete tasks via chat -- `complete_task` already exists via the pre-existing Track B flow (mark a task done by saying so); "start" a task has no AI trigger yet, flagged as a real future ask, not built this session.
