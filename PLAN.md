@@ -10,9 +10,23 @@ Sibling docs:
 
 **Last updated:** 2026-08-07
 
-## 🎯 NEXT UP — Voice-First Conversational Logging (plan approved 2026-08-07, ZERO code written yet)
+## 🎯 Voice-First Conversational Logging — Phase 1 BUILT and PUSHED 2026-08-07, NOT YET LIVE-TESTED
 
-**Read this section before starting any work in this repo.** This is the next real build, explicitly approved by Abhishek in-session after a full plan review. Nothing described below exists in the codebase yet — check `SESSION_LOG.md`'s 2026-08-07 entry of the same name if you need the surrounding context, but this section itself is the authoritative spec. Build in the order given; do not skip ahead to voice or to task/reminder creation before Phase 1 works.
+**Read this section before touching this area.** The plan below (kept intact for reference) was approved 2026-08-07 and built the same day, in one pass covering build-order steps 1-3 plus most of 4-5. Commit `3df7bb2`, pushed to `main`. **Abhishek has not tested it live yet** — the local-dev-shares-live-Supabase rule (see "Local dev" below) meant this session verified only that the app loads with zero console errors, never actually ran a real conversation end-to-end (that would risk writing real sleep/workout/task rows). Treat this as "should work, unverified by a human" until he reports back.
+
+**What's actually built, precisely:**
+- The core mechanism (`Deploy/js/features/conversationalActions.js`): running draft, deterministic missing-field check, one-question-at-a-time, explicit-skip (including compound replies like "no HRV but resting rate was 60" via a `declined` list the extraction call returns), read-back + confirm reusing the existing verified confirm-card/write path (`aiPanel.js`'s `confirmDraft`/`cancelDraft` extended for a `__conv:` flowKey prefix — the DB write plumbing itself is untouched).
+- **log_sleep and log_workout** moved onto it (old single-shot `_detectIntent()` triggers removed, superset regex reused so nothing that used to start a log stops starting one).
+- **create_task and create_reminder** — the two brand-new actions the plan called for, first-ever conversational task/reminder creation. Writes via `DB.Tasks.create()`, matching the exact row shape `today.js`/`project-workspace.js` already use.
+- **Phase A voice loop**: `voiceExchange()` (single-utterance, auto-sends on natural pause) + `_autoContinueVoice()` (auto-relistens after each spoken reply) — tap the mic once to start a voice-initiated action, then it keeps listening/replying by voice until saved or cancelled. Demotes to manual the instant the user types instead of speaking (tracked via `_lastInputWasVoice`, cleared only by a real keystroke, not by voice setting `draft` programmatically).
+- Safety: a spoken yes/no that matches both patterns ("no wait, yes") is treated as unclear and re-asked, never guessed — confirmed this is the one thing that must never fail.
+
+**Known gaps, honestly flagged, not yet closed:**
+- Step 4 ("looser trigger phrases") is only partial. `log_sleep`/`log_workout` reuse the old broad keyword regex (a real superset of the old behavior). `create_task`/`create_reminder` use fresh but fairly literal patterns ("add/create/make/new task", "remind me"). A genuinely generic opener like **"I want to log my data"** (no sleep/workout keyword at all) still won't match anything and will fall through to plain chat — the exact failure mode the whole rebuild was meant to fix, not yet solved for that specific phrasing. Worth a follow-up pass once real usage shows which openers Abhishek actually says.
+- Zero live/human testing of the actual multi-turn conversation, voice loop, or a real save. Next session (or Abhishek directly) should run through: typed sleep log with a decline, typed task creation, and — if he's on a device with mic access — one real voice-driven log end to end.
+- The original build-order step 5 line item ("full voice loop wired through everything above") is built for log_sleep/log_workout/create_task/create_reminder uniformly (it's generic, not per-action), so no separate wiring pass is needed per-action going forward — new actions just get the loop for free by being added to the registry.
+
+Original approved plan follows, unchanged, for future reference:
 
 ### The problem this replaces
 

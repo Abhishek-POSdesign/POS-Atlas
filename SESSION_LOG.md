@@ -27,6 +27,30 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-07 · Claude Code (Sonnet 5) — Voice-First Conversational Logging Phase 1 built and pushed (not yet live-tested)
+
+**Session scope:** Continuation of the same day's approved plan (see the previous entry below). Built the actual Conversational Action mechanism from scratch and wired it end to end: the reusable draft/ask/confirm engine, log_sleep + log_workout moved onto it, two brand-new actions (create_task, create_reminder), and the Phase A tap-to-talk voice loop. Account context: this session ran after the conversation was compacted per Abhishek's own instruction, picking the work up directly from `PLAN.md`/`CLAUDE.md` with no prior-turn memory, confirming the doc-handover approach works.
+
+**What shipped (commit `3df7bb2`):**
+- New `Deploy/js/features/conversationalActions.js` — the `CONVERSATIONAL_ACTIONS` registry (log_sleep, log_workout, create_task, create_reminder), deterministic trigger detection with ambiguity disambiguation, field merge/clamp, yes/no/decline/cancel phrase detectors (no model call for any of these — reliability lives in plain JS per the locked architecture rule), read-back formatting.
+- `aiPanel.js` — new Track D routed ahead of the old Track A/B/C. Reuses the exact same verified confirm-card + `verifiedInsert`/`verifiedUpdate` write path (`confirmDraft`/`cancelDraft` extended for a `__conv:` flowKey prefix) rather than building a second write path. Old `log_sleep`/`log_workout` single-shot triggers removed from `_detectIntent()` (superset regex carried over into the new engine so nothing that used to start a log stops starting one).
+- Phase A voice loop: `voiceExchange()` (single-utterance capture, auto-sends when the browser detects a natural pause) + `_autoContinueVoice()` (auto-relistens after every spoken reply) so a voice-initiated conversation only needs one tap to start. Demotes to manual mid-conversation the instant the user types (`_lastInputWasVoice`, cleared only by a real keystroke via the composer's `@input`, not by voice programmatically setting `draft`).
+- Safety fix caught during self-review before shipping: an ambiguous spoken reply like "no wait, yes" would have matched both the yes and no patterns — order-of-checks originally would have treated that as a confirmed save. Fixed to require an *unambiguous* match on exactly one before acting; anything else re-asks instead of guessing.
+- `index.html`/`components.css` — mic button now dispatches through `micTap()` (voiceExchange mid-action, old `toggleVoice()` otherwise); small `.ai-voice-loop-hint` chip shows while a voice conversation is active.
+- `service-worker.js` → `v91`.
+- `PLAN.md`'s "NEXT UP" section updated in place to a "built, not yet live-tested" status banner (original approved spec kept below it, unchanged, for reference) — read that section for the precise "what's built vs. what's still a known gap" breakdown.
+
+**What was verified live:** Nothing by Abhishek yet — this just shipped. This session's own verification was deliberately limited to `node --check` on every edited file (all clean) and booting the local dev server to confirm the login screen renders with zero console errors, per the standing "local dev shares the live Supabase project" rule — did **not** sign in or run a real conversation locally, since completing one for real would write actual rows to his live sleep/workout/task tables.
+
+**What's still open:**
+- Real human testing on the deployed app: a typed sleep log (including declining a field), a typed task/reminder creation, and — if he's on a device with mic access — one genuine voice-driven log start to finish.
+- Known gap, flagged in `PLAN.md`: trigger phrases are still fairly literal. A genuinely generic opener like "I want to log my data" (no sleep/workout/task keyword at all) still falls through to plain chat rather than starting a conversation or asking which action is meant. Real usage should surface which openers are actually worth adding.
+- Confirm the GitHub Actions deploy for `3df7bb2` actually went green (this session didn't check — see the prior entry's note about that pipeline having a rough stretch earlier the same day).
+
+**What NOT to do:** Don't test this feature by actually completing a conversation locally (typing through to a real "yes") — that writes to the live Supabase tables, same risk flagged everywhere else in this repo about local dev. Test on the deployed app, or stop short of the final confirm locally.
+
+---
+
 ## 2026-08-07 · Claude Code (Sonnet 5) — July health-data backfill, two real chart bugs fixed, Voice-First Conversational Logging plan approved (not yet built)
 
 **Session scope:** Continuation of the same day's work. Three things happened, in order: (1) backfilled July's sleep/workout history from 38 of Abhishek's own ring-app screenshots so trend features have more than 2 weeks of real data behind them, (2) diagnosed and fixed two real bugs he caught live-testing that backfill (workout consistency rings undercounting, sleep chart hover showing the wrong day), (3) planned — in detail, plain English, explicitly approved, not yet built — the next real feature: **Voice-First Conversational Logging**, a durable multi-turn "gather then confirm" mechanism meant to replace the old one-shot AI write flows for good. See the new `## Voice-First Conversational Logging` section in `PLAN.md` for the full plan; `CLAUDE.md` now has the matching architecture rule.
