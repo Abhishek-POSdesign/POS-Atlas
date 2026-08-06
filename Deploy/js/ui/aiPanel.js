@@ -63,6 +63,8 @@ function dayLabel(dateStr) {
 
 let speechRecognition = null;   // module-level, not reactive -- avoids Alpine proxy issues with a browser API object
 let _lastInputWasVoice = false; // set true when the draft was produced by dictation; cleared by manual typing (see composer's @input in index.html) -- drives the Phase A auto-relisten loop
+let _manualStopRequested = false; // set right before a user-initiated speechRecognition.stop() -- distinguishes "user tapped mic to stop" from "recognition ended itself" in onend
+let _recognitionWatchdog = null;  // setTimeout id -- forces a hard reset if the browser never fires onend/onerror (confirmed real, not hypothetical -- see toggleVoice()/voiceExchange() comments)
 let _taskCache = null;          // populated from explain_day packages; used for complete_task resolution
 let _checklistCache = null;     // populated from explain_day packages; used for mark_checklist resolution
 let _checklistDate = null;      // todayKey() value matching _checklistCache
@@ -289,9 +291,12 @@ export function atlasAi() {
         // voice" half of Phase A; see voiceExchange() for the capture side.
         _autoContinueVoice() {
             if (!this.activeAction || !this.activeAction.viaVoice || !this.panelOpen) return;
+            // 600ms margin beyond onended firing -- voiceExchange() also checks
+            // _voiceBlockedByPlayback() itself, this is just extra room for any
+            // speaker/room echo to die down before the mic opens.
             setTimeout(() => {
                 if (this.activeAction && this.activeAction.viaVoice && this.panelOpen) this.voiceExchange();
-            }, 400);
+            }, 600);
         },
         toggleAudio(msg) {
             if (msg.voiceState === 'playing' || msg.voiceState === 'loading') {
@@ -1266,14 +1271,16 @@ export function atlasAi() {
         },
 
         toggleVoice() {
-            if (speechRecognition) { speechRecognition.stop(); return; }
+            if (speechRecognition) { _manualStopRequested = true; try { speechRecognition.stop(); } catch (e) {} return; }
+            if (this._voiceBlockedByPlayback()) { this.errorMsg = 'Wait for Atlas to finish talking first.'; return; }
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) { this.errorMsg = 'Voice input is not supported in this browser.'; return; }
+            _manualStopRequested = false;
             speechRecognition = new SpeechRecognition();
             speechRecognition.lang = 'en-US';
             speechRecognition.interimResults = false;
             speechRecognition.continuous = true;
-            speechRecognition.onstart = () => { this.listening = true; this.errorMsg = ''; };
+            speechRecognition.onstart = () => { this.listening = true; this.errorMsg = ''; this._armRecognitionWatchdog(); };
             speechRecognition.onresult = (event) => {
                 let transcript = '';
                 for (let i = event.resultIndex; i < event.results.length; i++) transcript += event.results[i][0].transcript;
@@ -1282,11 +1289,12 @@ export function atlasAi() {
                 this.$nextTick(() => this.autoGrowComposer());
             };
             speechRecognition.onerror = (event) => {
-                this.errorMsg = 'Voice input error: ' + event.error + ' -- you can still type.';
-                if (speechRecognition) speechRecognition.stop();
+                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                    this.errorMsg = 'Voice input error: ' + event.error + ' -- you can still type.';
+                }
             };
-            speechRecognition.onend = () => { speechRecognition = null; this.listening = false; };
-            speechRecognition.start();
+            speechRecognition.onend = () => { clearTimeout(_recognitionWatchdog); speechRecognition = null; this.listening = false; _manualStopRequested = false; };
+            try { speechRecognition.start(); } catch (e) { speechRecognition = null; this.listening = false; }
         },
 
         // Phase A voice loop (Conversational Actions only -- see PLAN.md/CLAUDE.md).
@@ -1298,14 +1306,16 @@ export function atlasAi() {
         // of a voice-initiated conversation (see micTap()); every turn after that
         // is driven by this method firing again once Atlas finishes speaking.
         voiceExchange() {
-            if (speechRecognition) return; // already mid-capture
+            if (speechRecognition) return; // already mid-capture -- micTap() is the stop path, not this
+            if (this._voiceBlockedByPlayback()) { this.errorMsg = 'Wait for Atlas to finish talking first.'; return; } // never listen while Atlas's own voice could still be audible
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) { this.errorMsg = 'Voice input is not supported in this browser.'; return; }
+            _manualStopRequested = false;
             speechRecognition = new SpeechRecognition();
             speechRecognition.lang = 'en-US';
             speechRecognition.interimResults = false;
             speechRecognition.continuous = false;
-            speechRecognition.onstart = () => { this.listening = true; this.errorMsg = ''; };
+            speechRecognition.onstart = () => { this.listening = true; this.errorMsg = ''; this._armRecognitionWatchdog(); };
             speechRecognition.onresult = (event) => {
                 let transcript = '';
                 for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
@@ -1318,17 +1328,56 @@ export function atlasAi() {
                 }
             };
             speechRecognition.onend = () => {
+                clearTimeout(_recognitionWatchdog);
                 speechRecognition = null;
                 this.listening = false;
+                const stoppedManually = _manualStopRequested;
+                _manualStopRequested = false;
+                if (stoppedManually && !this.draft.trim()) {
+                    // A manual tap-to-stop with nothing captured means "give me
+                    // control back", not "go ahead and keep looping" -- stop
+                    // auto-relistening for the rest of this draft.
+                    if (this.activeAction) this.activeAction.viaVoice = false;
+                    return;
+                }
                 if (this.draft && this.draft.trim()) this.sendMessage();
             };
-            speechRecognition.start();
+            try { speechRecognition.start(); } catch (e) { speechRecognition = null; this.listening = false; }
         },
 
-        // Mic button dispatcher: mid-conversation, a tap should mean "capture my
-        // next answer and send it" (voiceExchange); otherwise it's the existing
-        // free-form dictation toggle, unchanged.
+        // True while Atlas's own voice could still be audible -- covers both
+        // the cloud-TTS <audio> element and the browser speechSynthesis
+        // fallback. Every recognition start (manual tap or auto-relisten)
+        // checks this first so the mic can never pick up Atlas's own reply
+        // and mistake it for the user speaking.
+        _voiceBlockedByPlayback() {
+            if (this.currentCloudAudio && !this.currentCloudAudio.paused && !this.currentCloudAudio.ended) return true;
+            if (window.speechSynthesis && window.speechSynthesis.speaking) return true;
+            return false;
+        },
+
+        // Safety valve: the Web Speech API is known to sometimes never fire
+        // onend/onerror at all (browser-dependent). Without this, a stuck
+        // session leaves speechRecognition non-null and the mic button red
+        // forever, with no way to reach it again (voiceExchange/toggleVoice
+        // both no-op while a session is already open). Force a hard reset
+        // after 15s no matter what the browser does.
+        _armRecognitionWatchdog() {
+            clearTimeout(_recognitionWatchdog);
+            _recognitionWatchdog = setTimeout(() => {
+                if (speechRecognition) { try { speechRecognition.abort(); } catch (e) {} }
+                speechRecognition = null;
+                this.listening = false;
+            }, 15000);
+        },
+
+        // Mic button dispatcher. A tap always means "toggle" first: if a
+        // session is already open, stop it -- this is the fix for the mic
+        // button appearing stuck red with no way to turn it off, since
+        // voiceExchange() alone silently no-ops while already listening.
+        // Only when nothing is listening does it decide which mode to start.
         micTap() {
+            if (speechRecognition) { _manualStopRequested = true; try { speechRecognition.stop(); } catch (e) {} return; }
             if (this.activeAction) { this.voiceExchange(); return; }
             this.toggleVoice();
         },

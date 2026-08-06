@@ -45,6 +45,15 @@ function formatFieldValue(fieldDef, value) {
 // false = fine to silently leave blank), required (true = cannot be skipped,
 // re-asks until answered), extractHint (a short phrase describing the field
 // for the extraction model call), question (what Atlas asks aloud/in text).
+//
+// CLAUDE.md's locked rule: "never silently drop an unmentioned field
+// without asking." Every field below is real user data, so every one of
+// them is ask:true -- confirmed live 2026-08-07 that deep/REM sleep going
+// unasked read as a bug, not a convenience, even though PLAN.md's original
+// spec described an ask:false tier as sanctioned. ask:false stays available
+// in the engine for a genuinely internal/non-data field if one ever shows
+// up, but no current field qualifies -- don't add one back without a real
+// reason, and if you do, it should be the rare exception, not the default.
 
 export const CONVERSATIONAL_ACTIONS = {
     log_sleep: {
@@ -60,9 +69,9 @@ export const CONVERSATIONAL_ACTIONS = {
             { key: 'sleep_score', label: 'Score', type: 'number', min: 0, max: 100, ask: true, required: false, extractHint: 'sleep score or quality rating, 0-100', question: "What was your sleep score?" },
             { key: 'hrv', label: 'HRV', type: 'number', min: 0, max: 300, unit: 'ms', ask: true, required: false, extractHint: 'HRV in milliseconds', question: "Do you have an HRV reading, or should I leave that blank?" },
             { key: 'resting_hr', label: 'Resting HR', type: 'number', min: 20, max: 200, unit: 'bpm', ask: true, required: false, extractHint: 'resting heart rate in bpm', question: "What was your resting heart rate?" },
-            { key: 'deep_minutes', label: 'Deep sleep', type: 'number', min: 0, max: 720, unit: 'min', ask: false, required: false, extractHint: 'deep sleep duration in minutes' },
-            { key: 'rem_minutes', label: 'REM sleep', type: 'number', min: 0, max: 720, unit: 'min', ask: false, required: false, extractHint: 'REM sleep duration in minutes' },
-            { key: 'morning_note', label: 'Note', type: 'text', ask: false, required: false, extractHint: 'how he feels or any qualitative comment' }
+            { key: 'deep_minutes', label: 'Deep sleep', type: 'number', min: 0, max: 720, unit: 'min', ask: true, required: false, extractHint: 'deep sleep duration in minutes', question: "Got a deep sleep number, or should I skip it?" },
+            { key: 'rem_minutes', label: 'REM sleep', type: 'number', min: 0, max: 720, unit: 'min', ask: true, required: false, extractHint: 'REM sleep duration in minutes', question: "And REM sleep -- any number for that?" },
+            { key: 'morning_note', label: 'Note', type: 'text', ask: true, required: false, extractHint: 'how he feels or any qualitative comment', question: "Anything else you want to note about last night?" }
         ],
         write(fields) { return WRITE_FLOWS.log_sleep.write(fields); }
     },
@@ -76,8 +85,8 @@ export const CONVERSATIONAL_ACTIONS = {
             { key: 'duration_minutes', label: 'Duration', type: 'number', min: 0, max: 600, unit: 'min', ask: true, required: false, extractHint: 'total workout duration in minutes', question: "How long did it run?" },
             { key: 'score', label: 'Score', type: 'number', min: 0, max: 100, ask: true, required: false, extractHint: 'workout score, 0-100 fitness-scale', question: "Any workout score for this one?" },
             { key: 'calories', label: 'Calories', type: 'number', min: 0, max: 5000, ask: true, required: false, extractHint: 'calories burned', question: "How many calories did it log?" },
-            { key: 'vo2_max', label: 'VO2 Max', type: 'number', min: 0, max: 100, ask: false, required: false, extractHint: 'VO2 max decimal like 48.8' },
-            { key: 'note', label: 'Note', type: 'text', ask: false, required: false, extractHint: 'qualitative details that do not fit any other field' }
+            { key: 'vo2_max', label: 'VO2 Max', type: 'number', min: 0, max: 100, ask: true, required: false, extractHint: 'VO2 max decimal like 48.8', question: "Do you have a VO2 max reading for this one?" },
+            { key: 'note', label: 'Note', type: 'text', ask: true, required: false, extractHint: 'qualitative details that do not fit any other field', question: "Anything else worth noting about the workout?" }
         ],
         write(fields) { return WRITE_FLOWS.log_workout.write(fields); }
     },
@@ -89,8 +98,8 @@ export const CONVERSATIONAL_ACTIONS = {
         fields: [
             { key: 'name', label: 'Name', type: 'text', ask: true, required: true, extractHint: 'the task name/title, verbatim', question: "What should the task be called?" },
             { key: 'scheduled_date', label: 'Date', type: 'date', ask: true, required: false, extractHint: 'the date it\'s scheduled for, resolved to YYYY-MM-DD (today/tomorrow/a weekday name all count)', question: "What date is it for? You can say \"today\", \"tomorrow\", or a date." },
-            { key: 'scheduled_time', label: 'Time', type: 'time', ask: false, required: false, extractHint: 'the time of day, resolved to 24-hour HH:MM' },
-            { key: 'running_note', label: 'Note', type: 'text', ask: false, required: false, extractHint: 'any extra detail about the task' }
+            { key: 'scheduled_time', label: 'Time', type: 'time', ask: true, required: false, extractHint: 'the time of day, resolved to 24-hour HH:MM', question: "Does it need a specific time, or just the date?" },
+            { key: 'running_note', label: 'Note', type: 'text', ask: true, required: false, extractHint: 'any extra detail about the task', question: "Any notes to attach to it?" }
         ],
         async write(fields) {
             const row = {
@@ -116,7 +125,7 @@ export const CONVERSATIONAL_ACTIONS = {
             { key: 'name', label: 'Name', type: 'text', ask: true, required: true, extractHint: 'what the reminder is for, verbatim', question: "What should I remind you about?" },
             { key: 'scheduled_date', label: 'Date', type: 'date', ask: true, required: false, extractHint: 'the date it\'s for, resolved to YYYY-MM-DD (today/tomorrow/a weekday name all count)', question: "What date?" },
             { key: 'scheduled_time', label: 'Time', type: 'time', ask: true, required: false, extractHint: 'the time of day, resolved to 24-hour HH:MM', question: "What time should it fire?" },
-            { key: 'running_note', label: 'Note', type: 'text', ask: false, required: false, extractHint: 'any extra detail' }
+            { key: 'running_note', label: 'Note', type: 'text', ask: true, required: false, extractHint: 'any extra detail', question: "Any notes to attach to it?" }
         ],
         async write(fields) {
             const row = {
