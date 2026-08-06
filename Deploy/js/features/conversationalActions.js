@@ -30,13 +30,33 @@ function clampField(fieldDef, rawValue) {
         if (isNaN(n)) return null;
         return Math.min(fieldDef.max, Math.max(fieldDef.min, n));
     }
+    if (fieldDef.type === 'enum') {
+        const s = String(rawValue).trim().toLowerCase();
+        return fieldDef.options.includes(s) ? s : null;
+    }
     const s = String(rawValue).trim();
     return s ? s.slice(0, 300) : null;
 }
 
 function formatFieldValue(fieldDef, value) {
     if (fieldDef.type === 'number') return `${value}${fieldDef.unit ? ' ' + fieldDef.unit : ''}`;
+    if (fieldDef.type === 'enum') return value.charAt(0).toUpperCase() + value.slice(1);
     return String(value);
+}
+
+// Deterministic classifier from free-text workout description to the fixed
+// activity_type enum atlas_workout_sessions actually uses (see CLAUDE.md's
+// "activity_type CHECK constraint" note). The day-level workout_type field
+// stays free text (richer, e.g. "leg day") -- this only derives the
+// constrained session-level type so a real session row can be created,
+// mirroring exactly what the manual "Log workout" form writes.
+function classifyActivityType(text) {
+    const t = (text || '').toLowerCase();
+    if (/yoga|stretch/.test(t)) return 'yoga_stretch';
+    if (/clean/.test(t)) return 'cleaning';
+    if (/\bplay\b|sport|badminton|football|basketball|tennis/.test(t)) return 'active_play';
+    if (/run|jog|walk|cardio|cycl|swim|bike/.test(t)) return 'cardio_walk';
+    return 'strength'; // strength/weights/lifting/gym/hiit/legs/upper/lower default
 }
 
 // ---- Action registry ----
@@ -86,9 +106,30 @@ export const CONVERSATIONAL_ACTIONS = {
             { key: 'score', label: 'Score', type: 'number', min: 0, max: 100, ask: true, required: false, extractHint: 'workout score, 0-100 fitness-scale', question: "Any workout score for this one?" },
             { key: 'calories', label: 'Calories', type: 'number', min: 0, max: 5000, ask: true, required: false, extractHint: 'calories burned', question: "How many calories did it log?" },
             { key: 'vo2_max', label: 'VO2 Max', type: 'number', min: 0, max: 100, ask: true, required: false, extractHint: 'VO2 max decimal like 48.8', question: "Do you have a VO2 max reading for this one?" },
+            { key: 'intensity', label: 'Intensity', type: 'enum', options: ['light', 'moderate', 'hard'], ask: true, required: false, extractHint: 'workout intensity -- exactly one of "light", "moderate", or "hard"', question: "How intense was it -- light, moderate, or hard?" },
             { key: 'note', label: 'Note', type: 'text', ask: true, required: false, extractHint: 'qualitative details that do not fit any other field', question: "Anything else worth noting about the workout?" }
         ],
-        write(fields) { return WRITE_FLOWS.log_workout.write(fields); }
+        // Mirrors the manual "Log workout" flow exactly: a day-level summary
+        // row (atlas_workout_logs -- score/calories/vo2/duration/free-text
+        // type/note) PLUS a linked session row (atlas_workout_sessions --
+        // constrained activity_type/duration/intensity). Added 2026-08-08:
+        // writing only the day-level row left the Today page's workout card
+        // with nothing to show beyond duration+type, because its score/
+        // calories/vo2 chips only render once a real session row exists
+        // (see index.html's "idx === 0 && workoutEntry..." check) -- that's
+        // not a display bug, it's this write path being incomplete.
+        async write(fields) {
+            const dayRow = await WRITE_FLOWS.log_workout.write(fields);
+            const activityType = classifyActivityType(fields.workout_type);
+            await DB.WorkoutSessions.create(dayRow.id, {
+                activity_type: activityType,
+                duration_minutes: fields.duration_minutes != null ? fields.duration_minutes : null,
+                intensity: activityType === 'strength' ? (fields.intensity || null) : null,
+                program_tag: null,
+                note: null
+            });
+            return dayRow;
+        }
     },
     create_task: {
         label: 'task',

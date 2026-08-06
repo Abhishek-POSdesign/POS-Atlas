@@ -992,9 +992,14 @@ export function atlasAi() {
         // handled upstream by _isMemorySaveRequest().
         _detectIntent(text) {
             const t = text.toLowerCase();
-            // Task completion: clear "task is done" language
-            if (/\btask\b/.test(t) && /\b(done|finish(ed)?|complet(e|ed)?|mark(ed)?(\s+done)?)\b/.test(t)) return 'complete_task';
-            if (/\b(finish(ed)?|complet(e|ed)?|done\s+with|knocked?\s+out)\b/.test(t) && /\btask\b/.test(t)) return 'complete_task';
+            // Task/reminder completion: clear "done" language. Reminders are
+            // rows in the same atlas_tasks table (kind='reminder') and
+            // resolve through the exact same _taskCache/_handleTaskCompletion
+            // path -- confirmed live 2026-08-08 that saying "reminder"
+            // instead of "task" fell through to plain chat, which then
+            // wrongly claimed Atlas can't mark anything done at all.
+            if (/\b(task|reminder)\b/.test(t) && /\b(done|finish(ed)?|complet(e|ed)?|mark(ed)?(\s+done)?)\b/.test(t)) return 'complete_task';
+            if (/\b(finish(ed)?|complet(e|ed)?|done\s+with|knocked?\s+out)\b/.test(t) && /\b(task|reminder)\b/.test(t)) return 'complete_task';
             // Checklist marking
             if (/\bmark\b/.test(t) && /\b(checklist|routine|morning|afternoon|night|items?)\b/.test(t)) return 'mark_checklist';
             // !w && !s no longer needed here -- Track D's detectActionStart() already
