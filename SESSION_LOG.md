@@ -27,6 +27,26 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-08 · Claude Code (Sonnet 5) — Conversational Actions live-testing fixes: real mic reliability + a model-driven skip bug
+
+**Session scope:** Abhishek live-tested Phase 1 the same day it shipped and hit three real problems, reported with screenshots: the mic button getting stuck listening (and seeming to pick up Atlas's own voice), REM sleep/notes never being asked about despite the earlier ask:true fix, and a scare where he thought a saved reminder had vanished. Two rounds of fixes shipped in this session; see commits below. Also answered (not a bug): whether the AI can start/complete tasks via chat -- `complete_task` already exists via the pre-existing Track B flow (mark a task done by saying so); "start" a task has no AI trigger yet, flagged as a real future ask, not built this session.
+
+**What shipped (commits):**
+- `5ca0750` — first-round fix: `micTap()` had no way to actually stop a listening session (`voiceExchange()` just no-ops if one was already open), and nothing stopped the mic from opening while Atlas's TTS reply was still playing. Added a real toggle-stop, a `_voiceBlockedByPlayback()` guard, and a watchdog timeout. Also promoted `deep_minutes`/`rem_minutes`/`morning_note`/`vo2_max`/`note`/`scheduled_time`/`running_note` from `ask:false` to `ask:true` across all four actions (CLAUDE.md's locked rule: never silently drop an unmentioned field).
+- `84d8b12` — second-round fix, after he retested (against the `5ca0750` code, confirmed live via cache-version check) and it still skipped REM/notes and the mic was still unreliable. Root-caused properly this time instead of patching further: (1) the extraction call's `"declined"` array let the *model* decide a field was skippable, over-applying it to fields that were never actually declined -- removed the whole mechanism, a field can now only be skipped by the user's own literal answer to the exact question asked about it; (2) the voice loop's auto-send-on-detected-pause + auto-relisten-after-every-reply design was genuinely unreliable (cut sentences off mid-thought, could transcribe Atlas's own spoken read-back as if the user said it) -- replaced with one plain tap-to-start/tap-to-stop capture, no auto-send, no auto-relisten; the user reviews the transcribed text and sends it themselves, same as typing. `service-worker.js` → `v93`.
+- Verified via direct Supabase query (`atlas_tasks`, `select ... where name ilike '%mohit%'`) that the reminder he thought was lost is not lost -- saved exactly as confirmed at the time (2026-08-07, 21:00, `notify_enabled: true`, not deleted). It doesn't show in the Upcoming view because that view is future-dated-only by design; today's items show in Today's "Next Up" slot instead, which is where it actually is. Not a data bug -- a display-location mismatch he hadn't been shown, compounded by the mic possibly mishearing "8th" as "7th" given everything else wrong with mic reliability that session.
+
+**What was verified live:** GitHub's own status page confirmed a partial outage during this window (githubstatus.com), and Actions runs were stuck queued for a stretch -- but a direct fetch of `atlas.abhisheksikka.com/service-worker.js` confirmed `v92` (the first fix) WAS actually live when he retested and hit the same REM/mic problems, so the second-round root causes above are real code bugs, not stale-deploy artifacts. Don't assume "GitHub is down" fully explains a live-testing report without checking the live cache version first, the way this session did.
+
+**What's still open:**
+- Real re-test of `84d8b12` needed -- this session ran out of ability to test voice interaction itself (no mic in this environment); the fixes are reasoned from re-reading the actual bug mechanism, not confirmed by a human yet.
+- Task/reminder "start" and "mark done" via a real Conversational Action (not just the existing one-shot `complete_task` Track B flow) -- a reasonable future ask, explicitly not built this session to keep scope narrow while stabilizing what's broken.
+- The looser-trigger-phrase gap flagged in the previous entry is still open.
+
+**What NOT to do:** Don't reintroduce a model-driven "declined"/skip signal of any kind into the extraction call -- that's the exact bug just removed. Don't reintroduce auto-send-on-pause or auto-relisten for voice without discussing it with Abhishek first; he explicitly asked for reliability over a clever hands-free loop this round.
+
+---
+
 ## 2026-08-07 · Claude Code (Sonnet 5) — Voice-First Conversational Logging Phase 1 built and pushed (not yet live-tested)
 
 **Session scope:** Continuation of the same day's approved plan (see the previous entry below). Built the actual Conversational Action mechanism from scratch and wired it end to end: the reusable draft/ask/confirm engine, log_sleep + log_workout moved onto it, two brand-new actions (create_task, create_reminder), and the Phase A tap-to-talk voice loop. Account context: this session ran after the conversation was compacted per Abhishek's own instruction, picking the work up directly from `PLAN.md`/`CLAUDE.md` with no prior-turn memory, confirming the doc-handover approach works.

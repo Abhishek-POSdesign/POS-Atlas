@@ -10,9 +10,14 @@ Sibling docs:
 
 **Last updated:** 2026-08-07
 
-## 🎯 Voice-First Conversational Logging — Phase 1 BUILT and PUSHED 2026-08-07, NOT YET LIVE-TESTED
+## 🎯 Voice-First Conversational Logging — Phase 1 built 2026-08-07, TWO live-testing fix rounds shipped 2026-08-08, re-test still needed
 
-**Read this section before touching this area.** The plan below (kept intact for reference) was approved 2026-08-07 and built the same day, in one pass covering build-order steps 1-3 plus most of 4-5. Commit `3df7bb2`, pushed to `main`. **Abhishek has not tested it live yet** — the local-dev-shares-live-Supabase rule (see "Local dev" below) meant this session verified only that the app loads with zero console errors, never actually ran a real conversation end-to-end (that would risk writing real sleep/workout/task rows). Treat this as "should work, unverified by a human" until he reports back.
+**Read this section before touching this area.** Built 2026-08-07 (commit `3df7bb2`), then Abhishek live-tested it immediately and found real bugs across two rounds — see `SESSION_LOG.md`'s two 2026-08-08 entries for the full story. **Current state as of commit `84d8b12`:**
+- The mic no longer auto-sends on a detected pause and no longer auto-relistens after Atlas speaks (that whole design was removed — it was cutting sentences off mid-thought and could transcribe Atlas's own TTS reply as if the user said it). It's back to one plain tap-to-start/tap-to-stop capture: speak as long as you want, tap again when done, review the text, send it yourself. This is a deliberate, permanent step back from "hands-free after one tap" — don't reintroduce auto-send/auto-relisten without Abhishek explicitly asking for another attempt at it.
+- Every field in every action is genuinely `ask:true` now, and a field can ONLY be skipped by the user's own direct decline answer to the specific question asked about it — the model has zero ability to silently skip a field (a `"declined"` array the model could set was found and removed; it was the real cause of REM sleep/notes going unasked even after the first fix).
+- **Not yet re-tested by a human.** The mic redesign in particular needs a real retry before anyone should treat it as settled.
+
+Original build (steps 1-3, first pass at 4-5) follows below, kept intact for reference — the field-list/voice-loop details in it are now superseded by the above, everything else still holds.
 
 **What's actually built, precisely:**
 - The core mechanism (`Deploy/js/features/conversationalActions.js`): running draft, deterministic missing-field check, one-question-at-a-time, explicit-skip (including compound replies like "no HRV but resting rate was 60" via a `declined` list the extraction call returns), read-back + confirm reusing the existing verified confirm-card/write path (`aiPanel.js`'s `confirmDraft`/`cancelDraft` extended for a `__conv:` flowKey prefix — the DB write plumbing itself is untouched).
