@@ -640,6 +640,20 @@ export const DB = {
     // message is localStorage (see features/aiConfig.js); this table only
     // gets touched on notebook writes and the occasional pull-and-merge,
     // same single-row-upsert shape as HealthSettings below.
+    // Read-only -- rows are written exclusively by the atlas-daily-digest
+    // Edge Function (noon IST cron). The app never writes to this table.
+    AiInsights: {
+        async getForDate(entryDate) {
+            const { data, error } = await supabase
+                .from('atlas_ai_insights')
+                .select('*')
+                .eq('entry_date', entryDate)
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        }
+    },
+
     AiNotebook: {
         async get() {
             const { data, error } = await supabase

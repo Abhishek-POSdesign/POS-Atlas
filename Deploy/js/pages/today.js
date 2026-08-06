@@ -94,6 +94,20 @@ export function todayPage(nav) {
         familyNoteModalOpen: false,
         familyNoteError: '',
 
+        // ---- AI daily digest ticker ("Worth knowing") ----
+        // Rows are written once a day (noon IST) by the atlas-daily-digest
+        // Edge Function -- this page only ever reads atlas_ai_insights, never
+        // writes it. `aiInsights` is the raw stored list; the ticker actually
+        // rotates through `aiVisibleInsights`, which drops anything whose
+        // underlying fact is no longer true *right now* (a carried task
+        // that's since been completed, a morning checklist item now marked)
+        // -- per Abhishek's explicit ask that a resolved item must stop
+        // showing the same day, not just tomorrow when the row regenerates.
+        aiInsights: [],
+        aiInsightIndex: 0,
+        _aiInsightTimer: null,
+        _checklistMarkedTodayIds: new Set(),
+
         async init() {
             await this.load();
             // Refresh when AI panel confirms a write (workout, sleep, task, checklist)
@@ -164,6 +178,7 @@ export function todayPage(nav) {
                 this.loadWorkoutTargets().catch(console.error);
                 this.loadHealthTrend().catch(console.error);
                 this.loadFamilyData().catch(console.error);
+                this.loadAiInsights(calendarDate).catch(console.error);
             } catch (e) {
                 this.errorMsg = 'Could not load Today: ' + e.message;
             }
@@ -179,6 +194,9 @@ export function todayPage(nav) {
             this.checklistTotalToday = todaysItems.length;
             this.checklistDoneToday = todaysItems.filter(i => doneIds.has(i.id)).length;
             this.checklistSkippedToday = todaysItems.filter(i => skippedIds.has(i.id)).length;
+            // Feeds the AI insight ticker's live recheck (see aiVisibleInsights) --
+            // any item id in here (done OR skipped) counts as "no longer pending".
+            this._checklistMarkedTodayIds = new Set([...doneIds, ...skippedIds]);
         },
         // In-place update for the checklist KPI ring (2026-07-31 correction
         // round 2). Re-reads only today's checklist items + marks -- never
@@ -199,6 +217,11 @@ export function todayPage(nav) {
             } catch (e) {
                 console.error('Checklist ring refresh failed:', e);
             }
+        },
+        async loadAiInsights(calendarDate) {
+            const row = await DB.AiInsights.getForDate(calendarDate);
+            this.aiInsights = row ? (row.items || []) : [];
+            this._startAiInsightRotation();
         },
         async loadFamilyData() {
             try {
@@ -338,6 +361,36 @@ export function todayPage(nav) {
         },
         get todayLabel() {
             return new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+        },
+        // Live filter on top of the stored digest row -- see the state
+        // comment above aiInsights for why this can't just render the raw
+        // list as-is.
+        get aiVisibleInsights() {
+            return this.aiInsights.filter(item => {
+                const ref = item.ref || {};
+                if (ref.kind === 'task') return this.tasks.some(t => t.id === ref.id);
+                if (ref.kind === 'checklist_item' && item.type === 'checklist_pending_today') {
+                    return !this._checklistMarkedTodayIds.has(ref.id);
+                }
+                return true;
+            });
+        },
+        get currentInsight() {
+            const list = this.aiVisibleInsights;
+            if (!list.length) return null;
+            return list[this.aiInsightIndex % list.length];
+        },
+        _startAiInsightRotation() {
+            if (this._aiInsightTimer) clearInterval(this._aiInsightTimer);
+            this.aiInsightIndex = 0;
+            this._aiInsightTimer = setInterval(() => {
+                const n = this.aiVisibleInsights.length;
+                if (!n) return;
+                this.aiInsightIndex = (this.aiInsightIndex + 1) % n;
+            }, 8000);
+        },
+        discussInsight(item) {
+            window.dispatchEvent(new CustomEvent('atlas:ask-ai', { detail: { text: item.discuss || item.text } }));
         },
         projectFor(task) {
             if (!task.project_id) return null;

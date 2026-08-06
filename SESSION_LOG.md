@@ -27,6 +27,36 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-07 · Claude Code (Sonnet 5) — AI Insight Ticker (proactive daily digest) + a real pos-partner production bug fix
+
+**Session scope:** Continuation of a two-round research/planning conversation about making Atlas "proactive" instead of a static dashboard. Abhishek reviewed the plan, added requirements (Finance Manager bill awareness, reading his own free-text notes for "why" patterns, a rotating multi-insight ticker instead of one static card, noon timing since he works nights, live-awareness so a resolved item stops nagging same-day), and gave explicit blanket approval to build without asking again unless something didn't match his ask. Built end-to-end in this session, tested at each stage before moving on, per his explicit "no patches, build from the core, test then move on" instruction.
+
+**What shipped:**
+- `migrations/024_ai_insights_digest.sql` — new `atlas_ai_insights` table, one row per day, `items` jsonb.
+- `migrations/025_daily_digest_cron.sql` — `pg_cron` schedule, 06:30 UTC / 12:00 PM IST.
+- New Edge Function `atlas-daily-digest` (deployed, not tracked in this repo's git history — same pattern as every other Edge Function here, source lives in `supabase/functions/atlas-daily-digest/index.ts` for reference): gathers carried tasks, Finance Manager `recurring` bills due within 3 days (read-only, filtered to the one real household `profile_id` — confirmed same Supabase project as Atlas), today's unmarked morning-block checklist items (live-actionable), yesterday's skipped items (informational), 7-day sleep/workout trend, and quiet running projects. Sends all of it as a fixed candidate list to Gemini with a strict "rank + write copy, never invent a fact" instruction, writes up to 5 chosen items to `atlas_ai_insights`. Separately reads recent sleep/workout/journal free-text notes, asks Gemini for a one-sentence recurring pattern if one genuinely exists, appends it to the existing `atlas_ai_notebook` as a `source:'auto'` entry, and auto-consolidates once those exceed 6.
+- **Real bug found and fixed while building this, unrelated to the ask:** `pos-partner` (Atlas's live AI chat Edge Function) still hardcoded the `us-central1` Vertex endpoint, which 404s for `gemini-3.5-flash-lite` — confirmed via a live invoke before touching anything, then confirmed fixed via a second live invoke after. Same root cause and same fix (true `global` endpoint, no region prefix in the host) already applied to Biz Research Hub/B.tech Learning Hub's `vertex-chat` — a prior migration session's summary had incorrectly assumed Atlas didn't need this.
+- `Deploy/js/db.js` — new read-only `DB.AiInsights.getForDate()`.
+- `Deploy/js/pages/today.js` — `aiInsights`/`aiVisibleInsights`/`currentInsight`, an 8s rotation timer, and `discussInsight()`. The live-recheck (`aiVisibleInsights`) drops a `carried_task` item once it's no longer in the active task list and a `checklist_pending_today` item once it's marked done or skipped in `_checklistMarkedTodayIds` — both recompute for free off state `load()` already refreshes, no new fetch.
+- `Deploy/js/ui/aiPanel.js` — a new `atlas:ask-ai` window-event listener opens the panel, switches to the chat view, and pre-fills (never auto-sends) the composer.
+- `Deploy/index.html` / `Deploy/css/components.css` — the `.ai-ticker` card: solid accent fill (not the usual muted tint, a deliberate one-off per Abhishek's explicit "make it look different, this is where I look first" ask), `var(--surface-0)`-on-accent text (same convention `.add-btn` already used), no arrow/chevron affordance (the whole card is the click target, per his explicit "I don't need the arrow" correction on the mockup), dot row beneath for position.
+- `service-worker.js` bumped v87 → v88.
+- `PLAN.md` — new dated section at the top describing both the feature and the pos-partner fix.
+
+**What was verified (this session, via direct tool calls — not yet by Abhishek live):**
+- `atlas-daily-digest` manually invoked 3 times during the build; the third run produced 3 real, well-formed insight rows in `atlas_ai_insights` (a real carried task, a real skipped checklist item) with sensible model-written copy.
+- `pos-partner` manually invoked post-fix with a real chat message; got a real reply back (confirms Atlas's actual AI chat feature, not just this new digest, is working again).
+- All edited JS files pass `node --check`.
+- Local preview: login screen renders with zero console errors (did not sign in, per this repo's own local-dev-shares-prod-DB rule).
+
+**What's still open:**
+- Abhishek has not yet seen the ticker live — the noon cron won't fire again until tomorrow; today's row already exists from the manual test invokes, so it should show up next time he opens Today.
+- The bill-due candidate has no "already paid" suppression (explicitly scoped out this session, flagged as an easy follow-up if it turns out to nag about a just-paid bill — see the function's own comment).
+- The auto-pattern memory synthesis hasn't fired yet (needs 3+ notes with free text in the last 14 days; not confirmed how much real note data exists beyond what was visible during dev).
+- **Watch for this specific regression risk:** don't reintroduce a hardcoded `us-central1` Vertex host anywhere in this project again — that's the exact bug that silently broke `pos-partner` for an unknown stretch of time with zero visible error to Abhishek (chat probably just looked "stuck" or errored quietly). The global endpoint (no region prefix in the host) is the only one confirmed working post-migration.
+
+---
+
 ## 2026-08-07 · Claude Code (Sonnet 4.6) — live-testing feedback on the 2026-08-06 build
 
 **Session scope:** Abhishek live-tested the previous session's build on the deployed app and sent a screenshot + written feedback covering the sleep chart, workout rings, and family push. Diagnosed each with real DB queries before fixing.

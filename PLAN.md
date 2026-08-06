@@ -8,7 +8,15 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-07-31
+**Last updated:** 2026-08-07
+
+## 🆕 2026-08-07 — AI Insight Ticker (daily digest) shipped, plus a real production bug fixed
+
+**A genuinely new feature, explicitly requested and approved by Abhishek in-session (not a backlog item picked up on initiative)** — see `SESSION_LOG.md`'s 2026-08-07 "AI Insight Ticker" entry for the full build detail. Short version: a new Supabase Edge Function (`atlas-daily-digest`) runs once a day at 12:00 PM IST via `pg_cron`, gathers deterministic facts (carried tasks, Finance Manager bills due within 3 days, today's unmarked morning checklist items, yesterday's skipped items, sleep/workout 7-day trend, quiet projects), asks Gemini to pick+phrase up to 5 worth showing, and writes them to a new `atlas_ai_insights` table (migration `024`). Today's page shows them in a rotating "Worth knowing" ticker (`.ai-ticker`, solid accent fill, 8s rotation) that **live-rechecks each item against current state** and drops it the instant it's resolved (e.g. a carried task gets completed) — it does not wait for tomorrow's regeneration. Clicking a slide opens the AI panel pre-loaded with that topic via a new `atlas:ask-ai` window event (listened for in `aiPanel.js`). Separately, the same function reads recent sleep/workout/journal free-text notes and, when it spots a genuine recurring pattern, writes one compact entry into the existing `atlas_ai_notebook` (tagged `source:'auto'`), auto-consolidating once those pile past 6 entries — same memory store the manual Notebook already used, just with a second writer now.
+
+**Also found and fixed while building this: Atlas's live AI chat (`pos-partner`) was silently broken since the Gemini 2→3 migration.** It still hardcoded the `us-central1` regional Vertex endpoint, which 404s for `gemini-3.5-flash-lite` on this project — the exact same bug already fixed in Biz Research Hub/B.tech Learning Hub's `vertex-chat` function, but never actually verified live in Atlas (a prior migration session's notes incorrectly assumed Atlas was "untouched, never broken"). Switched to the true global endpoint (`aiplatform.googleapis.com/.../locations/global/...`, no region prefix) and confirmed live with a real round-trip call. If AI chat seems to have "started working again" with no obvious cause, this is why.
+
+**Cache bumped to `atlas-offline-shell-v88`.**
 
 ## 🔒 PHASE 1 CLOSED — ATLAS IS STILL IN THE ONE-WEEK TESTING PHASE
 

@@ -126,6 +126,19 @@ export function atlasAi() {
             this.messages = loadChatHistory();
             this.notebookEntries = loadNotebookLocal();
             pullNotebook().then(() => { this.notebookEntries = loadNotebookLocal(); });
+
+            // Lets any page open the panel pre-loaded with a specific topic
+            // (e.g. the Today insight ticker) without either side reaching
+            // into the other's Alpine scope -- same decoupled CustomEvent
+            // pattern as atlas:data-changed. Pre-fills the composer and
+            // focuses it; never auto-sends, so the user still chooses to
+            // start the conversation.
+            window.addEventListener('atlas:ask-ai', (e) => {
+                this.view = 'chat';
+                this.draft = (e.detail && e.detail.text) || '';
+                this.openPanel();
+                this.$nextTick(() => this.$refs.composerEl && this.$refs.composerEl.focus());
+            });
         },
         _measureHeaderHeight() {
             const el = document.querySelector('.app-header-sticky');
