@@ -27,6 +27,32 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-08 · Claude Code (Opus 4.7) — post-build debug audit: 14 bugs found, all fixed, batched by subsystem; ticker mockup delivered
+
+**Session scope:** Abhishek switched me into a "Debug Technician" role and asked for a systematic audit of everything shipped on 2026-08-06/07. Found 15 real bugs across the code Claude committed that window. Skipped #1 (Safari/iOS MP4 encoding mismatch) at his explicit direction -- no iOS devices in the family -- and fixed the remaining 14 in one continuous pass, batched by file/subsystem so each change is one auditable unit. Also delivered the ticker design mockup (3 variants) that had been outstanding since the ticker time-window bug fix landed without any visual redesign.
+
+**Ticker design mockup:** artifact at claude.ai/code/artifact/4f190230-d893-45e5-bffc-ac3a1a965467. Three named directions on both themes using Atlas's real tokens verbatim: (1) **Editorial Rail** -- no fill, 3px accent left rail + small dot, uppercase micro-label prefix, feels like a Bloomberg news crawl instead of a card; (2) **Whisper** -- absolutely no chrome, hairline top/bottom rules, only the prefix carries color, most restrained option; (3) **Signal** -- proper rounded chip with circular accent icon, tint fill, category communicated by icon vocabulary. Awaiting Abhishek's pick before touching production ticker CSS.
+
+**What shipped (commit `be40825`):**
+- **BATCH 1 (data integrity):** `pause_task` no longer wipes an existing `running_note` when the user says "pause task 3" with no reason -- only writes running_note when it has a real value. `log_workout` intensity now stored for every activity type, not just strength (old superstitious `activityType === 'strength'` guard was silently dropping user-stated intensity for yoga/cardio/etc).
+- **BATCH 2 (STT/TTS edge functions, deployed via Supabase MCP):** Removed the broken mp4->MP3 encoding branch in `atlas-stt-proxy` (Safari records MP4/AAC, not MP3 -- that path would fail every Safari client, and we don't support Safari anyway). Switched to `latest_short` STT model (accurate + cheaper for voice-command length). Both proxies (`atlas-stt-proxy` v2, `atlas-tts-proxy` v8) now dynamically reflect `http://localhost:<port>` as an allowed CORS origin -- unblocks local-dev voice testing without weakening prod (`Vary: Origin` set correctly).
+- **BATCH 3 (STT client):** Pre-check `getSession()` BEFORE opening the mic instead of after recording is done. 30s `AbortController` timeout on the transcription fetch (a hung call used to lock the panel with no recovery short of reload). Client-side also drops the mp4 fallback -- an unsupported browser gets a clear "needs Chrome/Edge/Android Chrome" error before the mic opens.
+- **BATCH 4 (chat sync -- the biggest batch):** `atlas_ai_history_ts` timestamp marker now bumped on every local save, not only on pull (the load-bearing fix -- old behaviour caused pull to see the older cloud row as newer than a just-typed local message and overwrite it). `pullChatHistory()` now MERGES the cloud response with the local copy by message id via a new `mergeChatMessages()` in `aiConfig.js`, never wholesale-replaces (fixes the init-race where a pull firing during panel-open would silently wipe a message the user just sent). `_pushMessage` stamps `createdAt: Date.now()` for stable merge ordering. `pushChatHistory()` is now debounced (1500ms trailing) AND serialized (one at a time) -- a 4-message exchange used to fire 8 get+update round-trips, now collapses to one push per burst. 200-message cap enforced at both save-local and push-cloud time. **Migration 027** adds a partial-unique-index on `((true))` to `atlas_ai_chat` so a race can never insert a duplicate row (which would break `.maybeSingle()` forever).
+- **BATCH 5 (ticker + sync UI):** Insight ticker's sleep-window check now anchored to IST explicitly (matching the noon-IST digest cron) instead of `new Date().getHours()` -- travel no longer shifts Abhishek's sleep window with him. New tiny coral `.ai-sync-dot` in the AI panel header, hidden by default, appears only when a chat push has failed. Read from a new `chatSyncStatus()` hook in `aiConfig.js`, polled every 3s while the panel is open.
+
+`service-worker.js` -> `v96`.
+
+**What was verified live:** Both edge functions deployed successfully and correctly reflect `Access-Control-Allow-Origin: http://localhost:5520` in preflight (curl-tested). Migration 027 applied cleanly (0 existing rows in atlas_ai_chat when the unique index was added, so no data cleanup needed first). `node --check` clean on every touched file. Zero duplicate method declarations in `aiPanel.js`. Local dev boots with zero console errors. Full end-to-end voice/chat-sync testing by a human still needed -- I can't test voice recording in this environment.
+
+**What's still open:**
+- Abhishek's pick from the three ticker design variants -- then a proper production CSS pass on the ticker (currently still on the tint-fill+edge treatment he wanted redone).
+- Real re-test of everything, especially the mic + chat sync merge behavior across two devices.
+- Deploy pipeline was still stuck queued (run #161 from earlier) at commit time -- fixes may need manual MilesWeb upload if the GitHub Actions outage continues.
+
+**What NOT to do:** Don't reintroduce the mp4/MP3 encoding branch in atlas-stt-proxy without a real Safari testing plan (there isn't one -- no iOS devices). Don't remove the debounce or serialization on chat push without a specific reason -- rapid message bursts will otherwise race and spam the DB. Don't switch pull back to wholesale-replace -- the merge is deliberate.
+
+---
+
 ## 2026-08-08 · Claude Code (Sonnet 5) — comprehensive build: full task/reminder lifecycle, project-linked create, real health trend awareness, Google Cloud STT, cross-device chat sync
 
 **Session scope:** After three rounds of live-testing patches the same day, Abhishek explicitly asked for a stop to one-bug-at-a-time fixes and a proper systematic pass instead — "give it all, everything: whatever the database and tables have, chat-running actions, completing... I don't mind if it takes a week." He named the priorities (task/reminder lifecycle awareness, project linking, sleep/workout trend awareness "very important," STT if I was confident about key reuse) and explicitly delegated sequencing/depth/timing to me. This entry covers that whole build, done in one continuous pass, commit `92f4637`.
