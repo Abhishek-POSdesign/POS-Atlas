@@ -27,6 +27,28 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-07 · Claude Code (Sonnet 5) — July health-data backfill, two real chart bugs fixed, Voice-First Conversational Logging plan approved (not yet built)
+
+**Session scope:** Continuation of the same day's work. Three things happened, in order: (1) backfilled July's sleep/workout history from 38 of Abhishek's own ring-app screenshots so trend features have more than 2 weeks of real data behind them, (2) diagnosed and fixed two real bugs he caught live-testing that backfill (workout consistency rings undercounting, sleep chart hover showing the wrong day), (3) planned — in detail, plain English, explicitly approved, not yet built — the next real feature: **Voice-First Conversational Logging**, a durable multi-turn "gather then confirm" mechanism meant to replace the old one-shot AI write flows for good. See the new `## Voice-First Conversational Logging` section in `PLAN.md` for the full plan; `CLAUDE.md` now has the matching architecture rule.
+
+**What shipped (commits):**
+- July data backfill (24 sleep nights incl. one he sent separately, 15 workouts + matching `atlas_workout_sessions` rows) — written directly via SQL after manually reading each screenshot; verified zero overwrite of his real Jul 25–Aug 6 entries first. No commit (data only, not code).
+- `13392a9` — `workoutWeekAggregate` reworked to count real distinct days trained per week (uncapped) instead of summing sessions capped at each activity's own weekly target — the old logic showed a real 5-workout-day week as 3/7 because 4 of those days were all "strength" against a strength target of only 2. Confirmed via direct SQL that the underlying data was correct; the bug was purely in how the ring measured it. Green threshold is now ≥4 days/week, matching Abhishek's own stated floor ("I never work out less than 4 days").
+- Same commit — sleep chart hover hitboxes were flex-distributed evenly across the chart width, but the actual plotted points sit inside a left-axis margin and are NOT evenly spaced that way, so hovering a dot could show a neighboring day's numbers. Each invisible hitbox is now anchored to its own point's real x-position.
+- `service-worker.js` → `v90`.
+- Three empty "chore: retrigger deploy" commits (`b821608`, `e1947ea`, `3e23347`) — GitHub Actions had a rough stretch this session (2 fast "Set up job / Service Unavailable" failures + 1 run that hung 15 minutes then got cancelled). Not a code problem; retried until a run went green. Flagging for future sessions: if a push seems to not be landing, check `https://github.com/Abhishek-POSdesign/POS-Atlas/actions` before assuming the code is wrong — this happened three times in one session and was infra every time.
+
+**What was verified live:** Abhishek confirmed the ring bug and hover bug directly from live screenshots before any fix was written (both root-caused against real data/code, not guessed). Fix itself not yet re-confirmed live by him as of this entry — check next session.
+
+**What's still open:**
+- **Voice-First Conversational Logging is APPROVED and PLANNED but ZERO code has been written for it.** Do not assume any part of it exists. Full detail + build sequence is in `PLAN.md`. Start at Phase 1 (the reusable Conversational Action mechanism itself, proven against sleep logging) — do not jump to voice or to task/reminder creation first, the sequence in the plan is deliberate.
+- The old AI write-flow layer (`WRITE_FLOWS` in `aiContext.js`, the two-call extraction architecture in `aiPanel.js`) is what's being replaced/rebuilt on top of, not deleted wholesale before the new mechanism works — read the plan's Section 2 before touching `aiPanel.js`.
+- Two of the 5 HRV values Abhishek sent this session were given in a follow-up message after an initially ambiguous count mismatch — double-check `atlas_sleep_logs` for `2026-07-14/19/20/21/22` if any of this ever looks off; values used were 34/32/37/30/37 respectively, taken from his own explicit correction.
+
+**What NOT to do:** Don't start building Phase B (hands-free/wake-word voice) — that's explicitly a separate future decision per the plan, not part of this build. Don't silently save anything from a voice or chat conversation without an explicit final confirm — that rule is now locked in `CLAUDE.md`.
+
+---
+
 ## 2026-08-07 · Claude Code (Sonnet 5) — live-testing feedback on the AI Insight Ticker: reload flicker fixed, tab persistence added, ticker colors softened
 
 **Session scope:** Abhishek tested the just-shipped AI Insight Ticker live and sent a screenshot + feedback: (1) a recurring "reload sometimes reverts to a previous state" bug he'd raised before and thought was fixed, (2) reload always lands on Today instead of wherever he was, (3) the ticker's coral card read as alarming, not inviting, (4) the insight sentence itself needed more visual weight. Diagnosed each before touching code rather than guessing.

@@ -130,6 +130,21 @@ Full detail in `handover-docs/CLAUDE.md` under "Reliability" and "Module boundar
 
 ---
 
+## AI Conversational Actions (voice-first logging & creation) — architecture rule, approved 2026-08-07
+
+**Status: planned and approved, build in progress per `PLAN.md`'s `🎯 NEXT UP` section — read that section for the full spec before touching this area.** This section is the permanent rule; `PLAN.md` carries the build detail and sequence.
+
+Every AI-driven write in Atlas — logging sleep, logging a workout, creating a task, creating a reminder, and every future one Abhishek adds over the app's lifetime — goes through **one shared mechanism**, a **Conversational Action**: a name, a field list, which fields are worth actively asking about if unmentioned, and a write target. New actions are added by defining that list, never by hand-writing a new bespoke flow. If a change to this area requires writing a new one-off flow instead of a new Conversational Action definition, stop — that means the mechanism has drifted from its intended shape.
+
+**Locked rules for this mechanism, do not weaken any of them:**
+- **A draft persists across the whole conversation.** No AI write flow may judge a single message in isolation while claiming to be "collecting" information — if it can't remember what was already said two turns ago, it isn't a Conversational Action.
+- **Ask about one missing field at a time, in plain language — never a bulk checklist, never silently drop an unmentioned field without asking.** The user must be able to say "I don't have that" and have the field marked as deliberately skipped, never asked again for that entry.
+- **Nothing is ever written to the database without an explicit final confirmation** — a real "yes," spoken or tapped, after Atlas reads the whole draft back. This is the single most important rule in this section: it's what makes voice input safe. A misheard word can produce a wrong draft; it must never be able to produce a wrong write.
+- **Voice is Phase A only: a tap-to-talk full conversation (listen → gather → confirm → save), not hands-free/wake-word.** Always-on background listening ("Hey Atlas" with no tap) is a deliberately separate future phase — do not build toward it, even partially, without Abhishek explicitly reopening that as its own decision.
+- **No provider lock-in.** This mechanism must work identically on both the local (Ollama) and cloud (Gemini/`pos-partner`) providers, using the existing provider toggle — do not add a code path that only works with one model.
+
+---
+
 ## Local dev
 
 - Static server from `Deploy/`. No build step. Serve via `.claude/launch.json`'s `atlas-test` config (or equivalent) at http://localhost:5520.

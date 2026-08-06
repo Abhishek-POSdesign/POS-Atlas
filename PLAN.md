@@ -10,6 +10,59 @@ Sibling docs:
 
 **Last updated:** 2026-08-07
 
+## 🎯 NEXT UP — Voice-First Conversational Logging (plan approved 2026-08-07, ZERO code written yet)
+
+**Read this section before starting any work in this repo.** This is the next real build, explicitly approved by Abhishek in-session after a full plan review. Nothing described below exists in the codebase yet — check `SESSION_LOG.md`'s 2026-08-07 entry of the same name if you need the surrounding context, but this section itself is the authoritative spec. Build in the order given; do not skip ahead to voice or to task/reminder creation before Phase 1 works.
+
+### The problem this replaces
+
+Atlas already has an AI write-flow system (`WRITE_FLOWS` in `features/aiContext.js`, the two-call extraction architecture in `ui/aiPanel.js`) — but it was found, on close reading, to be fundamentally **single-shot**: every message is judged completely alone, with no memory of earlier turns in the same logging attempt. If you say "log my sleep, 8 hours, score 77," it extracts exactly those two fields from that one sentence and immediately shows a confirm card — it never asks about anything you didn't mention, because there is no mechanism to ask a follow-up question and remember the answer. This is also *why* the intent detector only recognizes very specific keyword patterns — a natural opening like "I want to log my data" matches nothing and silently falls through to plain chat. And task/reminder **creation** was never built as a flow at all — only marking an existing task done. This all lines up with Abhishek's own account of the earlier attempt: real bugs, not a vague complaint (see `PLAN.md`'s older "AI layer" backlog entry below, now superseded by this section).
+
+### What Abhishek actually wants (his words, condensed)
+
+Talk to Atlas the way you'd talk to a person — "Atlas, log my sleep" — and have it hold an actual back-and-forth: it asks about what you didn't mention, one thing at a time ("you didn't mention HRV — do you have that, or should I leave it blank?"), you can say no and it moves on, and only once everything is filled or deliberately skipped does it read the whole entry back and ask "should I add it?" Nothing saves without that explicit yes. He wants this to work by **voice** as much as possible, since he'll be using it on the go, not sitting typing. And he wants this built as a **durable pattern**, not a one-off feature — he's explicit that he'll want dozens more of these over the years this app is in use, and each new one should be cheap to add, not a rebuild.
+
+### The core mechanism — one pattern, reused forever
+
+Do not build "sleep logging," "workout logging," "task creation," and "reminder creation" as four separate hand-written flows. Build **one mechanism**, called a **Conversational Action**, that all four (and every future one) plug into. A Conversational Action is just:
+- a name,
+- a list of fields it needs,
+- which of those fields matter enough to actively ask about if not mentioned (vs. fine to silently leave blank),
+- and where the finished draft gets written once confirmed.
+
+**How one conversation runs, step by step:**
+1. The user says something that starts an action ("log my workout," eventually just "Atlas, log this").
+2. Atlas opens a running draft for that action and **keeps it alive across every message in the conversation** — this is the actual fix for the old bug. Nothing that was already said gets forgotten turn to turn.
+3. After each message, Atlas checks — in plain deterministic code, not by asking the model to remember — which important fields are still empty, and asks about exactly **one** of them at a time, conversationally.
+4. "I don't have that" marks the field as deliberately skipped, not missing — it is never asked about again for that entry.
+5. Once every field is filled or explicitly skipped, Atlas reads the whole draft back in one sentence and asks for confirmation.
+6. **Only an explicit yes writes anything to the database.** This is a hard rule, not a preference — see the matching entry in `CLAUDE.md`. It exists specifically so a misheard word from voice input can never silently corrupt real data.
+
+The confirm-card UI and the actual verified database write (`flow.write()`, `verifiedInsert`/`verifiedUpdate`) already exist and already work safely — none of that changes. Only what happens *before* the confirm card appears is being rebuilt.
+
+### Voice — two phases, only Phase A is part of this build
+
+- **Phase A (this build):** a real spoken back-and-forth. Tap the mic once, then the entire gather-questions-confirm conversation happens by voice — Atlas listens, Atlas replies out loud, no typing or screen-reading required until it's done. Atlas already has both raw pieces (`toggleVoice()` for speech-to-text, `_speak()`/Cloud TTS for text-to-speech in `aiPanel.js`) — they're just not wired into a multi-turn conversation today. This is genuinely buildable now.
+- **Phase B (explicitly NOT part of this build — a separate future decision):** always-listening, hands-free, true "Hey Atlas" wake-word activation with no tap at all. This is a materially bigger, separate piece of engineering (background mic access has real battery/privacy/browser limitations — most mobile browsers won't let a website listen in the background at all). **Do not start Phase B without Abhishek explicitly reopening it as its own conversation.** Building toward it silently while "just doing Phase A" is exactly the kind of scope-creep this note exists to prevent.
+
+### What gets built, in this order (do not reorder)
+
+1. **The Conversational Action mechanism itself** — the running draft, the missing-field check, the one-question-at-a-time follow-up, the final read-back-and-confirm. Build and prove this against **sleep logging first**, since it already exists today and gives a direct old-vs-new comparison.
+2. **Workout logging moved onto the same mechanism.** Should be fast — same pattern, second instance.
+3. **Two brand-new actions: create a task, create a reminder.** The first genuinely new capability this unlocks — these don't exist as conversational flows at all today, only "mark an existing task done" does.
+4. **Looser trigger phrases** so natural language ("I want to log my data," "add a task") reliably starts the right conversation — and if it's genuinely ambiguous which action is meant, Atlas asks instead of silently doing nothing (today's failure mode).
+5. **The full voice loop wired through everything above** — Phase A only, per the scope note.
+
+### Model choice — settled, do not relitigate
+
+This does **not** require Claude specifically, and does not require locking the whole app to one provider. The intelligence needed is narrow — pull a value out of a sentence, phrase a short natural follow-up question — and both the existing local (Ollama) and cloud (Gemini via `pos-partner`) options can do that adequately. The actual reliability of this feature comes from the deterministic "what's still missing" logic living in plain JavaScript, not from which model answers. Keep the existing provider toggle exactly as it is; do not add a Claude-only code path.
+
+### Why this is built this way — for whoever picks this up years from now
+
+Every future "log X" or "create Y" idea Abhishek has should mean writing down what it needs, in plain English, and slotting it into this same mechanism — same safety rule (nothing saves without an explicit yes), same voice behavior, same one-question-at-a-time style. If a future change to this feature means writing a new bespoke flow instead of adding a new Conversational Action definition, that's a sign the mechanism itself has been broken from its intended shape — stop and reconsider before proceeding.
+
+---
+
 ## 🆕 2026-08-07 — AI Insight Ticker (daily digest) shipped, plus a real production bug fixed
 
 **A genuinely new feature, explicitly requested and approved by Abhishek in-session (not a backlog item picked up on initiative)** — see `SESSION_LOG.md`'s 2026-08-07 "AI Insight Ticker" entry for the full build detail. Short version: a new Supabase Edge Function (`atlas-daily-digest`) runs once a day at 12:00 PM IST via `pg_cron`, gathers deterministic facts (carried tasks, Finance Manager bills due within 3 days, today's unmarked morning checklist items, yesterday's skipped items, sleep/workout 7-day trend, quiet projects), asks Gemini to pick+phrase up to 5 worth showing, and writes them to a new `atlas_ai_insights` table (migration `024`). Today's page shows them in a rotating "Worth knowing" ticker (`.ai-ticker`, solid accent fill, 8s rotation) that **live-rechecks each item against current state** and drops it the instant it's resolved (e.g. a carried task gets completed) — it does not wait for tomorrow's regeneration. Clicking a slide opens the AI panel pre-loaded with that topic via a new `atlas:ask-ai` window event (listened for in `aiPanel.js`). Separately, the same function reads recent sleep/workout/journal free-text notes and, when it spots a genuine recurring pattern, writes one compact entry into the existing `atlas_ai_notebook` (tagged `source:'auto'`), auto-consolidating once those pile past 6 entries — same memory store the manual Notebook already used, just with a second writer now.
@@ -66,7 +119,8 @@ Everything below was explicitly deferred rather than built during Phase 1 close-
 - **An unclear point about task status labeling ("posed"/"paused")** raised 2026-07-31 that didn't come through clearly (likely a dictation artifact) — Abhishek explicitly said to leave it rather than guess. If he raises it again, ask him to restate it plainly rather than assuming what "posed" meant.
 
 **AI layer:**
-- **The AI write-flow action layer remains FAILED/DEFERRED from 2026-07-28**, and separately, its trigger path was confirmed still live/reachable during the 2026-07-29 audit — Abhishek's explicit call was to leave it live and observe during the testing week rather than disable it. **This needs a real decision in Phase 2**: either the full architectural rewrite the original failure verdict called for, or an explicit permanent kill-switch if manual editing is the long-term answer. Don't let "he said leave it" from the testing-week context quietly become the permanent Phase 2 position without asking again.
+- **SUPERSEDED 2026-08-07 — see the `🎯 NEXT UP — Voice-First Conversational Logging` section at the very top of this file.** The line below is kept for history only; the "needs a real decision" it asks for has now been made — the decision is the new section above, not a kill-switch. The old AI write-flow action layer (FAILED/DEFERRED from 2026-07-28) is being rebuilt on top of, not deleted first — read the new section before touching `aiPanel.js`/`aiContext.js`.
+- ~~The AI write-flow action layer remains FAILED/DEFERRED from 2026-07-28, and separately, its trigger path was confirmed still live/reachable during the 2026-07-29 audit — Abhishek's explicit call was to leave it live and observe during the testing week rather than disable it. This needs a real decision in Phase 2: either the full architectural rewrite the original failure verdict called for, or an explicit permanent kill-switch if manual editing is the long-term answer.~~
 - Per-view Fact Package binding (every message currently carries `explain_day`/`explain_history` regardless of which page the panel was opened from).
 - Web search grounding citations (Cloud/Gemini) — deployed, unverified whether surfacing source links is worth doing.
 - TTS's em-dash strip can still cut off part of a spoken reply if the model uses an em-dash mid-sentence (non-urgent, found in the 2026-07-29 audit, not yet fixed).
