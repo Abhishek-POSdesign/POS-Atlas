@@ -38,6 +38,8 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 - Fixed a wrong icon path (`/family/icon-192.png` doesn't exist; the family manifest already reuses the root `/icon-192.png`) caught before it shipped broken.
 - `service-worker.js` v85→v86; `family/service-worker.js` v1→v2.
 
+**Follow-up same day (commit `0ffec35`):** 4-week workout consistency was anchored on a rolling "today minus 27 days" window sliced into 7-day blocks, not real calendar weeks -- confirmed via direct feedback, the current week's label read "Jul 31-Aug 6" despite Aug 6 being a Thursday, not a week boundary. Fixed to anchor on the real Monday of the current week (same Monday-anchoring formula `calendar.js` already uses), verified the date math with a standalone script before shipping. `service-worker.js` v86→v87.
+
 **What was verified:** `node --check` clean on every touched JS file. CSS brace balance and HTML div/template balance checked (one false-positive template-count mismatch traced to the literal word "template" appearing inside my own explanatory HTML comment -- confirmed real balance was fine once comments were stripped before counting). Read live `atlas_sleep_logs`/`atlas_workout_targets`/`atlas_workout_sessions` rows directly via SQL before concluding root cause on both chart bugs, rather than guessing from the screenshot alone.
 
 **What's still open:**
