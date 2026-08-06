@@ -672,6 +672,26 @@ export const DB = {
         }
     },
 
+    // AI chat history sync (migration 026, added 2026-08-08) -- single row,
+    // whole message array, same shape/pattern as AiNotebook above.
+    AiChat: {
+        async get() {
+            const { data, error } = await supabase
+                .from('atlas_ai_chat')
+                .select('*')
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async save(messages) {
+            const existing = await this.get();
+            if (existing) {
+                return verifiedUpdate('atlas_ai_chat', existing.id, { messages });
+            }
+            return verifiedInsert('atlas_ai_chat', { messages });
+        }
+    },
+
     // Only the streak (kind='streak') side of Targets is built -- Phase 3 owns
     // the count_toward_goal card UI and its own methods here.
     Targets: {

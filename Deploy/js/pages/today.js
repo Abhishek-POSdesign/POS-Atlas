@@ -218,8 +218,29 @@ export function todayPage(nav) {
                 console.error('Checklist ring refresh failed:', e);
             }
         },
+        // Fixed 2026-08-08: this used to query strictly for today's date, which
+        // is empty from midnight until the noon digest runs -- exactly
+        // Abhishek's own working hours on his night-shift schedule, since he's
+        // typically awake and working until ~4am and asleep 6am-noon. Now:
+        // before 6am, fall back to showing last session's (still noon-
+        // generated, still live-rechecked by aiVisibleInsights) insights
+        // instead of going blank; 6am-noon it hides entirely (his sleep
+        // window, nothing to show); from noon on it reads today's fresh row
+        // as before. Matches the schedule he described exactly -- don't
+        // revert to a plain "today only" query.
         async loadAiInsights(calendarDate) {
-            const row = await DB.AiInsights.getForDate(calendarDate);
+            const hour = new Date().getHours();
+            if (hour >= 6 && hour < 12) {
+                this.aiInsights = [];
+                this._startAiInsightRotation();
+                return;
+            }
+            let row = await DB.AiInsights.getForDate(calendarDate);
+            if (!row && hour < 6) {
+                const y = new Date(calendarDate + 'T00:00:00');
+                y.setDate(y.getDate() - 1);
+                row = await DB.AiInsights.getForDate(y.toLocaleDateString('en-CA'));
+            }
             this.aiInsights = row ? (row.items || []) : [];
             this._startAiInsightRotation();
         },

@@ -150,8 +150,12 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
     const sleepByDay = [];
     for (let d = startDate; d <= endDate; d = addDays(d, 1)) {
         const row = curSleep.find(s => s.entry_date === d);
+        // Enriched 2026-08-08: HRV/resting HR/morning note used to be saved but
+        // never surfaced here, so the AI couldn't discuss or spot patterns in
+        // them even when directly asked -- this is what actually makes trend
+        // conversation possible, not just averages.
         sleepByDay.push(row
-            ? `${d}: ${fmtDur(row.duration_minutes) || 'no duration'}${row.sleep_score != null ? ', score ' + row.sleep_score : ''}`
+            ? `${d}: ${fmtDur(row.duration_minutes) || 'no duration'}${row.sleep_score != null ? ', score ' + row.sleep_score : ''}${row.hrv != null ? ', HRV ' + row.hrv + 'ms' : ''}${row.resting_hr != null ? ', resting HR ' + row.resting_hr + 'bpm' : ''}${row.deep_minutes != null ? ', deep ' + row.deep_minutes + 'm' : ''}${row.rem_minutes != null ? ', REM ' + row.rem_minutes + 'm' : ''}${row.morning_note ? ', note: "' + row.morning_note.slice(0, 140) + '"' : ''}`
             : `${d}: no sleep log`);
     }
     const sleepDurs = curSleep.filter(s => s.duration_minutes != null).map(s => s.duration_minutes);
@@ -161,10 +165,29 @@ async function buildExplainHistory({ startDate, endDate, compare = false, label 
 
     // ---- workout ----
     const curWorkout = workoutRows.filter(inCurrent);
-    const workoutByDay = curWorkout.map(w => `${w.entry_date}: ${w.day_type || 'unspecified'}${w.workout_score != null ? ', score ' + w.workout_score : ''}${w.calories != null ? ', ' + w.calories + ' cal' : ''}`);
     const curSessions = sessionRows.filter(s => {
         const d = s.atlas_workout_logs?.entry_date;
         return d && d >= startDate && d <= endDate;
+    });
+    // Enriched 2026-08-08: neither the day-level note nor any session detail
+    // (activity type, intensity, per-session note) was ever surfaced here --
+    // the AI could see "score 82" but never why, or what he actually did.
+    // Sessions are grouped per day so a day with several sessions reads as
+    // one line, not a fragmented list.
+    const sessionsByDate = {};
+    for (const s of curSessions) {
+        const d = s.atlas_workout_logs?.entry_date;
+        if (!d) continue;
+        if (!sessionsByDate[d]) sessionsByDate[d] = [];
+        sessionsByDate[d].push(s);
+    }
+    const workoutByDay = curWorkout.map(w => {
+        let line = `${w.entry_date}: ${w.day_type || 'unspecified'}${w.workout_type ? ' (' + w.workout_type + ')' : ''}${w.workout_score != null ? ', score ' + w.workout_score : ''}${w.calories != null ? ', ' + w.calories + ' cal' : ''}${w.vo2_max != null ? ', VO2 ' + w.vo2_max : ''}${w.note ? ', note: "' + w.note.slice(0, 140) + '"' : ''}`;
+        const daySessions = sessionsByDate[w.entry_date];
+        if (daySessions && daySessions.length) {
+            line += '; sessions: ' + daySessions.map(s => `${s.activity_type}${s.duration_minutes != null ? ' ' + s.duration_minutes + 'm' : ''}${s.intensity ? ' (' + s.intensity + ')' : ''}${s.note ? ' -- "' + s.note.slice(0, 100) + '"' : ''}`).join(', ');
+        }
+        return line;
     });
 
     // ---- checklist ----
@@ -377,6 +400,54 @@ export const WRITE_FLOWS = {
         async write(fields) {
             if (!fields.task_id) throw new Error('Task not identified -- confirm card should have supplied the ID');
             return DB.Tasks.complete(fields.task_id, null);
+        }
+    },
+    // start_task/pause_task/delete_task added 2026-08-08 -- the full task
+    // lifecycle Abhishek can already do by hand (start/resume, pause with a
+    // reason, soft-delete) now has an AI-triggerable path too, not just
+    // completion. Same resolve-from-cache-then-confirm shape as
+    // complete_task, sharing its numbered-list dynamic context and
+    // resolution helper (_resolveTaskFromFields in aiPanel.js) rather than
+    // duplicating the matching logic three more times.
+    start_task: {
+        title: 'Draft · Start task',
+        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+        fields: [
+            { key: 'task_name', label: 'Task', type: 'text' }
+        ],
+        // Dynamic context (numbered task list) is prepended by _extractFields() before this string
+        extractionInstruction: 'When the message says to start, resume, or begin working on a specific task/reminder from the list, extract these fields and return exactly this JSON:\n{"intent":"start_task","fields":{"task_number":number|null,"task_name":string|null,"note":string|null}}\nField semantics: task_number = 1-based number from the list above. task_name = exact name verbatim if he named it -- do not paraphrase. Set one of task_number/task_name, not both. note = what he says he\'s doing right now, if he says it (e.g. "start task 3, working on the API docs" -> note: "working on the API docs"). Use null for note if not said.\nIf the message does not mention starting/resuming a task from the list, or is ambiguous about which one, return {"intent":null}.',
+        async write(fields) {
+            if (!fields.task_id) throw new Error('Task not identified -- confirm card should have supplied the ID');
+            return DB.Tasks.start(fields.task_id, fields.note || null);
+        }
+    },
+    pause_task: {
+        title: 'Draft · Pause task',
+        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>',
+        fields: [
+            { key: 'task_name', label: 'Task', type: 'text' }
+        ],
+        extractionInstruction: 'When the message says to pause, stop, or put down a specific in-progress task from the list, extract these fields and return exactly this JSON:\n{"intent":"pause_task","fields":{"task_number":number|null,"task_name":string|null,"reason":string|null}}\nField semantics: task_number = 1-based number from the list above. task_name = exact name verbatim if he named it -- do not paraphrase. Set one of task_number/task_name, not both. reason = why he\'s pausing it, if he says it. Use null for reason if not said.\nIf the message does not mention pausing a task from the list, or is ambiguous about which one, return {"intent":null}.',
+        async write(fields) {
+            if (!fields.task_id) throw new Error('Task not identified -- confirm card should have supplied the ID');
+            return DB.Tasks.update(fields.task_id, { status: 'paused', running_note: fields.reason || null });
+        }
+    },
+    delete_task: {
+        title: 'Draft · Delete task',
+        icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
+        fields: [
+            { key: 'task_name', label: 'Task', type: 'text' }
+        ],
+        extractionInstruction: 'When the message clearly asks to delete or remove a specific task/reminder from the list (not just complete it), extract these fields and return exactly this JSON:\n{"intent":"delete_task","fields":{"task_number":number|null,"task_name":string|null}}\nField semantics: task_number = 1-based number from the list above. task_name = exact name verbatim if he named it -- do not paraphrase. Set one field; set the other to null.\nOnly trigger for an explicit delete/remove request, never for "done"/"complete" language -- that is a different action.\nIf the message does not mention deleting a task from the list, or is ambiguous about which one, return {"intent":null}.',
+        // Soft-delete only, same as the manual Delete button -- confirmDraft()
+        // in aiPanel.js queues the same 8-second undo toast right after this
+        // succeeds, matching the app-wide destructive-action rule (two-step
+        // confirm + safety net), not a bespoke exception for AI-triggered deletes.
+        async write(fields) {
+            if (!fields.task_id) throw new Error('Task not identified -- confirm card should have supplied the ID');
+            return DB.Tasks.softDelete(fields.task_id);
         }
     },
     mark_checklist: {

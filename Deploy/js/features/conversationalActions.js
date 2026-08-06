@@ -138,15 +138,17 @@ export const CONVERSATIONAL_ACTIONS = {
         startPattern: /\b((add|create|make|new)\s+(a\s+)?task\b|\btask\s*:|\bi\s+need\s+to\s+(add|create)\s+a\s+task)\b/,
         fields: [
             { key: 'name', label: 'Name', type: 'text', ask: true, required: true, extractHint: 'the task name/title, verbatim', question: "What should the task be called?" },
+            { key: 'project', label: 'Project', type: 'text', ask: true, required: false, extractHint: 'the project name it belongs to, if he names one', question: "Which project is this for, or should it stand alone?" },
             { key: 'scheduled_date', label: 'Date', type: 'date', ask: true, required: false, extractHint: 'the date it\'s scheduled for, resolved to YYYY-MM-DD (today/tomorrow/a weekday name all count)', question: "What date is it for? You can say \"today\", \"tomorrow\", or a date." },
             { key: 'scheduled_time', label: 'Time', type: 'time', ask: true, required: false, extractHint: 'the time of day, resolved to 24-hour HH:MM', question: "Does it need a specific time, or just the date?" },
             { key: 'running_note', label: 'Note', type: 'text', ask: true, required: false, extractHint: 'any extra detail about the task', question: "Any notes to attach to it?" }
         ],
         async write(fields) {
+            const { projectId, matched } = await resolveProjectId(fields.project);
             const row = {
                 name: fields.name,
                 kind: 'task',
-                project_id: null,
+                project_id: projectId,
                 scheduled_date: fields.scheduled_date || null,
                 scheduled_time: fields.scheduled_time || null,
                 notify_enabled: false,
@@ -154,7 +156,9 @@ export const CONVERSATIONAL_ACTIONS = {
                 status: 'not_started'
             };
             if (fields.running_note) row.running_note = fields.running_note;
-            return DB.Tasks.create(row);
+            const created = await DB.Tasks.create(row);
+            created._projectRequestedButUnmatched = !!fields.project && !matched;
+            return created;
         }
     },
     create_reminder: {
@@ -164,15 +168,17 @@ export const CONVERSATIONAL_ACTIONS = {
         startPattern: /\b((add|create|set|new)\s+(a\s+)?remind(er)?\b|\bremind\s+me\b)/,
         fields: [
             { key: 'name', label: 'Name', type: 'text', ask: true, required: true, extractHint: 'what the reminder is for, verbatim', question: "What should I remind you about?" },
+            { key: 'project', label: 'Project', type: 'text', ask: true, required: false, extractHint: 'the project name it belongs to, if he names one', question: "Which project is this for, or should it stand alone?" },
             { key: 'scheduled_date', label: 'Date', type: 'date', ask: true, required: false, extractHint: 'the date it\'s for, resolved to YYYY-MM-DD (today/tomorrow/a weekday name all count)', question: "What date?" },
             { key: 'scheduled_time', label: 'Time', type: 'time', ask: true, required: false, extractHint: 'the time of day, resolved to 24-hour HH:MM', question: "What time should it fire?" },
             { key: 'running_note', label: 'Note', type: 'text', ask: true, required: false, extractHint: 'any extra detail', question: "Any notes to attach to it?" }
         ],
         async write(fields) {
+            const { projectId, matched } = await resolveProjectId(fields.project);
             const row = {
                 name: fields.name,
                 kind: 'reminder',
-                project_id: null,
+                project_id: projectId,
                 scheduled_date: fields.scheduled_date || null,
                 scheduled_time: fields.scheduled_time || null,
                 notify_enabled: true,
@@ -180,10 +186,30 @@ export const CONVERSATIONAL_ACTIONS = {
                 status: 'not_started'
             };
             if (fields.running_note) row.running_note = fields.running_note;
-            return DB.Tasks.create(row);
+            const created = await DB.Tasks.create(row);
+            created._projectRequestedButUnmatched = !!fields.project && !matched;
+            return created;
         }
     }
 };
+
+// Resolves a spoken/typed project name against the real, currently-running
+// project list. Exact match first, then a one-directional substring match
+// (handles "Atlas" matching "POS_Atlas Development") only when it's
+// unambiguous. Never blocks the save on a miss -- a task/reminder that
+// named a project it couldn't match still gets created, just standalone;
+// the caller (aiPanel.js) tells the user that happened via
+// `_projectRequestedButUnmatched` rather than silently dropping the intent.
+async function resolveProjectId(nameGuess) {
+    if (!nameGuess) return { projectId: null, matched: true };
+    const projects = await DB.Projects.listActive();
+    const needle = nameGuess.trim().toLowerCase();
+    const exact = projects.filter(p => p.name.toLowerCase() === needle);
+    if (exact.length === 1) return { projectId: exact[0].id, matched: true };
+    const partial = projects.filter(p => p.name.toLowerCase().includes(needle) || needle.includes(p.name.toLowerCase()));
+    if (partial.length === 1) return { projectId: partial[0].id, matched: true };
+    return { projectId: null, matched: false };
+}
 
 // ---- Trigger detection ----
 // Deterministic -- no model call. Returns { action } on a clean single

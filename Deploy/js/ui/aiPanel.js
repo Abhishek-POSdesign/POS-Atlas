@@ -27,7 +27,7 @@ import { showUndoToast } from '../components/undo-toast.js';
 import {
     loadConfig, saveConfig, loadPersona, savePersona,
     hasPin as pinExists, setPin, checkPin, clearPin,
-    loadChatHistory, saveChatHistory, clearChatHistory,
+    loadChatHistory, saveChatHistory, clearChatHistory, pushChatHistory, pullChatHistory,
     loadNotebookLocal, saveNotebookLocal, pushNotebook, pullNotebook,
     sendToProvider, buildSystemPrompt, getNotebookContext
 } from '../features/aiConfig.js';
@@ -60,8 +60,13 @@ function dayLabel(dateStr) {
     return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-let speechRecognition = null;   // module-level, not reactive -- avoids Alpine proxy issues with a browser API object
-let _recognitionWatchdog = null;  // setTimeout id -- forces a hard reset if the browser never fires onend/onerror (confirmed real, not hypothetical -- see toggleVoice() comments)
+// Voice capture state -- module-level, not reactive (avoids Alpine proxy
+// issues with browser API objects). MediaRecorder-based since 2026-08-08
+// (see toggleVoice() for why) -- these replace the old speechRecognition var.
+let _mediaRecorder = null;
+let _mediaStream = null;
+let _mediaChunks = [];
+let _recordingWatchdog = null;
 let _taskCache = null;          // populated from explain_day packages; used for complete_task resolution
 let _checklistCache = null;     // populated from explain_day packages; used for mark_checklist resolution
 let _checklistDate = null;      // todayKey() value matching _checklistCache
@@ -138,6 +143,7 @@ export function atlasAi() {
             if (window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
             this.hasPin = pinExists();
             this.messages = loadChatHistory();
+            pullChatHistory().then(messages => { if (messages) { this.messages = messages; this.$nextTick(() => this._scrollToBottom()); } });
             this.notebookEntries = loadNotebookLocal();
             pullNotebook().then(() => { this.notebookEntries = loadNotebookLocal(); });
 
@@ -303,8 +309,15 @@ export function atlasAi() {
 
         _pushMessage(msg) {
             this.messages.push(Object.assign({ id: crypto.randomUUID(), date: todayIsoDate(), time: nowLabel() }, msg));
-            saveChatHistory(this.messages);
+            this._persistChatHistory();
             this.$nextTick(() => this._scrollToBottom());
+        },
+        // Local save (fast path, always) + fire-and-forget cloud push (added
+        // 2026-08-08 for cross-device sync) -- every mutation point that used
+        // to call saveChatHistory() directly now goes through this instead.
+        _persistChatHistory() {
+            saveChatHistory(this.messages);
+            pushChatHistory(this.messages);
         },
         _pushAssistantText(text, providerLabel) {
             const msgId = 'msg_' + Date.now() + '_' + Math.floor(Math.random()*1000);
@@ -485,7 +498,8 @@ export function atlasAi() {
             this.thinking = true;
 
             // For task/checklist: fetch task data first (needed in extraction context + caches)
-            if (detectedIntent === 'complete_task' || detectedIntent === 'mark_checklist') {
+            if (detectedIntent === 'complete_task' || detectedIntent === 'mark_checklist' ||
+                detectedIntent === 'start_task' || detectedIntent === 'pause_task' || detectedIntent === 'delete_task') {
                 try {
                     const pkg = await buildFactPackage('explain_day');
                     if (pkg._taskList) _taskCache = pkg._taskList;
@@ -620,6 +634,17 @@ export function atlasAi() {
                 const fieldDocs = action.fields.map(f => `"${f.key}": ${f.extractHint}`).join('\n');
                 const schemaKeys = action.fields.map(f => `"${f.key}":${f.type === 'number' ? 'number|null' : 'string|null'}`).join(',');
                 const focusHint = currentFieldKey ? `The user was just asked specifically about "${currentFieldKey}". If their reply is a bare value with no other context, it belongs there.` : '';
+                // create_task/create_reminder have a "project" field -- give the
+                // model the real, current project names so a loose spoken match
+                // ("the Atlas one") has a real list to resolve against, instead
+                // of guessing at a name resolveProjectId() then can't match.
+                let projectHint = '';
+                if (action.fields.some(f => f.key === 'project')) {
+                    try {
+                        const projects = await DB.Projects.listActive();
+                        if (projects.length) projectHint = `\nHis current projects (match "project" against these names if he references one, even loosely -- e.g. "the Atlas one" -> the closest name below): ${projects.map(p => p.name).join(', ')}`;
+                    } catch (e) { /* project list is a nice-to-have for extraction; degrade quietly */ }
+                }
                 // Deliberately does NOT ask the model to report "declined" fields
                 // anymore -- that was a real bug (2026-08-08): the model could
                 // silently mark a field skipped on its own judgment, which is
@@ -629,7 +654,7 @@ export function atlasAi() {
                 // the specific question asked about it (see isDeclineAnswer()
                 // in conversationalActions.js) -- extraction here only ever
                 // fills in values, never removes the need to ask about one.
-                const systemContent = `Extract structured data from the user's message for a ${action.label} entry. Return ONLY valid JSON, no prose: {${schemaKeys}}\n${todayCtx}\nField meanings:\n${fieldDocs}\n${focusHint}\nDates must resolve to YYYY-MM-DD, times to 24-hour HH:MM. Use null for anything not mentioned. Do not invent values.`;
+                const systemContent = `Extract structured data from the user's message for a ${action.label} entry. Return ONLY valid JSON, no prose: {${schemaKeys}}\n${todayCtx}\nField meanings:\n${fieldDocs}\n${focusHint}${projectHint}\nDates must resolve to YYYY-MM-DD, times to 24-hour HH:MM. Use null for anything not mentioned. Do not invent values.`;
                 const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: false };
                 const reply = await sendToProvider([{ role: 'system', content: systemContent }, { role: 'user', content: userText }], cfg);
                 return this._parseJsonReply(reply);
@@ -724,7 +749,7 @@ export function atlasAi() {
         // Builds the numbered task/checklist list used in the extraction call context
         // for complete_task and mark_checklist. Empty string for other intents.
         _buildDynamicContext(detectedIntent) {
-            if (detectedIntent === 'complete_task' && _taskCache && _taskCache.length) {
+            if ((detectedIntent === 'complete_task' || detectedIntent === 'start_task' || detectedIntent === 'pause_task' || detectedIntent === 'delete_task') && _taskCache && _taskCache.length) {
                 return 'Current pending task list (1-based numbers):\n' +
                     _taskCache.map((t, i) => `${i + 1}. ${t.name}`).join('\n') + '\n';
             }
@@ -759,6 +784,28 @@ export function atlasAi() {
 
             if (intent === 'complete_task') {
                 this._handleTaskCompletion(parsed.fields || {}, this._currentProviderLabel());
+                return;
+            }
+            if (intent === 'start_task') {
+                this._handleTaskLifecycleAction(parsed.fields || {}, this._currentProviderLabel(), {
+                    flowKey: 'start_task', title: 'Draft · Start task',
+                    icon: WRITE_FLOWS.start_task.icon, extraRawFields: { note: parsed.fields && parsed.fields.note || null }
+                });
+                return;
+            }
+            if (intent === 'pause_task') {
+                this._handleTaskLifecycleAction(parsed.fields || {}, this._currentProviderLabel(), {
+                    flowKey: 'pause_task', title: 'Draft · Pause task',
+                    icon: WRITE_FLOWS.pause_task.icon, extraRawFields: { reason: parsed.fields && parsed.fields.reason || null },
+                    extraCardField: parsed.fields && parsed.fields.reason ? { k: 'Reason', v: parsed.fields.reason } : null
+                });
+                return;
+            }
+            if (intent === 'delete_task') {
+                this._handleTaskLifecycleAction(parsed.fields || {}, this._currentProviderLabel(), {
+                    flowKey: 'delete_task', title: 'Draft · Delete task',
+                    icon: WRITE_FLOWS.delete_task.icon
+                });
                 return;
             }
             if (intent === 'mark_checklist') {
@@ -992,12 +1039,17 @@ export function atlasAi() {
         // handled upstream by _isMemorySaveRequest().
         _detectIntent(text) {
             const t = text.toLowerCase();
-            // Task/reminder completion: clear "done" language. Reminders are
-            // rows in the same atlas_tasks table (kind='reminder') and
-            // resolve through the exact same _taskCache/_handleTaskCompletion
-            // path -- confirmed live 2026-08-08 that saying "reminder"
-            // instead of "task" fell through to plain chat, which then
-            // wrongly claimed Atlas can't mark anything done at all.
+            // Task/reminder lifecycle -- start/pause/delete checked BEFORE the
+            // generic completion check below, since a message like "pause
+            // task 2, I'm done for now" contains "done" but isn't a
+            // completion. Reminders resolve through the exact same
+            // _taskCache/_resolveTaskFromFields path as tasks throughout --
+            // confirmed live 2026-08-08 that "reminder"-only wording used to
+            // fall through to plain chat and get wrongly denied.
+            if (/\b(delete|remove|discard)\b/.test(t) && /\b(task|reminder)\b/.test(t)) return 'delete_task';
+            if (/\b(pause|hold\s+off\s+on|put\s+.*\bon\s+hold)\b/.test(t) && /\b(task|reminder)\b/.test(t)) return 'pause_task';
+            if (/\b(start|resume|begin|continue)\b/.test(t) && /\b(task|reminder)\b/.test(t)) return 'start_task';
+            // Task/reminder completion: clear "done" language.
             if (/\b(task|reminder)\b/.test(t) && /\b(done|finish(ed)?|complet(e|ed)?|mark(ed)?(\s+done)?)\b/.test(t)) return 'complete_task';
             if (/\b(finish(ed)?|complet(e|ed)?|done\s+with|knocked?\s+out)\b/.test(t) && /\b(task|reminder)\b/.test(t)) return 'complete_task';
             // Checklist marking
@@ -1016,11 +1068,14 @@ export function atlasAi() {
             return null;
         },
 
-        // Resolves a task-completion intent against the cached task list.
-        _handleTaskCompletion(fields, providerLabel) {
+        // Shared task resolution against the cached list -- number match first,
+        // then exact-name match. Used by complete/start/pause/delete so the
+        // matching behavior (and its failure message) is identical no matter
+        // which lifecycle action asked for it, rather than four near-copies
+        // that could quietly drift apart.
+        _resolveTaskFromFields(fields) {
             if (!_taskCache || !_taskCache.length) {
-                this._pushAssistantText("I don't have the task list loaded yet -- try sending your message again.", providerLabel);
-                return;
+                return { task: null, message: "I don't have the task list loaded yet -- try sending your message again." };
             }
             const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
             let task = null;
@@ -1035,12 +1090,15 @@ export function atlasAi() {
             }
             if (!task) {
                 const list = _taskCache.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
-                this._pushAssistantText(
-                    "I couldn't identify which task you meant. Say the task number or its exact name. Your pending tasks:\n" + list,
-                    providerLabel
-                );
-                return;
+                return { task: null, message: "I couldn't identify which task you meant. Say the task number or its exact name. Your pending tasks:\n" + list };
             }
+            return { task, message: null };
+        },
+
+        // Resolves a task-completion intent against the cached task list.
+        _handleTaskCompletion(fields, providerLabel) {
+            const { task, message } = this._resolveTaskFromFields(fields);
+            if (!task) { this._pushAssistantText(message, providerLabel); return; }
             this._pushMessage({
                 role: 'assistant',
                 type: 'confirm',
@@ -1050,6 +1108,28 @@ export function atlasAi() {
                     fields: [{ k: 'Task', v: task.name }],
                     flowKey: 'complete_task',
                     rawFields: { task_id: task.id, task_name: task.name }
+                },
+                decided: null
+            });
+        },
+
+        // Shared confirm-card builder for start/pause/delete -- same
+        // resolve-then-confirm shape as _handleTaskCompletion above, just
+        // parameterized on the flow/title/icon/extra fields each one needs.
+        _handleTaskLifecycleAction(fields, providerLabel, opts) {
+            const { task, message } = this._resolveTaskFromFields(fields);
+            if (!task) { this._pushAssistantText(message, providerLabel); return; }
+            const cardFields = [{ k: 'Task', v: task.name }];
+            if (opts.extraCardField) cardFields.push(opts.extraCardField);
+            this._pushMessage({
+                role: 'assistant',
+                type: 'confirm',
+                draft: {
+                    title: opts.title,
+                    icon: opts.icon,
+                    fields: cardFields,
+                    flowKey: opts.flowKey,
+                    rawFields: Object.assign({ task_id: task.id, task_name: task.name }, opts.extraRawFields || {})
                 },
                 decided: null
             });
@@ -1137,16 +1217,23 @@ export function atlasAi() {
             if (flowKey.startsWith('__conv:')) {
                 const actionKey = flowKey.slice(7);
                 try {
-                    await CONVERSATIONAL_ACTIONS[actionKey].write(msg.draft.rawFields);
+                    const result = await CONVERSATIONAL_ACTIONS[actionKey].write(msg.draft.rawFields);
                     msg.decided = 'saved';
                     if (this.activeAction && this.activeAction._confirmMsgId === msg.id) this.activeAction = null;
                     window.dispatchEvent(new CustomEvent('atlas:data-changed', { detail: { source: actionKey } }));
-                    this._pushAssistantText('Saved.');
+                    // create_task/create_reminder: a named project that didn't
+                    // match anything still saves (standalone), but say so --
+                    // never silently drop the project intent without a word.
+                    if (result && result._projectRequestedButUnmatched) {
+                        this._pushAssistantText(`Saved -- but I couldn't match "${msg.draft.rawFields.project}" to one of your projects, so it's standalone for now. You can link it from the app.`);
+                    } else {
+                        this._pushAssistantText('Saved.');
+                    }
                 } catch (e) {
                     msg.decided = null;
                     this.errorMsg = 'Save failed: ' + e.message;
                 }
-                saveChatHistory(this.messages);
+                this._persistChatHistory();
                 return;
             }
             const flow = WRITE_FLOWS[flowKey];
@@ -1165,9 +1252,22 @@ export function atlasAi() {
                 } else {
                     // All other flows: write is verified inside flow.write() (uses verifiedInsert/Update)
                     await flow.write(msg.draft.rawFields);
+                    // delete_task is a destructive action -- gets the exact same
+                    // 8-second undo toast the manual Delete button queues (see
+                    // deleteTaskOnToday() in pages/today.js), not a bespoke
+                    // exception for the AI-triggered path.
+                    if (flowKey === 'delete_task') {
+                        const taskId = msg.draft.rawFields.task_id;
+                        const taskName = msg.draft.rawFields.task_name;
+                        showUndoToast(`Deleted "${taskName}"`, async () => {
+                            await DB.Tasks.restoreFromTrash(taskId);
+                            window.dispatchEvent(new CustomEvent('atlas:data-changed', { detail: { source: 'delete_task_undo' } }));
+                        });
+                    }
                     // Dispatch cross-component refresh event so Today page panels update without reload
                     if (flowKey === 'log_workout' || flowKey === 'log_sleep' ||
-                        flowKey === 'complete_task' || flowKey === 'mark_checklist') {
+                        flowKey === 'complete_task' || flowKey === 'mark_checklist' ||
+                        flowKey === 'start_task' || flowKey === 'pause_task' || flowKey === 'delete_task') {
                         window.dispatchEvent(new CustomEvent('atlas:data-changed', { detail: { source: flowKey } }));
                     }
                 }
@@ -1181,14 +1281,14 @@ export function atlasAi() {
                 msg.decided = null;
                 this.errorMsg = 'Save failed: ' + e.message;
             }
-            saveChatHistory(this.messages);
+            this._persistChatHistory();
         },
         cancelDraft(msg) {
             msg.decided = 'cancelled';
             if (msg.draft.flowKey && msg.draft.flowKey.startsWith('__conv:') && this.activeAction && this.activeAction._confirmMsgId === msg.id) {
                 this.activeAction = null;
             }
-            saveChatHistory(this.messages);
+            this._persistChatHistory();
         },
 
         async pinMessage(m) {
@@ -1261,47 +1361,104 @@ export function atlasAi() {
             clearChatHistory();
         },
 
-        // Voice capture -- one universal method for every turn, in or out of a
-        // Conversational Action. Redesigned 2026-08-08 after live testing found
-        // the previous auto-send-on-pause design (voiceExchange + an
-        // auto-relisten loop after every spoken reply) genuinely unreliable: it
-        // cut sentences off the instant the browser detected a pause (even
-        // mid-thought), and an aggressive auto-relisten window could pick up
-        // Atlas's own TTS reply as if it were the user speaking. This is
-        // deliberately simpler and matches CLAUDE.md's "tap-to-talk" wording
-        // literally: tap to start, speak for as long as you want (pauses do
-        // NOT end it), tap again to stop. Stopping only fills the composer --
-        // it never auto-sends, so a mis-transcription can be caught and fixed
-        // before it ever reaches the AI, exactly the review step manual typing
-        // already gives for free.
+        // Voice capture -- rebuilt 2026-08-08 on Google Cloud Speech-to-Text
+        // (atlas-stt-proxy), replacing the browser's native SpeechRecognition
+        // API entirely. That API turned out to be genuinely unreliable in
+        // real use (sessions ending themselves regardless of continuous:true,
+        // cutting sentences off, occasionally picking up Atlas's own spoken
+        // reply). MediaRecorder -- record a finished clip, then transcribe it
+        // server-side -- doesn't have any of that live-session flakiness;
+        // start/stop are plain, well-supported browser primitives. Same
+        // interaction model as before: tap to start, speak as long as you
+        // want, tap again to stop -- it fills the composer, never auto-sends,
+        // so a mis-transcription can be caught before it reaches the AI.
         toggleVoice() {
-            if (speechRecognition) { try { speechRecognition.stop(); } catch (e) {} return; }
+            if (_mediaRecorder && _mediaRecorder.state === 'recording') {
+                try { _mediaRecorder.stop(); } catch (e) {}
+                return;
+            }
             if (this._voiceBlockedByPlayback()) { this.errorMsg = 'Wait for Atlas to finish talking first.'; return; }
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) { this.errorMsg = 'Voice input is not supported in this browser.'; return; }
-            speechRecognition = new SpeechRecognition();
-            speechRecognition.lang = 'en-US';
-            speechRecognition.interimResults = false;
-            speechRecognition.continuous = true;
-            speechRecognition.onstart = () => { this.listening = true; this.errorMsg = ''; this._armRecognitionWatchdog(); };
-            speechRecognition.onresult = (event) => {
-                let transcript = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) transcript += event.results[i][0].transcript;
-                this.draft = (this.draft ? this.draft + ' ' : '') + transcript.trim();
-                this.$nextTick(() => this.autoGrowComposer());
+            this._startRecording();
+        },
+
+        async _startRecording() {
+            if (!navigator.mediaDevices || !window.MediaRecorder) {
+                this.errorMsg = 'Voice input is not supported in this browser.';
+                return;
+            }
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (e) {
+                this.errorMsg = 'Microphone access denied or unavailable.';
+                return;
+            }
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+                : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+            if (!mimeType) {
+                this.errorMsg = 'Voice input is not supported in this browser.';
+                stream.getTracks().forEach(t => t.stop());
+                return;
+            }
+            _mediaStream = stream;
+            _mediaChunks = [];
+            _mediaRecorder = new MediaRecorder(stream, { mimeType });
+            _mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) _mediaChunks.push(e.data); };
+            _mediaRecorder.onstop = () => {
+                this.listening = false;
+                clearTimeout(_recordingWatchdog);
+                if (_mediaStream) { _mediaStream.getTracks().forEach(t => t.stop()); _mediaStream = null; }
+                const chunks = _mediaChunks;
+                _mediaChunks = [];
+                _mediaRecorder = null;
+                if (chunks.length) this._transcribeRecording(chunks, mimeType);
             };
-            speechRecognition.onerror = (event) => {
-                if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                    this.errorMsg = 'Voice input error: ' + event.error + ' -- you can still type.';
+            _mediaRecorder.start();
+            this.listening = true;
+            this.errorMsg = '';
+            // Safety cap, not a normal-use limit -- stop a forgotten-open mic
+            // after 3 minutes rather than let it record indefinitely.
+            clearTimeout(_recordingWatchdog);
+            _recordingWatchdog = setTimeout(() => {
+                if (_mediaRecorder && _mediaRecorder.state === 'recording') { try { _mediaRecorder.stop(); } catch (e) {} }
+            }, 180000);
+        },
+
+        async _transcribeRecording(chunks, mimeType) {
+            const blob = new Blob(chunks, { type: mimeType });
+            this.thinking = true;
+            this.errorMsg = '';
+            try {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(String(reader.result).split(',')[1] || '');
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+                const session = getSession();
+                if (!session) throw new Error('not signed in');
+                const res = await fetch('https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/atlas-stt-proxy', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audio_base64: base64, mime_type: mimeType })
+                });
+                if (!res.ok) throw new Error('transcription request failed');
+                const data = await res.json();
+                if (data.text) {
+                    this.draft = (this.draft ? this.draft + ' ' : '') + data.text;
+                    this.$nextTick(() => this.autoGrowComposer());
+                } else {
+                    this.errorMsg = "Didn't catch that -- try again.";
                 }
-            };
-            speechRecognition.onend = () => { clearTimeout(_recognitionWatchdog); speechRecognition = null; this.listening = false; };
-            try { speechRecognition.start(); } catch (e) { speechRecognition = null; this.listening = false; }
+            } catch (e) {
+                this.errorMsg = 'Voice transcription failed: ' + e.message + ' -- you can still type.';
+            }
+            this.thinking = false;
         },
 
         // True while Atlas's own voice could still be audible -- covers both
         // the cloud-TTS <audio> element and the browser speechSynthesis
-        // fallback. Checked before every recognition start so the mic can
+        // fallback. Checked before every recording start so the mic can
         // never pick up Atlas's own reply and mistake it for the user
         // speaking (confirmed live 2026-08-08 -- a spoken read-back got
         // transcribed back in as if the user had said it).
@@ -1309,23 +1466,6 @@ export function atlasAi() {
             if (this.currentCloudAudio && !this.currentCloudAudio.paused && !this.currentCloudAudio.ended) return true;
             if (window.speechSynthesis && window.speechSynthesis.speaking) return true;
             return false;
-        },
-
-        // Safety valve: the Web Speech API is known to sometimes never fire
-        // onend/onerror at all (browser-dependent). Without this, a stuck
-        // session leaves speechRecognition non-null and the mic button red
-        // forever, with no way to reach it again (toggleVoice no-ops while a
-        // session is already open -- that's its stop path, but only if the
-        // browser cooperates). Force a hard reset after 60s no matter what
-        // the browser does -- generous on purpose, this is a safety net for
-        // real browser bugs, not a normal-use limit.
-        _armRecognitionWatchdog() {
-            clearTimeout(_recognitionWatchdog);
-            _recognitionWatchdog = setTimeout(() => {
-                if (speechRecognition) { try { speechRecognition.abort(); } catch (e) {} }
-                speechRecognition = null;
-                this.listening = false;
-            }, 60000);
         },
 
         handleGlobalKey(event) {

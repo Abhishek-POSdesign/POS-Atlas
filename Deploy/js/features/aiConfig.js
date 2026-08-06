@@ -39,7 +39,7 @@ const DEFAULT_PERSONA = {
     // system prompt only fires for that fallback chat path (Track C) --
     // Track B/D's own deterministic triggers are unaffected by this text --
     // but that fallback should never claim a capability gap that isn't real.
-    instructions: 'You CAN log sleep, log a workout, create a task or reminder, mark a task/reminder/checklist item done, and save a note to the AI Memory Notebook -- all through this conversation, always with an explicit confirm step before anything saves. If Abhishek asks for one of these and it seems like the app didn\'t pick up on it, don\'t say you can\'t do it -- suggest he try more direct wording instead (e.g. "log my sleep, 8 hours" or "mark task X done"). You may never claim something was saved, logged, completed, recorded, or marked UNLESS a confirm card was actually shown and confirmed in this conversation -- never claim a write happened from this prose reply alone. You are a supportive, warm mate/coach. Read the provided sleep, workout, and notes facts and use them in conversation contextually. Use these facts to give insights, spot patterns over days/weeks, and ask thoughtful follow-up questions, not just repeat numbers.'
+    instructions: 'You CAN log sleep, log a workout, create a task or reminder (standalone or linked to a project), start/resume a task, pause a task, delete a task or reminder, mark a task/reminder/checklist item done, and save a note to the AI Memory Notebook -- all through this conversation, always with an explicit confirm step before anything saves. If Abhishek asks for one of these and it seems like the app didn\'t pick up on it, don\'t say you can\'t do it -- suggest he try more direct wording instead (e.g. "log my sleep, 8 hours", "mark task X done", "pause task X", "delete reminder Y"). You may never claim something was saved, logged, completed, recorded, started, paused, or deleted UNLESS a confirm card was actually shown and confirmed in this conversation -- never claim a write happened from this prose reply alone. You are a supportive, warm mate/coach. Read the provided sleep, workout, and notes facts and use them in conversation contextually. Use these facts to give insights, spot patterns over days/weeks, and ask thoughtful follow-up questions, not just repeat numbers.'
 };
 
 export function loadPersona() {
@@ -72,13 +72,17 @@ export function clearPin() {
     localStorage.removeItem('atlas_ai_pin');
 }
 
-// ---- Chat history (24h wipe, local only -- ephemeral, never synced) ----
+// ---- Chat history: local read (fast path) + cloud sync, added 2026-08-08.
+// Used to be local-only with a 24h auto-wipe -- fine for a scratch
+// conversation on one device, not once Abhishek started relying on it
+// seriously across phone and desktop (confirmed live: a phone conversation
+// didn't carry over to desktop at all). Same shape and same last-write-wins
+// pattern as the AI Memory Notebook sync just below -- one row, whole
+// message array, updated_at compared against a local timestamp marker.
 export function loadChatHistory() {
     try {
         const raw = JSON.parse(localStorage.getItem('atlas_ai_history') || 'null');
-        if (!raw) return [];
-        if (Date.now() - (raw.ts || 0) > 86400000) { localStorage.removeItem('atlas_ai_history'); return []; }
-        return raw.messages || [];
+        return raw ? (raw.messages || []) : [];
     } catch (e) { return []; }
 }
 export function saveChatHistory(messages) {
@@ -86,6 +90,33 @@ export function saveChatHistory(messages) {
 }
 export function clearChatHistory() {
     localStorage.removeItem('atlas_ai_history');
+    localStorage.removeItem('atlas_ai_history_ts');
+    pushChatHistory([]); // fire-and-forget -- clear the cloud copy too, otherwise the next pull on another device silently brings the "cleared" chat back
+}
+// Fire-and-forget cloud push, same tolerance as pushNotebook -- a failed
+// push just means the local copy stays authoritative until the next one.
+export async function pushChatHistory(messages) {
+    try { await DB.AiChat.save(messages); }
+    catch (e) { console.warn('[Atlas AI] chat cloud sync failed:', e.message); }
+}
+// Last-write-wins pull: only replaces the local copy if the cloud row is
+// newer than our last known local write. Returns the messages array if it
+// pulled something newer, or null if the local copy is already current --
+// the caller only needs to update its reactive state in the former case.
+export async function pullChatHistory() {
+    try {
+        const row = await DB.AiChat.get();
+        if (!row) return null;
+        const localTs = parseInt(localStorage.getItem('atlas_ai_history_ts') || '0', 10);
+        const remoteTs = new Date(row.updated_at).getTime();
+        if (remoteTs > localTs) {
+            const messages = row.messages || [];
+            localStorage.setItem('atlas_ai_history', JSON.stringify({ ts: Date.now(), messages }));
+            localStorage.setItem('atlas_ai_history_ts', String(remoteTs));
+            return messages;
+        }
+        return null;
+    } catch (e) { return null; }
 }
 
 // ---- AI Memory Notebook: local read (fast path) + cloud backup ----
