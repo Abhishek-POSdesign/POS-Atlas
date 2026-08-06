@@ -26,7 +26,7 @@ serve(async (req) => {
     const nowUtc = new Date()
     const nowIST = new Date(nowUtc.getTime() + 5.5 * 60 * 60 * 1000)
     const hourIST = nowIST.getUTCHours()
-    
+
     if (hourIST >= 5 && hourIST < 12) {
       console.log('Silent period active (IST). Skipping notifications.')
       return new Response(JSON.stringify({ message: 'Silent period active' }), {
@@ -40,44 +40,12 @@ serve(async (req) => {
     // Time formatted as HH:MM:SS
     const timeStr = nowIST.toISOString().split('T')[1].split('.')[0]
 
-    // Find tasks that are due today and the time has passed, but not in push history
-    const { data: tasks, error: taskError } = await adminClient
-      .from('atlas_tasks')
-      .select('*, atlas_push_history(id)')
-      .in('status', ['not_started', 'in_progress'])
-      .eq('notify_enabled', true)
-      .eq('scheduled_date', dateStr)
-      .lte('scheduled_time', timeStr)
-
-    if (taskError) {
-      throw taskError
-    }
-
-    // Filter out tasks that already have a push history entry
-    const pendingTasks = tasks.filter((t: any) => !t.atlas_push_history || t.atlas_push_history.length === 0)
-
-    if (pendingTasks.length === 0) {
-      return new Response(JSON.stringify({ message: 'No new tasks to notify' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      })
-    }
-
-    // Setup Web Push
     webpush.setVapidDetails(
       'mailto:atlas-admin@example.com',
       Deno.env.get('ATLAS_VAPID_PUBLIC_KEY')!,
       Deno.env.get('ATLAS_VAPID_PRIVATE_KEY')!
     )
 
-    // We only want to send push to the correct user. 
-    // Gather all user IDs that have pending tasks
-    const userIds = [...new Set(pendingTasks.map((t: any) => t.project_id))] 
-    // Wait, in atlas_tasks there is no user_id, there is project_id. But profiles have user_id. 
-    // Actually, pos_push_subscriptions has user_id. We need to join atlas_tasks -> atlas_projects -> profiles?
-    // Let's just fetch all subscriptions for the users who own these tasks!
-    
-    // Actually, in a personal OS where there's only 1 user, we can just fetch ALL subscriptions.
     const { data: subscriptions, error: subError } = await adminClient
       .from('pos_push_subscriptions')
       .select('*')
@@ -91,7 +59,47 @@ serve(async (req) => {
       })
     }
 
-    const results = []
+    async function sendToAllSubs(payload: string) {
+      const sendResults = []
+      for (const sub of subscriptions!) {
+        const pushSubscription = {
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth }
+        }
+        try {
+          await webpush.sendNotification(pushSubscription, payload)
+          sendResults.push({ success: true, endpoint: sub.endpoint })
+        } catch (err: any) {
+          console.error('Push error:', err)
+          if (err.statusCode === 410 || err.statusCode === 404) {
+            await adminClient.from('pos_push_subscriptions').delete().eq('id', sub.id)
+          }
+          sendResults.push({ success: false, endpoint: sub.endpoint, error: err.message })
+        }
+      }
+      return sendResults
+    }
+
+    const results: any[] = []
+
+    // ---- Tasks & reminders ----
+    // Dedup is per-day (sent_date), not "any push_history row ever" -- a
+    // task/reminder notified today is skipped today, but is eligible again
+    // tomorrow if still pending, and (the actual bug fix) a snooze that
+    // moves scheduled_date/scheduled_time to a new slot is never
+    // permanently locked out by an old notification from before the snooze.
+    const { data: tasks, error: taskError } = await adminClient
+      .from('atlas_tasks')
+      .select('*, atlas_push_history(id)')
+      .in('status', ['not_started', 'in_progress'])
+      .eq('notify_enabled', true)
+      .eq('scheduled_date', dateStr)
+      .lte('scheduled_time', timeStr)
+      .eq('atlas_push_history.sent_date', dateStr)
+
+    if (taskError) throw taskError
+
+    const pendingTasks = (tasks || []).filter((t: any) => !t.atlas_push_history || t.atlas_push_history.length === 0)
 
     for (const task of pendingTasks) {
       const payload = JSON.stringify({
@@ -101,44 +109,56 @@ serve(async (req) => {
         icon: './icon-192.png',
         actions: [
           { action: 'complete', title: 'Complete' },
-          { action: 'snooze', title: 'Snooze 1h' }
+          { action: 'snooze', title: 'Snooze' }
         ]
       })
+      const sendResults = await sendToAllSubs(payload)
+      const successCount = sendResults.filter(r => r.success).length
+      results.push({ type: 'task', task: task.name, sendResults })
 
-      let successCount = 0
-      for (const sub of subscriptions) {
-        // Technically, in a multi-user app we would match sub.user_id to task owner.
-        // For Personal OS, we send to all devices of this single user.
-        const pushSubscription = {
-          endpoint: sub.endpoint,
-          keys: {
-            p256dh: sub.p256dh,
-            auth: sub.auth
-          }
-        }
-        
-        try {
-          await webpush.sendNotification(pushSubscription, payload)
-          results.push({ success: true, endpoint: sub.endpoint, task: task.name })
-          successCount++
-        } catch (err: any) {
-          console.error('Push error:', err)
-          if (err.statusCode === 410 || err.statusCode === 404) {
-            await adminClient.from('pos_push_subscriptions').delete().eq('id', sub.id)
-          }
-          results.push({ success: false, endpoint: sub.endpoint, error: err.message })
-        }
+      // Only log as sent if delivery actually succeeded at least once --
+      // an unconditional log here would permanently exclude this task from
+      // ever notifying again (same class of bug as the dedup fix above).
+      if (successCount > 0) {
+        await adminClient.from('atlas_push_history').insert({ task_id: task.id, sent_date: dateStr })
       }
-
-      // If at least one push was successful (or even if we attempted it and failed, we might want to log it),
-      // we log it to history so we don't spam them every minute if their device is offline.
-      // Actually, if it's 410 (unsubscribed), we still want to log it to avoid retrying forever.
-      await adminClient.from('atlas_push_history').insert({
-        task_id: task.id
-      })
     }
 
-    return new Response(JSON.stringify({ message: 'Processed tasks', results }), {
+    // ---- Checklist items (per-item opt-in, added 2026-08-06) ----
+    // A routine item with notify_enabled=true and a notify_time due now.
+    // Same per-day dedup shape as tasks above, own table since checklist
+    // items and tasks have separate lifecycles.
+    const { data: checklistItems, error: clError } = await adminClient
+      .from('atlas_checklist_items')
+      .select('*, atlas_checklist_push_history(id)')
+      .eq('notify_enabled', true)
+      .is('deleted_at', null)
+      .is('archived_at', null)
+      .not('notify_time', 'is', null)
+      .lte('notify_time', timeStr)
+      .eq('atlas_checklist_push_history.sent_date', dateStr)
+
+    if (clError) throw clError
+
+    const pendingChecklist = (checklistItems || []).filter((i: any) => !i.atlas_checklist_push_history || i.atlas_checklist_push_history.length === 0)
+
+    for (const item of pendingChecklist) {
+      const payload = JSON.stringify({
+        title: 'Routine Reminder',
+        body: item.name,
+        data: { url: '/' },
+        icon: './icon-192.png'
+      })
+      const sendResults = await sendToAllSubs(payload)
+      const successCount = sendResults.filter(r => r.success).length
+      results.push({ type: 'checklist_item', item: item.name, sendResults })
+
+      if (successCount > 0) {
+        await adminClient.from('atlas_checklist_push_history').insert({ item_id: item.id, sent_date: dateStr })
+      }
+    }
+
+    return new Response(JSON.stringify({ message: 'Processed', taskCount: pendingTasks.length, checklistCount: pendingChecklist.length, results }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })

@@ -357,24 +357,6 @@ export function calendarPage(nav) {
                 return at < bt ? -1 : (at > bt ? 1 : 0);
             });
         },
-        // Future-date summary -- grouped by project (or "no project"), counts
-        // only. Used instead of selectedTasks' per-item rows so a future day
-        // reads as a glimpse ("3 tasks, 1 reminder") rather than a workspace.
-        get selectedTaskGroups() {
-            const groups = {};
-            for (const t of this.selectedTasks) {
-                const key = t.project_id || '__none__';
-                if (!groups[key]) groups[key] = { project_id: t.project_id || null, tasks: 0, reminders: 0 };
-                if (t.kind === 'reminder') groups[key].reminders++; else groups[key].tasks++;
-            }
-            return Object.values(groups);
-        },
-        taskGroupLabel(g) {
-            const parts = [];
-            if (g.tasks) parts.push(g.tasks + ' task' + (g.tasks === 1 ? '' : 's'));
-            if (g.reminders) parts.push(g.reminders + ' reminder' + (g.reminders === 1 ? '' : 's'));
-            return parts.join(' · ');
-        },
         get selectedProjectWork() {
             const logs = this._taskLogRows
                 .filter(l => l.entry_date === this.selectedDate)
@@ -428,12 +410,6 @@ export function calendarPage(nav) {
             if (!ok) return;
             setPendingTask(task);
             if (task.project_id) nav.onOpenProject(task.project_id);
-            else nav.onGoToday();
-        },
-        async goToTaskGroup(g) {
-            const ok = await askConfirm('Open this in Tasks? You\'ll leave the Calendar view.', { confirmLabel: 'Open', isDanger: false });
-            if (!ok) return;
-            if (g.project_id) nav.onOpenProject(g.project_id);
             else nav.onGoToday();
         },
         async openProjectWorkDrillDown(entry) {

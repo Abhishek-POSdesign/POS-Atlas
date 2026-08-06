@@ -163,10 +163,37 @@ document.addEventListener('alpine:init', () => {
         overlay: null, // null | 'notebook' | 'restore'
         projectViewId: null,
 
+        // ---- Snooze picker (2026-08-06) ----
+        // Global, not owned by any one page's x-data, since a push
+        // notification's "Snooze" tap can land on whatever tab happens to
+        // be open (or none, if the app was closed) -- push-client.js
+        // dispatches a plain window event rather than reaching into a
+        // specific page's Alpine scope.
+        snoozePickerOpen: false,
+        snoozeTaskId: null,
+        snoozeError: '',
+
         async init() {
             this.session = await initAuth();
             this.authReady = true;
             onSessionChange((s) => { this.session = s; });
+            window.addEventListener('atlas:snooze-request', (e) => {
+                this.snoozeTaskId = e.detail.taskId;
+                this.snoozeError = '';
+                this.snoozePickerOpen = true;
+            });
+        },
+        closeSnoozePicker() {
+            this.snoozePickerOpen = false;
+            this.snoozeTaskId = null;
+        },
+        async chooseSnooze(minutes) {
+            const result = await applySnooze(this.snoozeTaskId, minutes);
+            if (result.ok) {
+                this.closeSnoozePicker();
+            } else {
+                this.snoozeError = result.error || 'Could not snooze. Please try again.';
+            }
         },
         async doSignOut() {
             await signOut();
@@ -194,6 +221,6 @@ document.addEventListener('alpine:init', () => {
 window.Alpine = Alpine;
 Alpine.start();
 
-import { PushClient } from './push-client.js';
+import { PushClient, applySnooze } from './push-client.js';
 window.PushClient = PushClient;
 

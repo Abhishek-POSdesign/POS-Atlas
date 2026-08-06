@@ -159,13 +159,18 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function handlePushAction(action, taskId) {
-    if (!window.supabase) return; // DB not loaded
-    
+    // 2026-08-06: this used to guard on `!window.supabase` -- but nothing
+    // in this codebase ever sets window.supabase (confirmed via a full-repo
+    // search), so that check was always true and this whole function
+    // silently no-op'd on every single push action, Complete included.
+    // The module's own imported `supabase` client (from supabase-client.js,
+    // top of this file) is what every DB call below actually uses and is
+    // always ready once this module has loaded -- no guard needed.
     if (action === 'complete') {
         const { error } = await supabase.from('atlas_tasks')
             .update({ status: 'completed', completed_at: new Date().toISOString() })
             .eq('id', taskId);
-        
+
         if (!error && window.undoToast) {
             window.undoToast.show('Task marked as completed via Push');
         }
@@ -174,27 +179,53 @@ async function handlePushAction(action, taskId) {
             window.loadTasks();
         }
     } else if (action === 'snooze') {
-        // Snooze adds 1 hour to scheduled_time
-        const { data: task } = await supabase.from('atlas_tasks').select('scheduled_time').eq('id', taskId).single();
-        if (task && task.scheduled_time) {
-            const timeParts = task.scheduled_time.split(':');
-            let date = new Date();
-            date.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]), parseInt(timeParts[2] || 0));
-            date.setHours(date.getHours() + 1); // Add 1 hour
-            
-            const newTime = date.getHours().toString().padStart(2, '0') + ':' + 
-                            date.getMinutes().toString().padStart(2, '0') + ':00';
-            
-            const { error } = await supabase.from('atlas_tasks')
-                .update({ scheduled_time: newTime })
-                .eq('id', taskId);
-                
-            if (!error && window.undoToast) {
-                window.undoToast.show('Task snoozed for 1 hour');
-            }
-            if (typeof window.loadTasks === 'function') {
-                window.loadTasks();
-            }
-        }
+        // 2026-08-06: no longer commits a fixed +1 hour here. A push
+        // notification can't fit 3 duration buttons (browsers cap
+        // notification actions at 2), so "Snooze" now opens a small
+        // in-app picker (15/30/60 min) instead -- app() in main.js listens
+        // for this event and shows it regardless of which tab is open.
+        window.dispatchEvent(new CustomEvent('atlas:snooze-request', { detail: { taskId } }));
+    }
+}
+
+// Applies a chosen snooze duration to a task's scheduled_date + time
+// together, not scheduled_time alone (2026-08-06 fix). The old version
+// only ever touched scheduled_time, computed off "now" rather than the
+// task's own scheduled_date -- a snooze that crossed midnight silently
+// wrote a time that no longer matched the task's real date, and a task
+// already overdue by more than a day got snoozed relative to the wrong
+// day entirely. This combines the task's real scheduled_date+scheduled_time
+// into one Date, adds the offset, then writes both fields back.
+export async function applySnooze(taskId, minutes) {
+    if (!taskId) return { ok: false, error: 'No task selected' };
+    try {
+        const { data: task, error: fetchErr } = await supabase
+            .from('atlas_tasks')
+            .select('scheduled_date, scheduled_time')
+            .eq('id', taskId)
+            .single();
+        if (fetchErr || !task) throw new Error(fetchErr?.message || 'Task not found');
+
+        const baseDate = task.scheduled_date || new Date().toLocaleDateString('en-CA');
+        const baseTime = task.scheduled_time || '00:00:00';
+        const dt = new Date(`${baseDate}T${baseTime}`);
+        dt.setMinutes(dt.getMinutes() + minutes);
+
+        const pad = n => String(n).padStart(2, '0');
+        const newDate = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+        const newTime = `${pad(dt.getHours())}:${pad(dt.getMinutes())}:00`;
+
+        const { error } = await supabase
+            .from('atlas_tasks')
+            .update({ scheduled_date: newDate, scheduled_time: newTime })
+            .eq('id', taskId);
+        if (error) throw new Error(error.message);
+
+        if (window.undoToast) window.undoToast.show(`Snoozed ${minutes} minutes`);
+        if (typeof window.loadTasks === 'function') window.loadTasks();
+        return { ok: true };
+    } catch (e) {
+        console.error('Snooze failed:', e);
+        return { ok: false, error: e.message };
     }
 }

@@ -255,6 +255,27 @@
     margin-bottom: var(--pad-md);
 }
 
+/* ---------- Priority (Normal/High), added 2026-08-06 ---------- */
+.priority-toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: var(--pad-md); }
+.priority-toggle-lbl { font-size: 13px; color: var(--text-secondary); }
+.priority-toggle { display: inline-flex; background: var(--surface-2); border-radius: 20px; padding: 2px; gap: 2px; }
+.priority-toggle button {
+    border: none; background: transparent; color: var(--text-muted);
+    font-size: 13px; font-weight: 600; font-family: inherit; padding: 5px 14px;
+    border-radius: 18px; cursor: pointer;
+}
+.priority-toggle button.active { background: var(--surface-1); color: var(--text-primary); box-shadow: var(--shadow-card); }
+
+/* Badge on a task row -- High only, Normal shows nothing (per approved
+   mockup, keeps the row calm and doesn't clutter every row with a label). */
+.priority-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    padding: 2px 7px 2px 6px; border-radius: 20px; flex-shrink: 0;
+    color: var(--accent-coral); background: var(--accent-coral-tint);
+}
+.priority-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
 /* ---------- Modal ---------- */
 
 .modal-overlay {
@@ -825,12 +846,20 @@
 .ck-info {
     flex: 1;
     min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .ck-title {
     font-size: 15px;
     color: var(--text-primary);
 }
+
+/* Per-item notify indicator, added 2026-08-06 -- same "icon shows a fact,
+   never repaints anything else" treatment as every other status icon in
+   this app. */
+.ck-notify-badge { font-size: 12px; flex-shrink: 0; cursor: default; }
 
 .ck-row-actions {
     display: flex;
@@ -2720,50 +2749,44 @@
 .health-trend-meta strong { color: var(--text-primary); font-weight: 500; font-variant-numeric: tabular-nums; }
 .health-trend-empty { font-size: 12px; color: var(--text-muted); margin: 0; }
 
-/* Sleep: bottom-anchored sparkline (Comet review, Option B). Fixed
-   280x80 viewBox rendered with preserveAspectRatio="none" so it
-   stretches to the panel's real width; coordinates are computed in
-   today.js's sleepSparkline getter from real logged nights only --
-   a missing night is a gap in the line, never a fake flat value.
-   Colouring goes through CSS classes (not inline var() in SVG
-   attributes) so custom-property resolution is never in question.
-   Line/dot echo sage-above / coral-below the goal line per segment
-   (follow-up polish pass) -- the gradient fill under the line stays
-   a single soft sage wash regardless, so the colour shift reads as
-   an accent, not a second competing chart. */
-.health-spark { height: 80px; position: relative; }
-.health-spark-svg { display: block; color: var(--accent-sage); }
-.health-spark-stop-a { stop-color: currentColor; stop-opacity: .28; }
-.health-spark-stop-b { stop-color: currentColor; stop-opacity: 0; }
-.health-spark-goal { stroke: var(--border-hover); stroke-width: 1; stroke-dasharray: 3 3; }
-.health-spark-line { fill: none; stroke: currentColor; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
-.health-spark-line.above { color: var(--accent-sage); }
-.health-spark-line.below { color: var(--accent-coral); }
-.health-spark-dot { fill: currentColor; }
-.health-spark-dot.above { color: var(--accent-sage); }
-.health-spark-dot.below { color: var(--accent-coral); }
+/* ---------- Axis charts (sleep trend + workout trend), added 2026-08-06
+   -- shared by any chart that draws real gridlines/labels via an injected
+   SVG string instead of a hover-only sparkline. ---------- */
+.chart-head-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; row-gap: 6px; margin-bottom: 10px; }
+.range-toggle { display: inline-flex; background: var(--surface-2); border-radius: 20px; padding: 2px; gap: 2px; }
+.range-toggle button {
+    border: none; background: transparent; color: var(--text-muted);
+    font-size: 11.5px; font-weight: 600; font-family: inherit; padding: 4px 12px;
+    border-radius: 18px; cursor: pointer;
+}
+.range-toggle button.active { background: var(--surface-1); color: var(--text-primary); box-shadow: var(--shadow-card); }
+.chart-stat-row { display: flex; gap: 18px; margin-bottom: 10px; flex-wrap: wrap; }
+.chart-stat { display: flex; flex-direction: column; gap: 2px; }
+.chart-stat .v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.chart-stat .l { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.chart-insight { font-size: 12px; color: var(--text-secondary); background: var(--surface-2); border-radius: 7px; padding: 7px 10px; margin-top: 10px; }
+.chart-insight .arrow { font-weight: 700; }
+.chart-insight .arrow.down { color: var(--accent-sage); }
+.chart-insight .arrow.up { color: var(--accent-coral); }
+.health-axis-chart { display: block; }
+.axis-label { font-size: 10px; fill: var(--text-muted); font-family: var(--font-sans, system-ui); }
+.axis-grid { stroke: var(--border); stroke-width: 1; }
 
-/* Workout: 4-week consistency, aggregated per week (Comet review,
-   Option A) -- one larger cell per week instead of a dot per
-   activity-type per week. Computed in today.js's workoutWeekAggregate
-   getter from the existing workoutConsistency data, no new loading. */
-.health-weeks-strip { display: flex; gap: 12px; }
-.health-week-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; }
-.health-week-cell .box { width: 38px; height: 38px; border-radius: 9px; }
-.health-week-cell .box--met { background: var(--accent-sage); }
-.health-week-cell .box--partial { background: var(--accent-amber); }
-.health-week-cell .box--missed { background: var(--accent-coral); opacity: .55; }
-.health-week-cell .lbl { font-size: 10px; color: var(--text-muted); font-weight: 600; letter-spacing: .02em; }
-
-/* Right-aligned on the "4-WEEK CONSISTENCY" caption line (follow-up
-   polish pass) instead of sitting below the cells -- saves a line of
-   vertical space, mirrors how "Avg" sits next to "14-DAY TREND". */
-.health-legend { display: flex; gap: 12px; flex-wrap: wrap; }
-.health-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
-.health-legend .d { width: 9px; height: 9px; border-radius: 3px; }
-.health-legend .d--met { background: var(--accent-sage); }
-.health-legend .d--partial { background: var(--accent-amber); }
-.health-legend .d--missed { background: var(--accent-coral); opacity: .55; }
+/* Workout: 4-week consistency rings (Option F, approved 2026-08-06).
+   Pure SVG, viewBox-based (not raster) so a ring never looks broken or
+   soft at any size -- crisp whether the card is 300px or 900px wide.
+   .rings-row stretches every cell equally across the card's full
+   width (the old fixed-38px box strip only ever used a narrow corner
+   of the card, which is the literal "hidden inside 4 dots" complaint).
+   max-width caps how large a ring gets on a very wide card so 4 rings
+   don't balloon into something disproportionate to the rest of the
+   panel's typography -- same restrained sizing language as everything
+   else in this card. */
+.rings-row { display: flex; gap: 14px; }
+.ring-cell { flex: 1; min-width: 0; max-width: 96px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ring-cell svg { width: 100%; height: auto; display: block; }
+.ring-cell-label { font-size: 10px; color: var(--text-muted); font-weight: 600; letter-spacing: .02em; }
+.ring-cell-range { font-size: 9.5px; color: var(--text-muted); }
 
 /* =========================================================
    PHASE 5 (v3) — ATTACH-SCREENSHOT LINK (Comet review)
@@ -2997,95 +3020,6 @@ body:has(.ai-panel-open) .content-area {
 .pin-key:hover { background: var(--surface-1-hover); border-color: var(--border-hover); }
 .pin-key-wide { font-size: 13px; color: var(--text-muted); background: none; border: 0; }
 .pin-forgot { background: none; border: 0; color: var(--accent-blue); font-size: 12.5px; cursor: pointer; font-family: inherit; }
-/* Tooltips */
-.health-tooltip {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    transform: translateX(-50%);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    z-index: 20;
-    pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    white-space: nowrap;
-}
-.health-tooltip--center {
-    left: 50%;
-}
-.health-tooltip .tooltip-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-.health-tooltip .tooltip-val {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-.health-tooltip .tooltip-stat {
-    font-size: 11px;
-    font-weight: 500;
-}
-.health-tooltip .stat-above, .health-tooltip .stat-met { color: var(--accent-sage); }
-.health-tooltip .stat-below, .health-tooltip .stat-missed { color: var(--accent-coral); }
-.health-tooltip .stat-partial { color: var(--accent-amber); }
-
-/* Sleep Sparkline Tooltip Additions */
-.health-hover-dot {
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s, transform 0.2s;
-    background: currentColor;
-    box-shadow: 0 0 0 4px var(--surface-2);
-}
-.health-hover-dot.above { color: var(--accent-sage); }
-.health-hover-dot.below { color: var(--accent-coral); }
-.health-hover-dot.is-active {
-    opacity: 1 !important;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-    .health-hover-dot.is-active {
-        transform: scale(1.2);
-    }
-}
-
-/* Workout Week Cell Hover */
-.health-week-cell {
-    transition: transform 0.2s ease, filter 0.2s ease;
-}
-.health-week-cell.is-active {
-    filter: brightness(1.2);
-}
-@media (prefers-reduced-motion: no-preference) {
-    .health-week-cell.is-active {
-        transform: scale(1.05);
-    }
-}
-
-/* Hitbox fix for Sleep Sparkline */
-.health-spark-hitboxes {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    z-index: 5;
-}
-.health-spark-hitbox {
-    flex: 1;
-    position: relative;
-}
-
 .voice-spinner {
     display: inline-block;
     width: 12px;
@@ -3352,3 +3286,70 @@ body:has(.ai-panel-open) .content-area {
     color: var(--text-muted);
     font-size: 11px;
 }
+
+/* ---------- Ritu's health strip, redesigned 2026-08-06 ----------
+   Was one cramped run-on line ("Morning 0/0, Afternoon 0/0, ...") in a
+   narrow flex row fighting a single-line note input for space. Now a
+   real card using the full row width, one stat per block, note moved
+   to its own modal (see .fam-note-btn below). */
+.fam-strip-card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--top-edge, none), var(--shadow-card);
+    padding: 16px;
+    margin-bottom: var(--pad-md);
+}
+.fam-strip-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.fam-strip-who { font-family: var(--font-serif); font-size: 16px; color: var(--text-primary); }
+.fam-stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.fam-stat { background: var(--surface-2); border-radius: 8px; padding: 10px 6px; text-align: center; }
+.fam-stat .n { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.fam-stat .l { font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); margin-top: 3px; }
+.fam-note-btn {
+    width: 100%;
+    text-align: left;
+    background: var(--surface-2);
+    border: 1px dashed var(--border-hover);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+}
+.fam-note-btn:hover { background: var(--surface-1-hover); color: var(--text-secondary); }
+@media (max-width: 480px) {
+    .fam-stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ---------- Snooze picker, added 2026-08-06 ---------- */
+.snooze-opts { display: flex; gap: 8px; }
+.snooze-opt {
+    flex: 1;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 4px;
+    text-align: center;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.snooze-opt:hover { background: var(--accent-blue-tint); border-color: var(--accent-blue); }
+.snooze-opt .n { font-size: 16px; font-weight: 700; }
+.snooze-opt .u { font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
+
+/* ---------- Toggle switch, added 2026-08-06 for checklist per-item
+   notifications. Generic (not scoped to checklist) -- reusable anywhere a
+   simple on/off needs a switch instead of a checkbox. ---------- */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--surface-2); border-radius: 8px; padding: 10px 12px; margin-bottom: var(--pad-md); }
+.toggle-row .lbl { font-size: 13px; color: var(--text-primary); }
+.toggle-row .lbl .sub { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; font-weight: 400; }
+.switch { position: relative; width: 38px; height: 22px; border-radius: 20px; background: var(--border-hover); flex-shrink: 0; cursor: pointer; transition: background var(--dur-fast) var(--ease-out); }
+.switch.on { background: var(--accent-sage); }
+.switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform var(--dur-fast) var(--ease-out); }
+.switch.on::after { transform: translateX(16px); }

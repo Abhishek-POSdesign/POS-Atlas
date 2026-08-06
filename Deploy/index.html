@@ -551,6 +551,29 @@
                     </div>
                 </template>
 
+                <!-- Snooze picker (2026-08-06) -- global, not owned by any
+                     one page's x-data, since a push notification's Snooze
+                     tap can land regardless of which tab is open. See
+                     app()'s snoozePickerOpen/chooseSnooze() in main.js and
+                     push-client.js's atlas:snooze-request event. -->
+                <template x-if="snoozePickerOpen">
+                    <div class="modal-overlay" @click.self="closeSnoozePicker()">
+                        <div class="modal" style="max-width: 320px;">
+                            <h2 style="margin: 0 0 4px; font-size: 16px;">Snooze for</h2>
+                            <p style="color: var(--text-muted); font-size: 12px; margin: 0 0 14px;">Pick how long to push this back.</p>
+                            <div class="snooze-opts">
+                                <button type="button" class="snooze-opt" @click="chooseSnooze(15)"><span class="n">15</span><span class="u">min</span></button>
+                                <button type="button" class="snooze-opt" @click="chooseSnooze(30)"><span class="n">30</span><span class="u">min</span></button>
+                                <button type="button" class="snooze-opt" @click="chooseSnooze(60)"><span class="n">1</span><span class="u">hour</span></button>
+                            </div>
+                            <div class="field-error" x-show="snoozeError" x-text="snoozeError" style="margin-top: 10px; margin-bottom: 0;"></div>
+                            <div class="modal-actions">
+                                <button class="btn-text" @click="closeSnoozePicker()">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
                 <!-- Today tab -->
                 <template x-if="tab==='today'">
                     <div x-data="todayPage({ onOpenProject: (id) => { tab = 'projects'; openProject(id); } })">
@@ -712,6 +735,7 @@
                                                     <div class="trv2-body" style="min-width: 0;">
                                                         <div style="display: flex; align-items: center; gap: 6px;">
                                                             <div class="trv2-name" x-text="task.name"></div>
+                                                            <template x-if="task.priority==='high'"><span class="priority-badge high"><span class="dot"></span>High</span></template>
                                                         </div>
                                                         <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
                                                             <template x-if="task.kind==='reminder'">
@@ -796,6 +820,7 @@
                                                             <div class="trv2-body" style="min-width: 0;">
                                                                 <div style="display: flex; align-items: center; gap: 6px;">
                                                                     <div class="trv2-name" style="color: var(--text-primary); font-weight: 500;" x-text="task.name"></div>
+                                                                    <template x-if="task.priority==='high'"><span class="priority-badge high"><span class="dot"></span>High</span></template>
                                                                 </div>
                                                                 <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
                                                                     <template x-if="projectFor(task)">
@@ -927,52 +952,29 @@
                                                 </div>
                                             </template>
 
-                                            <!-- 14-day trend: bottom-anchored sparkline (Comet review, Option B).
-                                                 Line segments echo sage/coral per-night relative to the goal
-                                                 line (follow-up polish pass) -- same colour language the old
-                                                 bar chart used, without going back to bars. -->
+                                            <!-- Sleep trend: real Y (hours) / X (dates) axes, live 14/30-day
+                                                 toggle (2026-08-06, approved mockup Option B). Replaces the
+                                                 hover-only sparkline -- the grid itself now carries the
+                                                 information instead of needing a hover/touch to read a number. -->
                                             <div class="health-trend">
-                                                <div class="health-trend-head">
-                                                    <span class="health-trend-title">14-day trend</span>
-                                                    <span class="health-trend-meta" x-show="sleepAvg7 != null">Avg <strong x-text="sleepAvg7 != null ? (Math.floor(sleepAvg7/60) + 'h ' + (sleepAvg7%60) + 'm') : ''"></strong></span>
+                                                <div class="chart-head-row">
+                                                    <span class="health-trend-title">Sleep trend</span>
+                                                    <div class="range-toggle">
+                                                        <button type="button" :class="{active: sleepTrendRangeDays===14}" @click="setSleepTrendRange(14)">14 days</button>
+                                                        <button type="button" :class="{active: sleepTrendRangeDays===30}" @click="setSleepTrendRange(30)">30 days</button>
+                                                    </div>
                                                 </div>
-                                                <template x-if="sleepSparkline">
-                                                    <div class="health-spark" x-data="{ activeSleepPoint: null }">
-                                                        <svg class="health-spark-svg" viewBox="0 0 280 80" preserveAspectRatio="none" width="100%" height="80" role="img" aria-label="14-day sleep duration trend">
-                                                            <defs>
-                                                                <linearGradient id="sleepSparkGradient" x1="0" y1="0" x2="0" y2="1">
-                                                                    <stop class="health-spark-stop-a" offset="0%"></stop>
-                                                                    <stop class="health-spark-stop-b" offset="100%"></stop>
-                                                                </linearGradient>
-                                                            </defs>
-                                                            <line class="health-spark-goal" x1="0" :y1="sleepSparkline.goalY" :x2="sleepSparkline.W" :y2="sleepSparkline.goalY"></line>
-                                                            <polygon class="health-spark-area" :points="sleepSparkline.areaPoints" fill="url(#sleepSparkGradient)"></polygon>
-                                                            <!-- Colored segments injected via x-html, not a looped Alpine
-                                                                 template (Phase 6 console-error fix, 2026-07-28) -- a
-                                                                 template tag inside an svg element parses in the SVG
-                                                                 namespace, not HTML, and Alpine's x-for cloning can't walk
-                                                                 it. x-html just sets innerHTML directly, same safe pattern
-                                                                 sessionIconSvg() below already uses inside an svg element. -->
-                                                            <g x-html="sleepSparkline.segmentsSvg"></g>
-                                                            <circle class="health-spark-dot" :class="sleepSparkline.last.above ? 'above' : 'below'" :cx="sleepSparkline.last.x" :cy="sleepSparkline.last.y" r="3.5"></circle>
-                                                        </svg>
-                                                        <div class="health-spark-hitboxes">
-                                                            <template x-for="p in sleepSparkline.points" :key="p.date">
-                                                                <div class="health-spark-hitbox" @mouseenter="activeSleepPoint = p" @mouseleave="activeSleepPoint = null" @touchstart.passive="activeSleepPoint = p" @touchend.passive="setTimeout(() => { if (activeSleepPoint === p) activeSleepPoint = null }, 2000)">
-                                                                    <div class="health-hover-dot" :class="{ 'is-active': activeSleepPoint === p, 'above': p.above, 'below': !p.above }" :style="`left: ${(p.x / sleepSparkline.W) * 100}%; top: ${(p.y / sleepSparkline.H) * 100}%;`"></div>
-                                                                </div>
-                                                            </template>
+                                                <template x-if="sleepChart">
+                                                    <div>
+                                                        <div class="chart-stat-row">
+                                                            <div class="chart-stat"><span class="v" x-text="sleepChart.avgLabel"></span><span class="l" x-text="'Avg (' + sleepTrendRangeDays + 'd)'"></span></div>
+                                                            <div class="chart-stat"><span class="v" x-text="sleepChart.goalPct + '%'"></span><span class="l">Nights at goal</span></div>
                                                         </div>
-                                                        <template x-if="activeSleepPoint">
-                                                            <div class="health-tooltip" :style="`left: ${(activeSleepPoint.x / sleepSparkline.W) * 100}%;`">
-                                                                <span class="tooltip-title" x-text="activeSleepPoint.fmtDate"></span>
-                                                                <span class="tooltip-val" x-text="activeSleepPoint.fmtDur"></span>
-                                                                <span class="tooltip-stat" :class="activeSleepPoint.above ? 'stat-above' : 'stat-below'" x-text="activeSleepPoint.above ? 'Above goal' : 'Below goal'"></span>
-                                                            </div>
-                                                        </template>
+                                                        <svg class="health-axis-chart" viewBox="0 0 600 190" width="100%" height="190" role="img" aria-label="Sleep trend chart" x-html="sleepChart.svg"></svg>
+                                                        <div class="chart-insight" x-html="sleepChart.insight"></div>
                                                     </div>
                                                 </template>
-                                                <template x-if="!sleepSparkline">
+                                                <template x-if="!sleepChart">
                                                     <p class="health-trend-empty">Log a few more nights to see a trend line.</p>
                                                 </template>
                                             </div>
@@ -1189,34 +1191,35 @@
                                                 </div>
                                             </template>
 
-                                            <!-- 4-week consistency: aggregated weekly strip (Comet review,
-                                                 Option A) -- one cell per week instead of a dot per
-                                                 activity-type per week. Legend right-aligned on the caption
-                                                 line (follow-up polish pass), mirroring how "Avg" sits next
-                                                 to "14-DAY TREND" on the Sleep panel. -->
+                                            <!-- 4-week consistency: closing rings (Option F, approved
+                                                 2026-08-06 -- Apple Fitness's "close your ring" metaphor).
+                                                 Replaces the old fixed-38px box strip, which only ever used a
+                                                 small corner of the card no matter how wide it was ("hidden
+                                                 inside 4 dots"). Rings are pure SVG (viewBox-based, not
+                                                 raster) so they stay crisp at any size, and .rings-row
+                                                 stretches every cell to share the card's full width evenly.
+                                                 Same met/partial/missed classification workoutWeekAggregate
+                                                 already computed -- only how it's drawn changed, not what it
+                                                 means. Center number is real (activity types on target that
+                                                 week / types tracked), not a decorative percentage. -->
                                             <div class="health-trend">
                                                 <div class="health-trend-head">
                                                     <span class="health-trend-title">4-week consistency</span>
-                                                    <div class="health-legend" x-show="workoutWeekAggregate.length > 0">
-                                                        <span><span class="d d--met"></span>Sage = met all targets</span>
-                                                        <span><span class="d d--partial"></span>Amber = some targets</span>
-                                                        <span><span class="d d--missed"></span>Coral = no targets</span>
-                                                    </div>
                                                 </div>
                                                 <template x-if="workoutWeekAggregate.length > 0">
-                                                    <div class="health-weeks-strip" x-data="{ activeWorkoutWeek: null }">
+                                                    <div class="rings-row">
                                                         <template x-for="week in workoutWeekAggregate" :key="week.label">
-                                                            <div class="health-week-cell" @mouseenter="activeWorkoutWeek = week" @mouseleave="activeWorkoutWeek = null" @touchstart.passive="activeWorkoutWeek = week" @touchend.passive="setTimeout(() => { if (activeWorkoutWeek === week) activeWorkoutWeek = null }, 2000)" :class="{ 'is-active': activeWorkoutWeek === week }">
-                                                                <div class="box" :class="'box--' + week.state"></div>
-                                                                <span class="lbl" x-text="week.label"></span>
-                                                                
-                                                                <template x-if="activeWorkoutWeek === week">
-                                                                    <div class="health-tooltip health-tooltip--center">
-                                                                        <span class="tooltip-title" x-text="week.range"></span>
-                                                                        <span class="tooltip-val" x-text="week.sessionCount + (week.sessionCount === 1 ? ' session' : ' sessions')"></span>
-                                                                        <span class="tooltip-stat" :class="'stat-' + week.state" x-text="week.state === 'met' ? 'Met targets' : (week.state === 'missed' ? 'Missed targets' : 'Partial targets')"></span>
-                                                                    </div>
-                                                                </template>
+                                                            <div class="ring-cell">
+                                                                <svg viewBox="0 0 76 76" role="img" :aria-label="week.label + ': ' + week.metCount + ' of ' + week.total + ' activity targets met, ' + week.sessionCount + ' sessions'">
+                                                                    <circle cx="38" cy="38" r="32" fill="none" stroke="var(--surface-2)" stroke-width="7"></circle>
+                                                                    <circle cx="38" cy="38" r="32" fill="none" stroke-width="7" stroke-linecap="round"
+                                                                        :stroke="week.state==='met' ? 'var(--accent-sage)' : (week.state==='partial' ? 'var(--accent-amber)' : 'var(--accent-coral)')"
+                                                                        :stroke-dasharray="(2*Math.PI*32*(week.total ? week.metCount/week.total : 0)) + ' ' + (2*Math.PI*32)"
+                                                                        transform="rotate(-90 38 38)"></circle>
+                                                                    <text x="38" y="43" text-anchor="middle" font-size="17" font-weight="700" fill="var(--text-primary)" x-text="week.metCount + '/' + week.total"></text>
+                                                                </svg>
+                                                                <span class="ring-cell-label" x-text="week.label"></span>
+                                                                <span class="ring-cell-range" x-text="week.range"></span>
                                                             </div>
                                                         </template>
                                                     </div>
@@ -1235,17 +1238,43 @@
                                         </div>
                                 </div>
 
-                                <!-- Family Health Strip -->
-                                <div class="card panel" style="padding: 12px; margin-bottom: var(--pad-md); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); flex-wrap: wrap; gap: 8px;">
-                                    <div style="font-size: 13px; color: var(--text-secondary);">
-                                        <strong style="color: var(--text-primary);">Ritu:</strong>
-                                        <span x-text="'Morning ' + familySummary.morning + ', Afternoon ' + familySummary.afternoon + ', Evening ' + familySummary.evening + ', Sleep ' + familySummary.sleep"></span>
+                                <!-- Ritu's health strip (2026-08-06 redesign). Was one cramped run-on
+                                     line of text jammed next to a single-line note input using
+                                     --bg-secondary/--bg-primary/--border-color, none of which are real
+                                     tokens in this app (Atlas's tokens are --surface-*/--border) --
+                                     almost certainly why the note text was invisible while typing, on
+                                     top of the send itself silently never reaching the database (see
+                                     sendFamilyNote()). Full card width, each block its own stat, and
+                                     the note is now a proper click-to-open modal instead of a squeezed
+                                     inline input. -->
+                                <div class="fam-strip-card">
+                                    <div class="fam-strip-head">
+                                        <span class="fam-strip-who">Ritu</span>
+                                        <span class="dd-chip">Today</span>
                                     </div>
-                                    <div style="display: flex; gap: 8px; flex: 1; max-width: 300px;">
-                                        <input type="text" x-model="familyNoteDraft" placeholder="Note to Ritu..." style="font-size: 13px; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-primary); flex: 1;">
-                                        <button class="btn btn-primary" style="padding: 4px 12px; font-size: 12px;" @click="sendFamilyNote()" :disabled="!familyNoteDraft || familyNoteSaving">Send</button>
+                                    <div class="fam-stats-row">
+                                        <div class="fam-stat"><div class="n" x-text="familySummary.morning"></div><div class="l">Morning</div></div>
+                                        <div class="fam-stat"><div class="n" x-text="familySummary.afternoon"></div><div class="l">Afternoon</div></div>
+                                        <div class="fam-stat"><div class="n" x-text="familySummary.evening"></div><div class="l">Evening</div></div>
+                                        <div class="fam-stat"><div class="n" x-text="familySummary.sleep"></div><div class="l">Sleep</div></div>
                                     </div>
+                                    <button type="button" class="fam-note-btn" @click="openFamilyNoteModal()">✎ Leave a note for Ritu…</button>
                                 </div>
+
+                                <template x-if="familyNoteModalOpen">
+                                    <div class="modal-overlay" @click.self="closeFamilyNoteModal()">
+                                        <div class="modal" style="max-width: 420px;">
+                                            <h2 style="margin: 0 0 4px; font-size: 16px;">Note for Ritu</h2>
+                                            <p style="color: var(--text-muted); font-size: 12px; margin: 0 0 14px;">She'll see this the next time she opens her app.</p>
+                                            <textarea x-model="familyNoteDraft" placeholder="Write a note..." style="width: 100%; min-height: 110px; background: var(--surface-2); border: 1px solid var(--border-hover); border-radius: 8px; padding: 10px 12px; color: var(--text-primary); font-family: inherit; font-size: 13.5px; resize: vertical;"></textarea>
+                                            <div class="field-error" x-show="familyNoteError" x-text="familyNoteError" style="margin-top: 10px; margin-bottom: 0;"></div>
+                                            <div class="modal-actions">
+                                                <button class="btn-text" @click="closeFamilyNoteModal()">Cancel</button>
+                                                <button class="btn btn-primary" @click="sendFamilyNote()" :disabled="!familyNoteDraft.trim() || familyNoteSaving" x-text="familyNoteSaving ? 'Sending…' : 'Send'"></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
 
                                 <!-- Routine: checklist only -->
                                 <div x-data="checklistPage()">
@@ -1282,7 +1311,10 @@
                                                                         <div class="ck-row-main">
                                                                             <span class="ck-num" x-text="idx + 1"></span>
                                                                             <div class="ck-icon" x-text="item.icon || '📋'"></div>
-                                                                            <div class="ck-info"><div class="ck-title" x-text="item.name"></div></div>
+                                                                            <div class="ck-info">
+                                                                                <div class="ck-title" x-text="item.name"></div>
+                                                                                <template x-if="item.notify_enabled"><span class="ck-notify-badge" :title="'Reminds at ' + (window.formatTime12h ? window.formatTime12h(item.notify_time) : item.notify_time)">🔔</span></template>
+                                                                            </div>
                                                                             <template x-if="!managing">
                                                                                 <div class="ck-row-actions">
                                                                                     <span class="ck-status" :class="'ck-status-' + (statusFor(item) || 'pending')" x-text="statusLabel(item)"></span>
@@ -1315,6 +1347,16 @@
                                                                                     <template x-for="(d, idx) in dayNames" :key="idx">
                                                                                         <button type="button" class="day-chip" :class="{active: editForm.days.includes(idx)}" @click="toggleEditDay(idx)" x-text="d"></button>
                                                                                     </template>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="toggle-row">
+                                                                                <span class="lbl">Notify me<span class="sub">Get a reminder at a set time -- turn off once it's a habit</span></span>
+                                                                                <div class="switch" :class="{on: editForm.notify}" @click="editForm.notify = !editForm.notify" role="switch" :aria-checked="editForm.notify"></div>
+                                                                            </div>
+                                                                            <div class="field" x-show="editForm.notify">
+                                                                                <label>Reminder time</label>
+                                                                                <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="editForm.notifyTime">
+                                                                                    <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
                                                                                 </div>
                                                                             </div>
                                                                             <div class="modal-actions">
@@ -1445,6 +1487,13 @@
                                         </div>
                                     </div>
                                     <div class="field-checkbox"><label><input type="checkbox" x-model="taskForm.notify"> Notify me at this time</label></div>
+                                    <div class="priority-toggle-row">
+                                        <span class="priority-toggle-lbl">Priority</span>
+                                        <div class="priority-toggle" role="group" aria-label="Priority">
+                                            <button type="button" :class="{active: taskForm.priority!=='high'}" @click="taskForm.priority='normal'">Normal</button>
+                                            <button type="button" :class="{active: taskForm.priority==='high'}" @click="taskForm.priority='high'">High</button>
+                                        </div>
+                                    </div>
 
                                     <div class="modal-section">
                                         <div class="modal-section-lbl">Assignment</div>
@@ -1508,7 +1557,10 @@
                                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                 </button>
                                                 <div class="trv2-body" style="min-width: 0;">
-                                                    <div class="trv2-name" x-text="task.name"></div>
+                                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                                        <div class="trv2-name" x-text="task.name"></div>
+                                                        <template x-if="task.priority==='high'"><span class="priority-badge high"><span class="dot"></span>High</span></template>
+                                                    </div>
                                                     <div class="trv2-meta" style="display: flex; align-items: center; flex-wrap: nowrap; overflow: hidden;">
                                                         <template x-if="task.kind==='reminder'">
                                                             <span class="trv2-kind reminder" style="flex-shrink: 0; margin-right: 6px;">
@@ -2113,7 +2165,10 @@
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                                     </button>
                                                     <div class="trv2-body">
-                                                        <div class="trv2-name" x-text="task.name"></div>
+                                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                                            <div class="trv2-name" x-text="task.name"></div>
+                                                            <template x-if="task.priority==='high'"><span class="priority-badge high"><span class="dot"></span>High</span></template>
+                                                        </div>
                                                         <div class="trv2-meta">
                                                             <span class="trv2-kind task">Task</span>
                                                             <template x-if="task.status==='not_started' || task.status==='paused'">
@@ -2246,6 +2301,13 @@
                                         </div>
                                     </div>
                                     <div class="field-checkbox"><label><input type="checkbox" x-model="taskForm.notify_enabled"> Notify me at this time</label></div>
+                                    <div class="priority-toggle-row">
+                                        <span class="priority-toggle-lbl">Priority</span>
+                                        <div class="priority-toggle" role="group" aria-label="Priority">
+                                            <button type="button" :class="{active: taskForm.priority!=='high'}" @click="taskForm.priority='normal'">Normal</button>
+                                            <button type="button" :class="{active: taskForm.priority==='high'}" @click="taskForm.priority='high'">High</button>
+                                        </div>
+                                    </div>
 
                                     <div class="task-edit-actions">
                                         <template x-if="editingTaskId">
@@ -2483,36 +2545,35 @@
                                                         </div>
                                                     </template>
 
-                                                    <template x-if="selectedTasks.length > 0 && !selectedIsFuture">
+                                                    <!-- Future days show the same real per-item list as past/today
+                                                         (2026-08-06, direct feedback: grouped project counts hid the
+                                                         actual task names -- "I don't see this task... it's not
+                                                         showing the task name"). Only the trailing chip differs: a
+                                                         status chip means nothing before the day has happened, so
+                                                         future rows show which project it's in (or Standalone)
+                                                         instead, matching the same info the Upcoming modal shows. -->
+                                                    <template x-if="selectedTasks.length > 0">
                                                         <div class="dd-card c-blue" x-data="{ showAllTasks: false }">
                                                             <div class="dd-card-title">Tasks &amp; Reminders</div>
                                                             <template x-for="t in (showAllTasks ? selectedTasks : selectedTasks.slice(0, 5))" :key="t.id">
                                                                 <div class="dd-row clickable" @click="openTaskDrillDown(t)">
                                                                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg(t.kind === 'reminder' ? 'bell' : 'list')"></svg>
                                                                     <span class="name" x-text="t.name"></span>
+                                                                    <template x-if="t.priority==='high'"><span class="priority-badge high"><span class="dot"></span>High</span></template>
                                                                     <span class="time" x-show="t.scheduled_time" x-text="window.formatTime12h ? window.formatTime12h(t.scheduled_time) : t.scheduled_time"></span>
                                                                     <template x-if="t.project_id">
                                                                         <span class="id-chip" :class="'color-' + projectColorKey(t.project_id)" x-text="projectInitial(t.project_id)"></span>
                                                                     </template>
-                                                                    <span class="dd-chip" :class="{done: taskStatus(t)==='done', overdue: taskStatus(t)==='overdue'}" x-text="taskStatus(t) === 'done' ? 'Done' : (taskStatus(t) === 'overdue' ? 'Overdue' : 'Upcoming')"></span>
+                                                                    <template x-if="!selectedIsFuture">
+                                                                        <span class="dd-chip" :class="{done: taskStatus(t)==='done', overdue: taskStatus(t)==='overdue'}" x-text="taskStatus(t) === 'done' ? 'Done' : (taskStatus(t) === 'overdue' ? 'Overdue' : 'Upcoming')"></span>
+                                                                    </template>
+                                                                    <template x-if="selectedIsFuture">
+                                                                        <span class="dd-chip" x-text="t.project_id ? projectName(t.project_id) : 'Standalone'"></span>
+                                                                    </template>
                                                                     <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
                                                                 </div>
                                                             </template>
                                                             <button type="button" class="btn-text" style="margin-top:8px; font-size:12px; padding:0;" x-show="selectedTasks.length > 5 && !showAllTasks" @click="showAllTasks = true" x-text="'+ ' + (selectedTasks.length - 5) + ' more'"></button>
-                                                        </div>
-                                                    </template>
-
-                                                    <template x-if="selectedTasks.length > 0 && selectedIsFuture">
-                                                        <div class="dd-card c-blue">
-                                                            <div class="dd-card-title">Tasks &amp; Reminders</div>
-                                                            <template x-for="g in selectedTaskGroups" :key="g.project_id || 'none'">
-                                                                <div class="dd-row clickable" @click="goToTaskGroup(g)">
-                                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('list')"></svg>
-                                                                    <span class="name" x-text="g.project_id ? projectName(g.project_id) : 'No project'"></span>
-                                                                    <span class="dd-chip" x-text="taskGroupLabel(g)"></span>
-                                                                    <svg class="dd-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="iconSvg('chevron')"></svg>
-                                                                </div>
-                                                            </template>
                                                         </div>
                                                     </template>
 

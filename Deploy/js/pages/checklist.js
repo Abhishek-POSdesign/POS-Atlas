@@ -28,7 +28,7 @@ export function checklistPage() {
         addingToBlock: null,
         addForm: { name: '', icon: '', days: [] },
         editingItemId: null,
-        editForm: { name: '', block: '', icon: '', days: [] },
+        editForm: { name: '', block: '', icon: '', days: [], notify: false, notifyTime: '' },
 
         logItem: null,
         logForm: { time: '', note: '' },
@@ -178,7 +178,14 @@ export function checklistPage() {
 
         startEditItem(item) {
             this.editingItemId = item.id;
-            this.editForm = { name: item.name, block: item.block, icon: item.icon || '', days: item.days ? [...item.days] : [] };
+            this.editForm = {
+                name: item.name,
+                block: item.block,
+                icon: item.icon || '',
+                days: item.days ? [...item.days] : [],
+                notify: !!item.notify_enabled,
+                notifyTime: item.notify_time ? item.notify_time.slice(0, 5) : ''
+            };
         },
         cancelEditItem() { this.editingItemId = null; },
         toggleEditDay(day) {
@@ -188,12 +195,18 @@ export function checklistPage() {
         },
         async saveEditItem(item) {
             if (!this.editForm.name.trim()) return;
+            if (this.editForm.notify && !this.editForm.notifyTime) {
+                this.errorMsg = 'Pick a time for the reminder, or turn notifications off.';
+                return;
+            }
             try {
                 await DB.Checklist.updateItem(item.id, {
                     name: this.editForm.name.trim(),
                     block: this.editForm.block,
                     icon: this.editForm.icon.trim() || '📋',
-                    days: this.editForm.days.length ? this.editForm.days : null
+                    days: this.editForm.days.length ? this.editForm.days : null,
+                    notify_enabled: this.editForm.notify,
+                    notify_time: this.editForm.notify ? this.editForm.notifyTime + ':00' : null
                 });
                 this.editingItemId = null;
                 await this.load();

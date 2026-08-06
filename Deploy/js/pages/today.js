@@ -70,7 +70,7 @@ export function todayPage(nav) {
         // paths share the same modal markup and the same submitTask() below.
         taskModalOpen: false,
         editingTaskId: null,
-        taskForm: { name: '', kind: 'task', date: '', time: '', projectId: '', notify: false },
+        taskForm: { name: '', kind: 'task', date: '', time: '', projectId: '', notify: false, priority: 'normal' },
 
         // ---- Upcoming modal (Phase 6) ----
         // Today's own list/filter (upcomingTasks below) never widens beyond
@@ -90,6 +90,8 @@ export function todayPage(nav) {
         familySummary: { morning: '0/0', afternoon: '0/0', evening: '0/0', sleep: '0/0' },
         familyNoteDraft: '',
         familyNoteSaving: false,
+        familyNoteModalOpen: false,
+        familyNoteError: '',
 
         async init() {
             await this.load();
@@ -229,15 +231,29 @@ export function todayPage(nav) {
                 console.error('Failed to load family data:', e);
             }
         },
+        openFamilyNoteModal() {
+            this.familyNoteError = '';
+            this.familyNoteModalOpen = true;
+        },
+        closeFamilyNoteModal() {
+            this.familyNoteModalOpen = false;
+        },
+        // Real in-app error, not window.alert() (2026-08-06 fix -- a raw
+        // browser alert is jarring and, worse, hid the actual reason for
+        // the failure behind a hardcoded "Could not send note." string).
+        // Shows e.message directly so a real failure is diagnosable next
+        // time instead of a dead end.
         async sendFamilyNote() {
             if (!this.familyNoteDraft.trim()) return;
             this.familyNoteSaving = true;
+            this.familyNoteError = '';
             try {
                 await DB.Family.setNote(this.familyNoteDraft.trim());
                 this.familyNoteDraft = '';
+                this.familyNoteModalOpen = false;
             } catch (e) {
                 console.error('Failed to send note:', e);
-                alert('Could not send note.');
+                this.familyNoteError = e.message || 'Could not send note. Please try again.';
             }
             this.familyNoteSaving = false;
         },
@@ -363,7 +379,7 @@ export function todayPage(nav) {
         // ---- add / edit task ----
         openTaskModal() {
             this.editingTaskId = null;
-            this.taskForm = { name: '', kind: 'task', date: todayIsoDate(), time: '', projectId: '', notify: false };
+            this.taskForm = { name: '', kind: 'task', date: todayIsoDate(), time: '', projectId: '', notify: false, priority: 'normal' };
             this.taskModalOpen = true;
         },
         openTaskEditModal(task) {
@@ -374,7 +390,8 @@ export function todayPage(nav) {
                 date: task.scheduled_date || '',
                 time: task.scheduled_time ? task.scheduled_time.slice(0, 5) : '',
                 projectId: task.project_id || '',
-                notify: !!task.notify_enabled
+                notify: !!task.notify_enabled,
+                priority: task.priority || 'normal'
             };
             this.taskModalOpen = true;
         },
@@ -399,14 +416,15 @@ export function todayPage(nav) {
                 project_id: this.taskForm.projectId || null,
                 scheduled_date: this.taskForm.date || null,
                 scheduled_time: this.taskForm.time || null,
-                notify_enabled: this.taskForm.notify
+                notify_enabled: this.taskForm.notify,
+                priority: this.taskForm.priority === 'high' ? 'high' : 'normal'
             };
             try {
                 if (this.editingTaskId) {
                     const row = await DB.Tasks.update(this.editingTaskId, patch);
                     this.tasks = this.tasks.map(t => t.id === row.id ? row : t);
                 } else {
-                    const row = await DB.Tasks.create({ ...patch, status: 'not_started', priority: 'normal' });
+                    const row = await DB.Tasks.create({ ...patch, status: 'not_started' });
                     this.tasks = [...this.tasks, row];
                 }
                 this.taskModalOpen = false;
@@ -956,82 +974,103 @@ export function todayPage(nav) {
             this.healthTrendLoading = false;
         },
 
-        get sleepAvg7() {
-            const recent = this.sleepTrendDays.slice(-7).filter(d => d.duration != null);
-            if (!recent.length) return null;
-            return Math.round(recent.reduce((a, d) => a + d.duration, 0) / recent.length);
-        },
-
-        get sleepMaxDuration() {
-            const durations = this.sleepTrendDays.filter(d => d.duration != null).map(d => d.duration);
-            return durations.length ? Math.max(...durations, this.sleepGoalMinutes) : this.sleepGoalMinutes;
-        },
-
-        sleepBarHeight(day) {
-            if (day.duration == null) return '0%';
-            return Math.round((day.duration / this.sleepMaxDuration) * 100) + '%';
-        },
-
-        sleepBarColor(day) {
-            if (day.duration == null) return 'var(--surface-2)';
-            if (day.duration >= this.sleepGoalMinutes) return 'var(--accent-sage)';
-            if (day.duration >= this.sleepGoalMinutes * 0.85) return 'var(--accent-amber)';
-            return 'var(--accent-coral)';
-        },
-
-        get sleepGoalPct() {
-            return Math.round((this.sleepGoalMinutes / this.sleepMaxDuration) * 100) + '%';
-        },
-
-        // ---- sleep sparkline (Comet review, Option B) ----
-        // Only real logged nights become points -- a missing night is a gap
-        // in the line, never a fake zero/flat-carry value. Coordinate space
-        // is a fixed 280x80 viewBox rendered with preserveAspectRatio="none"
-        // so the SVG stretches to whatever width the panel actually has.
+        // ---- sleep trend chart: real axes, 14/30-day toggle (2026-08-06,
+        // approved mockup Option B: "the date and hours on the X and Y axes
+        // will give us better information"). Only real logged nights become
+        // points -- a missing night is a gap, never a fake zero/flat-carry
+        // value, same rule the old hover-only sparkline used.
         //
-        // `segmentsSvg` (Phase 6 fix, 2026-07-28): the colored per-night
-        // line segments used to be a `segments` array looped with
-        // `<template x-for>` *inside* the <svg> element. SVG content parses
+        // The axis grid + line + labels are built as one SVG markup string
+        // and injected via x-html on the <svg> in index.html, not looped
+        // with an Alpine <template> inside the <svg> -- SVG content parses
         // in a different namespace than HTML, so a <template> there isn't a
-        // real HTMLTemplateElement -- Alpine's directive walker can't read
-        // .content off it, which is what threw "Cannot read properties of
-        // undefined (reading 'children')" and "seg is not defined" in the
-        // console. Fix: precompute the <line> tags as one markup string
-        // here and inject it with x-html on a <g> in index.html -- x-html
-        // just sets innerHTML, no template-cloning involved, same safe
-        // pattern sessionIconSvg() below already uses for the workout
-        // session icons (also injected into an <svg> via x-html, and it
-        // works fine). Same at-a-glance sage/coral-vs-goal colouring as
-        // before, same colour language sleepBarColor() used to give the
-        // old bar chart -- only how the markup reaches the DOM changed.
-        get sleepSparkline() {
-            const days = this.sleepTrendDays.slice(-14).filter(d => d.duration != null);
+        // real HTMLTemplateElement and Alpine's x-for can't walk it (the
+        // exact bug the old sparkline's segmentsSvg comment already
+        // documented; same fix, same reason).
+        sleepTrendRangeDays: 14,
+        setSleepTrendRange(days) { this.sleepTrendRangeDays = days; },
+        get sleepChart() {
+            const days = this.sleepTrendDays.slice(-this.sleepTrendRangeDays).filter(d => d.duration != null);
             if (days.length < 2) return null;
-            const values = days.map(d => d.duration);
-            const min = Math.min(...values, this.sleepGoalMinutes);
-            const max = Math.max(...values, this.sleepGoalMinutes);
-            const range = Math.max(1, max - min);
-            const W = 280, H = 80, PAD = 6;
-            const points = days.map((d, i) => {
-                const x = days.length === 1 ? 0 : Math.round((i / (days.length - 1)) * W * 10) / 10;
-                const y = Math.round((PAD + (1 - (d.duration - min) / range) * (H - PAD * 2)) * 10) / 10;
-                
-                const dateObj = new Date(d.date + 'T00:00:00');
-                const fmtDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-                const fmtDur = `${Math.floor(d.duration / 60)}h ${d.duration % 60}m`;
-                
-                return { x, y, date: d.date, duration: d.duration, above: d.duration >= this.sleepGoalMinutes, fmtDate, fmtDur };
-            });
-            const linePoints = points.map(p => `${p.x},${p.y}`).join(' ');
-            const areaPoints = `0,${H} ${linePoints} ${W},${H}`;
-            const goalY = Math.round((PAD + (1 - (this.sleepGoalMinutes - min) / range) * (H - PAD * 2)) * 10) / 10;
-            let segmentsSvg = '';
-            for (let i = 0; i < points.length - 1; i++) {
-                const cls = points[i].above ? 'above' : 'below';
-                segmentsSvg += `<line class="health-spark-line ${cls}" x1="${points[i].x}" y1="${points[i].y}" x2="${points[i + 1].x}" y2="${points[i + 1].y}"></line>`;
+            const goal = this.sleepGoalMinutes;
+            const data = days.map(d => d.duration);
+
+            const W = 600, H = 190;
+            const M = { top: 14, right: 14, bottom: 34, left: 38 };
+            const plotW = W - M.left - M.right, plotH = H - M.top - M.bottom;
+
+            const rawMin = Math.min(...data, goal), rawMax = Math.max(...data, goal);
+            const yMin = Math.floor(rawMin / 60) * 60 - 30;
+            const yMax = Math.ceil(rawMax / 60) * 60 + 15;
+            const yRange = Math.max(1, yMax - yMin);
+
+            const xFor = i => M.left + Math.round((i / (days.length - 1)) * plotW);
+            const yFor = v => M.top + Math.round((1 - (v - yMin) / yRange) * plotH);
+            const pts = days.map((d, i) => ({ x: xFor(i), y: yFor(d.duration) }));
+            const goalY = yFor(goal);
+
+            let yAxisSvg = '';
+            for (let h = Math.ceil(yMin / 60); h * 60 <= yMax; h++) {
+                const y = yFor(h * 60);
+                yAxisSvg += `<line x1="${M.left}" y1="${y}" x2="${W - M.right}" y2="${y}" class="axis-grid"></line>`;
+                yAxisSvg += `<text x="${M.left - 8}" y="${y + 3}" class="axis-label" text-anchor="end">${h}h</text>`;
             }
-            const last = points[points.length - 1];
-            return { points, linePoints, areaPoints, goalY, last, segmentsSvg, W, H };
+
+            const step = days.length > 20 ? 4 : (days.length > 10 ? 2 : 1);
+            let xAxisSvg = '';
+            days.forEach((d, i) => {
+                if (i % step === 0 || i === days.length - 1) {
+                    const dateObj = new Date(d.date + 'T00:00:00');
+                    const label = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    xAxisSvg += `<text x="${xFor(i)}" y="${H - M.bottom + 18}" class="axis-label" text-anchor="middle">${label}</text>`;
+                }
+            });
+
+            const linePoints = pts.map(p => `${p.x},${p.y}`).join(' ');
+            const areaPoints = `${M.left},${H - M.bottom} ${linePoints} ${W - M.right},${H - M.bottom}`;
+            let segs = '';
+            for (let i = 0; i < pts.length - 1; i++) {
+                const above = data[i] >= goal;
+                segs += `<line x1="${pts[i].x}" y1="${pts[i].y}" x2="${pts[i + 1].x}" y2="${pts[i + 1].y}" stroke="${above ? 'var(--accent-sage)' : 'var(--accent-coral)'}" stroke-width="2"></line>`;
+            }
+            const last = pts[pts.length - 1];
+            const lastAbove = data[data.length - 1] >= goal;
+
+            const svg = `
+                <defs><linearGradient id="sleepChartGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="var(--accent-blue)" stop-opacity="0.20"></stop>
+                    <stop offset="100%" stop-color="var(--accent-blue)" stop-opacity="0"></stop>
+                </linearGradient></defs>
+                ${yAxisSvg}
+                <line x1="${M.left}" y1="${goalY}" x2="${W - M.right}" y2="${goalY}" stroke="var(--accent-amber)" stroke-dasharray="3,3" opacity="0.7"></line>
+                <text x="${W - M.right}" y="${goalY - 5}" class="axis-label" text-anchor="end" fill="var(--accent-amber)">Goal</text>
+                <polygon points="${areaPoints}" fill="url(#sleepChartGradient)"></polygon>
+                ${segs}
+                <circle cx="${last.x}" cy="${last.y}" r="3.5" fill="${lastAbove ? 'var(--accent-sage)' : 'var(--accent-coral)'}"></circle>
+                <line x1="${M.left}" y1="${H - M.bottom}" x2="${W - M.right}" y2="${H - M.bottom}" class="axis-grid"></line>
+                ${xAxisSvg}
+            `;
+
+            const avg = Math.round(data.reduce((a, b) => a + b, 0) / data.length);
+            const avgLabel = Math.floor(avg / 60) + 'h ' + (avg % 60) + 'm';
+            const atGoal = data.filter(d => d >= goal).length;
+            const goalPct = Math.round((atGoal / data.length) * 100);
+
+            const firstHalf = data.slice(0, Math.floor(data.length / 2));
+            const secondHalf = data.slice(Math.floor(data.length / 2));
+            const fAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+            const sAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+            const fmt = m => Math.floor(m / 60) + 'h' + (m % 60 ? (' ' + Math.round(m % 60) + 'm') : '');
+            let insight;
+            if (sAvg < fAvg - 5) {
+                insight = `<span class="arrow down">↓</span> Trending down — averaging ${fmt(Math.round(fAvg - sAvg))} less in the second half of this period.`;
+            } else if (sAvg > fAvg + 5) {
+                insight = `<span class="arrow up" style="color:var(--accent-sage)">↑</span> Trending up — averaging ${fmt(Math.round(sAvg - fAvg))} more lately.`;
+            } else {
+                insight = `<span class="arrow">→</span> Holding steady across this period.`;
+            }
+
+            return { svg, avgLabel, goalPct, insight };
         },
 
         get workoutConsistency() {
@@ -1067,8 +1106,15 @@ export function todayPage(nav) {
                 const sMon = s.toLocaleString('en-US', { month: 'short' });
                 const eMon = e.toLocaleString('en-US', { month: 'short' });
                 const range = sMon === eMon ? `${sMon} ${s.getDate()}–${e.getDate()}` : `${sMon} ${s.getDate()}–${eMon} ${e.getDate()}`;
-                
-                return { label: week.label, state, range, sessionCount: week.sessions.length };
+
+                // metCount/total added 2026-08-06 for the closing-rings chart
+                // (Option F) -- how many of the tracked activity types hit
+                // their own weekly target, out of how many are tracked. Same
+                // underlying met/partial/missed classification as `state`
+                // above, just carried as a real fraction so the ring's
+                // center number means something (not a made-up percentage).
+                const metCount = states.filter(s => s === 'met').length;
+                return { label: week.label, state, range, sessionCount: week.sessions.length, metCount, total: rows.length };
             });
         },
 

@@ -138,7 +138,7 @@ export function projectWorkspacePage(nav) {
         // ---- Task modal (add + edit both use this one modal) ----
         openAddTaskModal() {
             this.editingTaskId = null;
-            this.taskForm = { name: '', scheduled_date: '', scheduled_time: '', notify_enabled: false };
+            this.taskForm = { name: '', scheduled_date: '', scheduled_time: '', notify_enabled: false, priority: 'normal' };
             this.taskModalOpen = true;
         },
         openEditTaskModal(task) {
@@ -147,7 +147,8 @@ export function projectWorkspacePage(nav) {
                 name: task.name || '',
                 scheduled_date: task.scheduled_date || '',
                 scheduled_time: task.scheduled_time ? task.scheduled_time.slice(0, 5) : '',
-                notify_enabled: !!task.notify_enabled
+                notify_enabled: !!task.notify_enabled,
+                priority: task.priority || 'normal'
             };
             this.taskModalOpen = true;
         },
@@ -162,7 +163,8 @@ export function projectWorkspacePage(nav) {
                 name,
                 scheduled_date: this.taskForm.scheduled_date || null,
                 scheduled_time: this.taskForm.scheduled_time || null,
-                notify_enabled: this.taskForm.notify_enabled
+                notify_enabled: this.taskForm.notify_enabled,
+                priority: this.taskForm.priority === 'high' ? 'high' : 'normal'
             };
             try {
                 if (this.editingTaskId) {
@@ -173,8 +175,7 @@ export function projectWorkspacePage(nav) {
                         ...patch,
                         project_id: this.projectId,
                         kind: 'task',
-                        status: 'not_started',
-                        priority: 'normal'
+                        status: 'not_started'
                     });
                     this.tasks = [...this.tasks, row];
                 }
