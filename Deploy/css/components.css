@@ -1253,29 +1253,45 @@
 }
 .add-btn:hover { filter: brightness(1.08); }
 
-/* AI daily digest ticker ("Worth knowing") -- deliberately the one loud
-   surface on Today, per Abhishek's explicit ask that this be the thing his
-   eye lands on first. Solid accent fill (not the usual muted -tint), same
-   var(--surface-0)-on-accent text convention already used by .add-btn --
-   surface-0 is near-black in the dark theme and a light cream in the light
-   theme, so it reads correctly on both without a new token. */
+/* AI daily digest ticker ("Worth knowing") -- reworked 2026-08-07 after
+   direct live feedback that the first version (a solid, fully-saturated
+   accent fill) read as alarming rather than "the thing I look at first,"
+   the coral one especially. Switched to the same soft -tint wash + accent
+   left-edge language the app already uses elsewhere (health panels'
+   tint-sage/tint-amber, task cards' accent-edge) -- still visually distinct
+   from the plain neutral cards around it, but calm rather than loud. */
 .ai-ticker {
     display: flex; align-items: center; gap: 12px;
     border-radius: 12px; padding: 14px 16px; margin-bottom: var(--pad-md);
-    cursor: pointer; color: var(--surface-0);
+    cursor: pointer; color: var(--text-primary);
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-left-width: 4px; border-left-style: solid;
     box-shadow: var(--shadow-card);
     transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 .ai-ticker:hover { transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
-.ai-ticker.accent-coral { background: var(--accent-coral); }
-.ai-ticker.accent-amber { background: var(--accent-amber); }
-.ai-ticker.accent-sage { background: var(--accent-sage); }
-.ai-ticker.accent-blue { background: var(--accent-blue); }
-.ai-ticker.accent-lilac { background: var(--accent-lilac); }
-.ai-ticker-icon { flex: 0 0 auto; display: flex; opacity: 0.85; }
+.ai-ticker.accent-coral { background: var(--accent-coral-tint); border-left-color: var(--accent-coral); }
+.ai-ticker.accent-amber { background: var(--accent-amber-tint); border-left-color: var(--accent-amber); }
+.ai-ticker.accent-sage { background: var(--accent-sage-tint); border-left-color: var(--accent-sage); }
+.ai-ticker.accent-blue { background: var(--accent-blue-tint); border-left-color: var(--accent-blue); }
+.ai-ticker.accent-lilac { background: var(--accent-lilac-tint); border-left-color: var(--accent-lilac); }
+.ai-ticker-icon { flex: 0 0 auto; display: flex; }
+.ai-ticker.accent-coral .ai-ticker-icon { color: var(--accent-coral); }
+.ai-ticker.accent-amber .ai-ticker-icon { color: var(--accent-amber); }
+.ai-ticker.accent-sage .ai-ticker-icon { color: var(--accent-sage); }
+.ai-ticker.accent-blue .ai-ticker-icon { color: var(--accent-blue); }
+.ai-ticker.accent-lilac .ai-ticker-icon { color: var(--accent-lilac); }
 .ai-ticker-body { flex: 1; min-width: 0; }
-.ai-ticker-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.75; margin-bottom: 2px; }
-.ai-ticker-text { font-size: 15px; font-weight: 500; line-height: 1.4; }
+.ai-ticker-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px; }
+.ai-ticker.accent-coral .ai-ticker-eyebrow { color: var(--accent-coral); }
+.ai-ticker.accent-amber .ai-ticker-eyebrow { color: var(--accent-amber); }
+.ai-ticker.accent-sage .ai-ticker-eyebrow { color: var(--accent-sage); }
+.ai-ticker.accent-blue .ai-ticker-eyebrow { color: var(--accent-blue); }
+.ai-ticker.accent-lilac .ai-ticker-eyebrow { color: var(--accent-lilac); }
+/* The actual sentence -- bumped from 15px/500 (direct feedback: "not very
+   eye-catching") to 16px/600, and onto the same var(--text-primary) every
+   other card body uses instead of a low-opacity white-on-color silhouette. */
+.ai-ticker-text { font-size: 16px; font-weight: 600; line-height: 1.4; color: var(--text-primary); }
 .ai-ticker-dots { display: flex; gap: 5px; justify-content: center; margin: -6px 0 var(--pad-md); }
 .ai-ticker-dot { width: 14px; height: 3px; border-radius: 2px; background: var(--border-hover); transition: background var(--dur-base) var(--ease-out); }
 .ai-ticker-dot.on { background: var(--text-muted); }

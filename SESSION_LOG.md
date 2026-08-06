@@ -27,6 +27,25 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-07 · Claude Code (Sonnet 5) — live-testing feedback on the AI Insight Ticker: reload flicker fixed, tab persistence added, ticker colors softened
+
+**Session scope:** Abhishek tested the just-shipped AI Insight Ticker live and sent a screenshot + feedback: (1) a recurring "reload sometimes reverts to a previous state" bug he'd raised before and thought was fixed, (2) reload always lands on Today instead of wherever he was, (3) the ticker's coral card read as alarming, not inviting, (4) the insight sentence itself needed more visual weight. Diagnosed each before touching code rather than guessing.
+
+**What shipped (commit pending):**
+- **Reload flicker — real root cause found, not previously actually fixed.** The 2026-07-28 fix (`updateViaCache:'none'`) only stopped the *service worker script itself* from being served stale; it never closed the other half of the gap — a tab can still be caught between the outgoing and incoming service worker across a deploy, serving a mismatched set of cached JS/CSS for one reload before settling. Added a `controllerchange` listener in `main.js` that forces exactly one `location.reload()` the instant a new worker actually takes control, which is the standard fix for this whole bug class. This is very likely also the "I discussed this before, was told it's fixed" bug — the earlier fix addressed a related but different gap in the same lifecycle.
+- **Reload now returns you to the same tab (and project, if you were inside one).** `tab`/`projectViewId` were memory-only. Now read once from a new `atlas_last_nav` localStorage key at app init and kept in sync via `$watch` on both — covers every existing place that sets them (`setTab()`, the direct `tab = 'projects'` assignments in Calendar/Today's project-open callbacks), no call-site changes needed.
+- **Ticker redesigned from a solid saturated accent fill to the app's existing tint+edge language** (the same treatment the health panels' `tint-sage`/`tint-amber` and task cards' accent-edge already use) — direct feedback that the coral version specifically felt aggressive rather than inviting. Soft `-tint` background, 4px accent left-edge, accent-colored icon+eyebrow, body text back on `var(--text-primary)` instead of the `var(--surface-0)`-on-solid-color treatment.
+- Insight sentence bumped 15px/500 → 16px/600 (also brings it into compliance with this repo's own ≥16px body-text rule, which the first version had quietly missed).
+- `service-worker.js` v88 → v89.
+
+**What was verified:** `node --check` on `main.js`; CSS brace-balance check; local preview confirms zero console errors on the login screen (did not sign in, per this repo's local-dev-shares-prod-DB rule).
+
+**What's still open:**
+- Abhishek has not yet re-tested any of these three fixes live.
+- A separate, non-code task was requested this same session: a plain-English assessment of whether the sleep/workout data he manually logs from his Gabit ring is actually building toward real trend/pattern analysis, and what gaps or risks exist in that pipeline. Investigation-only, no build — see whether a follow-up entry exists for it, or ask Abhishek if it was answered in-chat only.
+
+---
+
 ## 2026-08-07 · Claude Code (Sonnet 5) — AI Insight Ticker (proactive daily digest) + a real pos-partner production bug fix
 
 **Session scope:** Continuation of a two-round research/planning conversation about making Atlas "proactive" instead of a static dashboard. Abhishek reviewed the plan, added requirements (Finance Manager bill awareness, reading his own free-text notes for "why" patterns, a rotating multi-insight ticker instead of one static card, noon timing since he works nights, live-awareness so a resolved item stops nagging same-day), and gave explicit blanket approval to build without asking again unless something didn't match his ask. Built end-to-end in this session, tested at each stage before moving on, per his explicit "no patches, build from the core, test then move on" instruction.

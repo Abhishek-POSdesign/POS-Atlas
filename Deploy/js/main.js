@@ -72,6 +72,25 @@ if ('serviceWorker' in navigator) {
             console.error('ServiceWorker registration failed: ', err);
         });
     });
+
+    // The missing half of the 2026-07-28 fix above -- that one stopped the
+    // browser from serving a stale service-worker.js file, but a tab can
+    // still get caught between the OLD and NEW service worker mid-update:
+    // skipWaiting()/clients.claim() (service-worker.js) make the new worker
+    // take over quickly, but not necessarily on the exact reload that
+    // triggered the update check -- one reload can still land under the
+    // outgoing worker's cached JS/CSS, the next under the new one, which is
+    // exactly the "vanishes, then comes back" flicker reported live
+    // 2026-08-07. `controllerchange` fires the instant a new worker actually
+    // takes control; forcing one reload right then guarantees every asset
+    // on screen comes from the same, current version. `refreshing` guards
+    // against the rare double-fire some browsers are known to produce.
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+    });
 }
 
 document.addEventListener('alpine:init', () => {
@@ -156,12 +175,25 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('calendarPage', calendarPage);
     Alpine.data('atlasAi', atlasAi);
 
+    // Reload used to always land back on Today regardless of where you were
+    // (direct feedback, 2026-08-07) -- tab/projectViewId only ever lived in
+    // memory. Read once at module load, restored in init() below; every
+    // change is persisted via $watch so this stays correct with zero extra
+    // calls at any of the many places that already set tab/projectViewId.
+    let _restoredNav = { tab: 'today', projectViewId: null };
+    try {
+        const raw = localStorage.getItem('atlas_last_nav');
+        if (raw) _restoredNav = { ..._restoredNav, ...JSON.parse(raw) };
+    } catch (e) { /* corrupt/old value -- fall back to defaults */ }
+    if (!['today', 'projects', 'calendar'].includes(_restoredNav.tab)) _restoredNav.tab = 'today';
+    if (_restoredNav.tab !== 'projects') _restoredNav.projectViewId = null;
+
     Alpine.data('app', () => ({
         authReady: false,
         session: null,
-        tab: 'today',
+        tab: _restoredNav.tab,
         overlay: null, // null | 'notebook' | 'restore'
-        projectViewId: null,
+        projectViewId: _restoredNav.projectViewId,
 
         // ---- Snooze picker (2026-08-06) ----
         // Global, not owned by any one page's x-data, since a push
@@ -177,6 +209,9 @@ document.addEventListener('alpine:init', () => {
             this.session = await initAuth();
             this.authReady = true;
             onSessionChange((s) => { this.session = s; });
+            const persistNav = () => localStorage.setItem('atlas_last_nav', JSON.stringify({ tab: this.tab, projectViewId: this.projectViewId }));
+            this.$watch('tab', persistNav);
+            this.$watch('projectViewId', persistNav);
             window.addEventListener('atlas:snooze-request', (e) => {
                 this.snoozeTaskId = e.detail.taskId;
                 this.snoozeError = '';
