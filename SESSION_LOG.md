@@ -27,6 +27,32 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-07 · Claude Code (Sonnet 4.6) — live-testing feedback on the 2026-08-06 build
+
+**Session scope:** Abhishek live-tested the previous session's build on the deployed app and sent a screenshot + written feedback covering the sleep chart, workout rings, and family push. Diagnosed each with real DB queries before fixing.
+
+**What shipped (commit `90c7e92`):**
+- Sleep chart: axis label color bumped `text-muted` → `text-secondary`; hover/touch tooltip re-added on top of the axis chart (per direct feedback -- axes alone weren't enough). Confirmed via SQL the 14/30-day toggle itself is not a bug: only 13 real sleep nights exist total, all within the last 13 days, so both windows currently show identical data -- will diverge naturally once more history accumulates.
+- Workout rings: **real bug fixed.** Confirmed via SQL that real logged sessions existed (e.g. 3 strength sessions against a target of 4) while the ring showed a flat 0/4 -- root cause was the ring counting "activity types that fully hit 100% of target," which is misleadingly ~0 even with substantial real activity. Changed to sessions-done/sessions-targeted (each activity capped at its own target), matching the numbers already shown in the "This week" strip. Also removed `.ring-cell`'s `max-width:96px`, which was the actual cause of the rings clustering left with dead space on the right -- `flex:1` alone now fills the full card width.
+- Real push notifications for Ritu: previously **no push subscription mechanism existed at all** for her device -- confirmed via reading `family/app.js`/`family/service-worker.js`, the only notification path was in-tab `Notification` calls that require a tab already open. Added `atlas_family_push_subscriptions` table (migration `024`), a subscribe toggle in the family app header, push/notificationclick handlers in `family/service-worker.js`, and a new `send-family-push` Edge Function invoked from `sendFamilyNote()` whenever a note is saved (best-effort, never blocks the note save itself on push failure).
+- Fixed a wrong icon path (`/family/icon-192.png` doesn't exist; the family manifest already reuses the root `/icon-192.png`) caught before it shipped broken.
+- `service-worker.js` v85→v86; `family/service-worker.js` v1→v2.
+
+**What was verified:** `node --check` clean on every touched JS file. CSS brace balance and HTML div/template balance checked (one false-positive template-count mismatch traced to the literal word "template" appearing inside my own explanatory HTML comment -- confirmed real balance was fine once comments were stripped before counting). Read live `atlas_sleep_logs`/`atlas_workout_targets`/`atlas_workout_sessions` rows directly via SQL before concluding root cause on both chart bugs, rather than guessing from the screenshot alone.
+
+**What's still open:**
+- Not yet re-tested live by Abhishek -- this round shipped in response to his first live-testing pass, needs a second pass.
+- Snooze: Abhishek set a real alarm to test the fix from the previous session; verdict pending, will report back once it fires.
+- Checklist per-item notification: Abhishek set a real reminder to test; verdict pending.
+- Ritu's device still needs to actually tap the new notification toggle in her app once before push can work at all -- same "permission granted ≠ subscribed" gap documented in the sibling POS app's own handover notes; don't assume it works until confirmed live.
+
+**What NOT to do:**
+- Don't revert the workout ring metric back to "count of activity types at 100%" -- confirmed via real data that it reads as "not tracking anything" even with genuine partial progress every single week.
+- Don't reintroduce a `max-width` cap on `.ring-cell` -- direct, explicit feedback that it must fill the full row.
+- Don't assume the sleep 14/30 toggle is broken without checking real row counts first -- it wasn't, in this case.
+
+---
+
 ## 2026-08-06 · Claude Code (Sonnet 4.6) — full build round: priority, chart rebuild, snooze fix, checklist notify
 
 **Session scope:** Abhishek requested 7 fixes/features. Diagnosed all 7 with real code+DB+log evidence, mockup round (2 rounds, all approved), then built the full approved set in one session.
