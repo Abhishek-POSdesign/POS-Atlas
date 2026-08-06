@@ -429,9 +429,20 @@ export const WRITE_FLOWS = {
             { key: 'task_name', label: 'Task', type: 'text' }
         ],
         extractionInstruction: 'When the message says to pause, stop, or put down a specific in-progress task from the list, extract these fields and return exactly this JSON:\n{"intent":"pause_task","fields":{"task_number":number|null,"task_name":string|null,"reason":string|null}}\nField semantics: task_number = 1-based number from the list above. task_name = exact name verbatim if he named it -- do not paraphrase. Set one of task_number/task_name, not both. reason = why he\'s pausing it, if he says it. Use null for reason if not said.\nIf the message does not mention pausing a task from the list, or is ambiguous about which one, return {"intent":null}.',
+        // Preserves any existing running_note when no new reason is given.
+        // Bug found in the 2026-08-08 post-build audit: writing
+        // { running_note: fields.reason || null } silently overwrote a real
+        // "working on X" note to null the instant the user said "pause task 3"
+        // with no accompanying reason -- a data-loss path specific to the AI
+        // trigger surface (the manual pauseTask() in today.js at least prompts
+        // for a reason interactively, though it too writes null on skip and
+        // has the same latent bug). Only set running_note when we actually
+        // have a value; a null-decline explicitly leaves the field untouched.
         async write(fields) {
             if (!fields.task_id) throw new Error('Task not identified -- confirm card should have supplied the ID');
-            return DB.Tasks.update(fields.task_id, { status: 'paused', running_note: fields.reason || null });
+            const patch = { status: 'paused' };
+            if (fields.reason) patch.running_note = fields.reason;
+            return DB.Tasks.update(fields.task_id, patch);
         }
     },
     delete_task: {

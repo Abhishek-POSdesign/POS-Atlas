@@ -27,7 +27,7 @@ import { showUndoToast } from '../components/undo-toast.js';
 import {
     loadConfig, saveConfig, loadPersona, savePersona,
     hasPin as pinExists, setPin, checkPin, clearPin,
-    loadChatHistory, saveChatHistory, clearChatHistory, pushChatHistory, pullChatHistory,
+    loadChatHistory, saveChatHistory, clearChatHistory, pushChatHistory, pullChatHistory, chatSyncStatus,
     loadNotebookLocal, saveNotebookLocal, pushNotebook, pullNotebook,
     sendToProvider, buildSystemPrompt, getNotebookContext
 } from '../features/aiConfig.js';
@@ -92,6 +92,12 @@ export function atlasAi() {
         errorMsg: '',
         listening: false,
         pendingUseCase: null,
+        // Reactive mirror of the chat-sync push state -- polled once every
+        // few seconds while the panel is open (see init()) so the header
+        // sync-status dot can turn coral if a push has failed. The status
+        // itself lives in aiConfig.js's module-level push queue; this is
+        // just a UI cache of it.
+        syncOk: true,
 
         // Conversational Actions (voice-first logging & creation, approved
         // 2026-08-07 -- see PLAN.md's "NEXT UP" section / CLAUDE.md). One
@@ -146,6 +152,16 @@ export function atlasAi() {
             pullChatHistory().then(messages => { if (messages) { this.messages = messages; this.$nextTick(() => this._scrollToBottom()); } });
             this.notebookEntries = loadNotebookLocal();
             pullNotebook().then(() => { this.notebookEntries = loadNotebookLocal(); });
+
+            // Poll the chat-sync push status every 3s -- cheap enough (in-
+            // memory read, no network) and low-frequency enough that the
+            // dot latency is negligible. Doesn't run when the panel is
+            // closed (guarded by panelOpen).
+            setInterval(() => {
+                if (!this.panelOpen) return;
+                const s = chatSyncStatus();
+                this.syncOk = s.ok;
+            }, 3000);
 
             // Lets any page open the panel pre-loaded with a specific topic
             // (e.g. the Today insight ticker) without either side reaching
@@ -308,7 +324,12 @@ export function atlasAi() {
         },
 
         _pushMessage(msg) {
-            this.messages.push(Object.assign({ id: crypto.randomUUID(), date: todayIsoDate(), time: nowLabel() }, msg));
+            // createdAt is the sort key mergeChatMessages() uses when
+            // reconciling cross-device pulls -- without it, a message
+            // typed on device A after a pull from device B could reorder
+            // out of insertion order after a merge (older messages
+            // wouldn't sort correctly against newer ones with no clock).
+            this.messages.push(Object.assign({ id: crypto.randomUUID(), date: todayIsoDate(), time: nowLabel(), createdAt: Date.now() }, msg));
             this._persistChatHistory();
             this.$nextTick(() => this._scrollToBottom());
         },
@@ -1386,6 +1407,15 @@ export function atlasAi() {
                 this.errorMsg = 'Voice input is not supported in this browser.';
                 return;
             }
+            // Pre-check the auth session BEFORE prompting for the mic and
+            // recording a clip. The old flow was: record 20 seconds -> try to
+            // transcribe -> discover the session was expired -> surface "Voice
+            // transcription failed: not signed in" as a generic error, having
+            // already burned the user's audio. Fail fast and cleanly instead.
+            if (!getSession()) {
+                this.errorMsg = 'You need to be signed in for voice input.';
+                return;
+            }
             let stream;
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1393,10 +1423,17 @@ export function atlasAi() {
                 this.errorMsg = 'Microphone access denied or unavailable.';
                 return;
             }
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-                : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+            // Only WEBM_OPUS is supported end-to-end -- the STT proxy rejects
+            // anything else with a clear error (see atlas-stt-proxy). This
+            // matches Abhishek's real target devices (Android Chrome, Chrome,
+            // Edge). The old code offered `audio/mp4` as a fallback for
+            // Safari, but Safari's MediaRecorder produces MP4/AAC, which
+            // Google Cloud STT can't decode as MP3 -- so that path would
+            // record fine locally then fail server-side. Refuse it up front
+            // so the user gets an honest error before the mic even opens.
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
             if (!mimeType) {
-                this.errorMsg = 'Voice input is not supported in this browser.';
+                this.errorMsg = 'Voice input needs Chrome, Edge, or Android Chrome. Safari/iOS is not currently supported.';
                 stream.getTracks().forEach(t => t.stop());
                 return;
             }
@@ -1428,6 +1465,13 @@ export function atlasAi() {
             const blob = new Blob(chunks, { type: mimeType });
             this.thinking = true;
             this.errorMsg = '';
+            // 30s abort timeout on the transcription fetch. The old code had
+            // no timeout at all -- if Google or the edge function hung, the
+            // fetch would never return, this.thinking stayed true forever,
+            // and sendMessage() early-returns while thinking, so the panel
+            // was locked with no way to recover short of a page reload.
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 30000);
             try {
                 const base64 = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
@@ -1435,12 +1479,16 @@ export function atlasAi() {
                     reader.onerror = reject;
                     reader.readAsDataURL(blob);
                 });
+                // Session was already checked at _startRecording time; this
+                // is a belt-and-braces re-check in case the token expired
+                // during the recording itself.
                 const session = getSession();
-                if (!session) throw new Error('not signed in');
+                if (!session) throw new Error('signed out during recording');
                 const res = await fetch('https://vcndlorrrtueofzuynvi.supabase.co/functions/v1/atlas-stt-proxy', {
                     method: 'POST',
                     headers: { 'Authorization': 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audio_base64: base64, mime_type: mimeType })
+                    body: JSON.stringify({ audio_base64: base64, mime_type: mimeType }),
+                    signal: controller.signal
                 });
                 if (!res.ok) throw new Error('transcription request failed');
                 const data = await res.json();
@@ -1451,9 +1499,12 @@ export function atlasAi() {
                     this.errorMsg = "Didn't catch that -- try again.";
                 }
             } catch (e) {
-                this.errorMsg = 'Voice transcription failed: ' + e.message + ' -- you can still type.';
+                const msg = e.name === 'AbortError' ? 'Voice transcription timed out -- you can still type.' : ('Voice transcription failed: ' + e.message + ' -- you can still type.');
+                this.errorMsg = msg;
+            } finally {
+                clearTimeout(timer);
+                this.thinking = false;
             }
-            this.thinking = false;
         },
 
         // True while Atlas's own voice could still be audible -- covers both

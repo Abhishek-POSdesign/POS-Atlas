@@ -118,13 +118,23 @@ export const CONVERSATIONAL_ACTIONS = {
         // calories/vo2 chips only render once a real session row exists
         // (see index.html's "idx === 0 && workoutEntry..." check) -- that's
         // not a display bug, it's this write path being incomplete.
+        // Writes intensity regardless of activity_type when the user actually
+        // stated one. The old `activityType === 'strength' ? fields.intensity
+        // : null` guard was a superstitious copy of the manual form's
+        // conditional field-visibility (the manual UI hides Intensity for
+        // non-strength types to keep the form tidy) -- but the atlas_workout_
+        // sessions.intensity column itself has no constraint against non-
+        // strength rows. Enforcing that here silently DROPPED the user's own
+        // stated intensity (e.g. "log a yoga workout, moderate intensity" ->
+        // intensity vanished) with no signal that anything was ignored, a
+        // clean violation of "never silently drop what the user said."
         async write(fields) {
             const dayRow = await WRITE_FLOWS.log_workout.write(fields);
             const activityType = classifyActivityType(fields.workout_type);
             await DB.WorkoutSessions.create(dayRow.id, {
                 activity_type: activityType,
                 duration_minutes: fields.duration_minutes != null ? fields.duration_minutes : null,
-                intensity: activityType === 'strength' ? (fields.intensity || null) : null,
+                intensity: fields.intensity || null,
                 program_tag: null,
                 note: null
             });

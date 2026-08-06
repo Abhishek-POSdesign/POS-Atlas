@@ -218,25 +218,34 @@ export function todayPage(nav) {
                 console.error('Checklist ring refresh failed:', e);
             }
         },
-        // Fixed 2026-08-08: this used to query strictly for today's date, which
-        // is empty from midnight until the noon digest runs -- exactly
-        // Abhishek's own working hours on his night-shift schedule, since he's
-        // typically awake and working until ~4am and asleep 6am-noon. Now:
-        // before 6am, fall back to showing last session's (still noon-
-        // generated, still live-rechecked by aiVisibleInsights) insights
-        // instead of going blank; 6am-noon it hides entirely (his sleep
-        // window, nothing to show); from noon on it reads today's fresh row
-        // as before. Matches the schedule he described exactly -- don't
-        // revert to a plain "today only" query.
+        // Fixed 2026-08-08 (round 1): this used to query strictly for today's
+        // date, which is empty from midnight until the noon digest runs --
+        // exactly Abhishek's own working hours on his night-shift schedule,
+        // since he's typically awake and working until ~4am and asleep 6am-
+        // noon. Now: before 6am, fall back to yesterday's row; 6am-noon it
+        // hides entirely; from noon on it reads today's fresh row.
+        //
+        // Refined 2026-08-08 (round 2): the schedule window is now anchored
+        // to IST explicitly instead of `new Date().getHours()`, which
+        // returns whatever timezone the browser is in. The digest cron
+        // (`pg_cron` schedule '30 6 * * *' in migration 025) fires at 06:30
+        // UTC = 12:00 IST -- always IST, not always local time. If Abhishek
+        // ever loads the app from a different timezone (travel), the local-
+        // hour version silently shifts his sleep window with him; the IST-
+        // anchored version stays honest to when the digest actually runs.
         async loadAiInsights(calendarDate) {
-            const hour = new Date().getHours();
-            if (hour >= 6 && hour < 12) {
+            // IST = UTC+5:30, always (no DST). Direct millisecond math is
+            // cheaper than Intl.DateTimeFormat and doesn't allocate.
+            const nowUtcMs = Date.now();
+            const istMs = nowUtcMs + (5 * 60 + 30) * 60 * 1000;
+            const istHour = new Date(istMs).getUTCHours();
+            if (istHour >= 6 && istHour < 12) {
                 this.aiInsights = [];
                 this._startAiInsightRotation();
                 return;
             }
             let row = await DB.AiInsights.getForDate(calendarDate);
-            if (!row && hour < 6) {
+            if (!row && istHour < 6) {
                 const y = new Date(calendarDate + 'T00:00:00');
                 y.setDate(y.getDate() - 1);
                 row = await DB.AiInsights.getForDate(y.toLocaleDateString('en-CA'));

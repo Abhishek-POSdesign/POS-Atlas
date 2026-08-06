@@ -16,11 +16,27 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 // the same "tap to stop, review before sending" flow already built for the
 // old mic.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://atlas.abhisheksikka.com',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// CORS allows both the deployed origin and localhost dev servers -- was
+// hardcoded to prod-only, which blocked all local-dev voice testing. The
+// TTS proxy still needs the same treatment for symmetry; both edge
+// functions ship together. Local origins are matched dynamically because
+// Access-Control-Allow-Origin only accepts one exact value at a time.
+const PROD_ORIGIN = 'https://atlas.abhisheksikka.com';
+const DEV_ORIGIN_PATTERN = /^http:\/\/localhost:\d+$/;
+function pickCorsOrigin(reqOrigin: string | null): string {
+  if (!reqOrigin) return PROD_ORIGIN;
+  if (reqOrigin === PROD_ORIGIN) return PROD_ORIGIN;
+  if (DEV_ORIGIN_PATTERN.test(reqOrigin)) return reqOrigin;
+  return PROD_ORIGIN;
+}
+function buildCorsHeaders(reqOrigin: string | null): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': pickCorsOrigin(reqOrigin),
+    'Vary': 'Origin',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+}
 
 // Generous but bounded -- a base64 audio clip this size is several minutes
 // of speech at typical Opus bitrates; well past any real single voice turn,
@@ -99,6 +115,7 @@ async function getGoogleAccessToken(gcpKey: { client_email: string; private_key:
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req.headers.get('Origin'));
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -138,11 +155,24 @@ serve(async (req) => {
       });
     }
 
-    // Google's encoding enum keyed off what the browser's MediaRecorder
-    // actually produced -- the client always tries audio/webm;codecs=opus
-    // first (Chrome/Edge/Android Chrome, Abhishek's primary devices), with
-    // audio/mp4 as a fallback for browsers that don't support that mimeType.
-    const encoding = (mime_type || '').includes('mp4') ? 'MP3' : 'WEBM_OPUS';
+    // Abhishek's confirmed target devices are Android Chrome (phone) and
+    // Chrome/Edge on Windows (desktop). Both produce audio/webm;codecs=opus
+    // via MediaRecorder -- WEBM_OPUS is the only codec we actually receive
+    // in practice. The old code had a "mp4 -> MP3" fallback branch for
+    // Safari, but Safari's MediaRecorder produces MP4/AAC, NOT MP3, so
+    // that branch was broken by construction and would have silently
+    // failed transcription on any Safari client. Since he has no iOS
+    // devices in the family (his explicit statement 2026-08-08), we drop
+    // that path entirely and require WEBM_OPUS -- surfacing an honest
+    // "unsupported codec" error is better than a confusingly-worded
+    // Google API failure.
+    const isWebmOpus = (mime_type || '').includes('webm');
+    if (!isWebmOpus) {
+      return new Response(JSON.stringify({ error: 'Unsupported audio codec -- Atlas expects audio/webm;codecs=opus (Android Chrome / Chrome / Edge). Safari/iOS is not currently supported.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const gcpKeyString = Deno.env.get('GCP_SERVICE_ACCOUNT_KEY');
     if (!gcpKeyString) {
@@ -151,6 +181,12 @@ serve(async (req) => {
     const gcpKey = JSON.parse(gcpKeyString);
     const accessToken = await getGoogleAccessToken(gcpKey);
 
+    // Voice-command sizing: Atlas's voice turns are almost always short
+    // ("log my sleep, 8 hours, score 82" ~3s), so latest_short is both more
+    // accurate and cheaper than latest_long. sampleRateHertz is intentionally
+    // OMITTED for WEBM_OPUS -- Google's own docs are explicit that the field
+    // is auto-derived from the Opus header for that encoding, and passing an
+    // explicit value can be flagged as inconsistent with the container.
     const sttResponse = await fetch('https://speech.googleapis.com/v1/speech:recognize', {
       method: 'POST',
       headers: {
@@ -159,9 +195,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         config: {
-          encoding,
+          encoding: 'WEBM_OPUS',
           languageCode: 'en-US',
-          model: 'latest_long',
+          model: 'latest_short',
           enableAutomaticPunctuation: true
         },
         audio: { content: audio_base64 }

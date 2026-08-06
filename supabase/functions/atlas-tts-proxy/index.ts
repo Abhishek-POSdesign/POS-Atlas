@@ -1,16 +1,30 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
-// Allow strict CORS for the production app origin (and local dev)
-const corsHeaders = {
-  'Access-Control-Allow-Origin': 'https://atlas.abhisheksikka.com',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  // Lets the browser's fetch() read X-Voice-Truncated off the response --
-  // without this, custom response headers are invisible to client JS on a
-  // cross-origin request even though the header is actually sent.
-  'Access-Control-Expose-Headers': 'X-Voice-Truncated',
-};
+// CORS allows both the deployed origin and localhost dev servers. The old
+// hardcoded prod-only Access-Control-Allow-Origin blocked all local-dev
+// voice testing; matched with atlas-stt-proxy's own dynamic origin picker
+// so voice input and voice reply have identical CORS behavior.
+const PROD_ORIGIN = 'https://atlas.abhisheksikka.com';
+const DEV_ORIGIN_PATTERN = /^http:\/\/localhost:\d+$/;
+function pickCorsOrigin(reqOrigin: string | null): string {
+  if (!reqOrigin) return PROD_ORIGIN;
+  if (reqOrigin === PROD_ORIGIN) return PROD_ORIGIN;
+  if (DEV_ORIGIN_PATTERN.test(reqOrigin)) return reqOrigin;
+  return PROD_ORIGIN;
+}
+function buildCorsHeaders(reqOrigin: string | null): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': pickCorsOrigin(reqOrigin),
+    'Vary': 'Origin',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    // Lets the browser's fetch() read X-Voice-Truncated off the response --
+    // without this, custom response headers are invisible to client JS on a
+    // cross-origin request even though the header is actually sent.
+    'Access-Control-Expose-Headers': 'X-Voice-Truncated',
+  };
+}
 
 // Hard ceiling for hands-free use: high enough that Atlas "usually reads
 // everything it wrote" (the whole point -- Abhishek wants full replies
@@ -107,6 +121,7 @@ async function getGoogleAccessToken(gcpKey: { client_email: string; private_key:
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req.headers.get('Origin'));
   // 1. Handle CORS Preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });

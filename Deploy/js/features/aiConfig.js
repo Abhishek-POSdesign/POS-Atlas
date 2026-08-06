@@ -72,50 +72,149 @@ export function clearPin() {
     localStorage.removeItem('atlas_ai_pin');
 }
 
-// ---- Chat history: local read (fast path) + cloud sync, added 2026-08-08.
-// Used to be local-only with a 24h auto-wipe -- fine for a scratch
-// conversation on one device, not once Abhishek started relying on it
-// seriously across phone and desktop (confirmed live: a phone conversation
-// didn't carry over to desktop at all). Same shape and same last-write-wins
-// pattern as the AI Memory Notebook sync just below -- one row, whole
-// message array, updated_at compared against a local timestamp marker.
+// ---- Chat history: local read (fast path) + cloud sync, rebuilt 2026-08-08
+// after the post-build audit found five real bugs in the first-cut sync
+// (see PLAN.md's ticker/chat-sync section). Behaviours worth preserving in
+// this comment because they are not obvious from the shape of the code:
+//   * `atlas_ai_history_ts` is a "highest-known write timestamp" for THIS
+//     device -- bumped on every local save AND on every pull. The old code
+//     only bumped on pull, which meant a pull immediately after a local
+//     save would treat the older cloud row as newer than the local one
+//     and overwrite the just-typed message.
+//   * `pullChatHistory()` MERGES the cloud response with the current local
+//     copy by message id -- it never wholesale-replaces. The old code did
+//     a wholesale replace, which under a race (init pull returns AFTER a
+//     just-sent local message) silently wiped that new message. The merge
+//     is safe because message ids are randomly generated UUIDs at
+//     _pushMessage() time in aiPanel.js.
+//   * `pushChatHistory()` is debounced (1500ms trailing) AND serialized
+//     (one at a time). Every message used to fire a fresh get+update DB
+//     round-trip -- a 4-message exchange = 8 network calls. Now: rapid
+//     mutations collapse to one push after the pause, and no two pushes
+//     ever race.
+//   * A chat cap (CHAT_MAX_MESSAGES) is enforced at both save-local and
+//     push-cloud time. The history was previously unbounded -- fine at
+//     50 messages, unpleasant at 5000, and eventually large enough to
+//     hit request-size limits.
+
+const CHAT_MAX_MESSAGES = 200;
+const PUSH_DEBOUNCE_MS = 1500;
+
+function trimChat(messages) {
+    if (!Array.isArray(messages)) return [];
+    return messages.length > CHAT_MAX_MESSAGES ? messages.slice(-CHAT_MAX_MESSAGES) : messages;
+}
+
 export function loadChatHistory() {
     try {
         const raw = JSON.parse(localStorage.getItem('atlas_ai_history') || 'null');
-        return raw ? (raw.messages || []) : [];
+        return raw ? trimChat(raw.messages || []) : [];
     } catch (e) { return []; }
 }
 export function saveChatHistory(messages) {
-    localStorage.setItem('atlas_ai_history', JSON.stringify({ ts: Date.now(), messages }));
+    const trimmed = trimChat(messages);
+    const now = Date.now();
+    localStorage.setItem('atlas_ai_history', JSON.stringify({ ts: now, messages: trimmed }));
+    // See the comment above: the timestamp marker is now bumped on every
+    // local save, not just on pull -- this is the load-bearing fix that
+    // stops a subsequent pull from silently overwriting freshly-typed
+    // messages the cloud hasn't seen yet.
+    localStorage.setItem('atlas_ai_history_ts', String(now));
 }
 export function clearChatHistory() {
     localStorage.removeItem('atlas_ai_history');
     localStorage.removeItem('atlas_ai_history_ts');
-    pushChatHistory([]); // fire-and-forget -- clear the cloud copy too, otherwise the next pull on another device silently brings the "cleared" chat back
+    _schedulePush([]); // clear the cloud copy too, otherwise the next pull on another device silently brings the "cleared" chat back
 }
-// Fire-and-forget cloud push, same tolerance as pushNotebook -- a failed
-// push just means the local copy stays authoritative until the next one.
-export async function pushChatHistory(messages) {
-    try { await DB.AiChat.save(messages); }
-    catch (e) { console.warn('[Atlas AI] chat cloud sync failed:', e.message); }
+
+// Debounced+serialized push. `pushChatHistory()` is now the schedule call,
+// not the execute call -- callers pass the latest full message array, and
+// the real write happens at most once per debounce window, with at most
+// one in flight at any moment.
+let _pushTimer = null;
+let _pushInFlight = false;
+let _pushPending = null; // latest messages array queued while a push is in flight
+let _lastPushAt = 0;
+let _pushFailedAt = 0;
+export function pushChatHistory(messages) { _schedulePush(messages); }
+function _schedulePush(messages) {
+    const trimmed = trimChat(messages);
+    if (_pushInFlight) { _pushPending = trimmed; return; }
+    if (_pushTimer) clearTimeout(_pushTimer);
+    _pushTimer = setTimeout(() => { _pushTimer = null; _doPush(trimmed); }, PUSH_DEBOUNCE_MS);
 }
-// Last-write-wins pull: only replaces the local copy if the cloud row is
-// newer than our last known local write. Returns the messages array if it
-// pulled something newer, or null if the local copy is already current --
-// the caller only needs to update its reactive state in the former case.
+async function _doPush(messages) {
+    _pushInFlight = true;
+    try {
+        await DB.AiChat.save(messages);
+        _lastPushAt = Date.now();
+        _pushFailedAt = 0;
+    } catch (e) {
+        console.warn('[Atlas AI] chat cloud sync failed:', e.message);
+        _pushFailedAt = Date.now();
+    } finally {
+        _pushInFlight = false;
+        // If someone queued a newer push while we were in flight, drain it
+        // now (still through the debounce so a burst still collapses).
+        if (_pushPending !== null) {
+            const next = _pushPending;
+            _pushPending = null;
+            _schedulePush(next);
+        }
+    }
+}
+// Simple sync-status hook for the UI. Returns { ok: bool, lastPushAt,
+// lastFailedAt } -- lets the AI panel show a small "sync failed" hint
+// without pulling in a whole reactive store just for this.
+export function chatSyncStatus() {
+    return { ok: _pushFailedAt === 0 || _lastPushAt > _pushFailedAt, lastPushAt: _lastPushAt, lastFailedAt: _pushFailedAt, inFlight: _pushInFlight };
+}
+
+// Merge a pulled cloud message array with a current local array by id.
+// Never wholesale-replaces: any message present locally-but-not-remote is
+// preserved (assumed to be a local edit whose push hasn't landed yet), any
+// message present remote-but-not-local is added, and messages present in
+// both keep their local instance (which should be identical anyway --
+// messages are immutable once created). Ordering falls back to createdAt
+// when available (stamped by _pushMessage in aiPanel.js going forward), or
+// the message's original position in the arrays for older ones without.
+export function mergeChatMessages(local, remote) {
+    if (!Array.isArray(remote) || !remote.length) return local;
+    if (!Array.isArray(local) || !local.length) return trimChat(remote);
+    const byId = new Map();
+    remote.forEach((m, i) => byId.set(m.id, { m, order: m.createdAt || i }));
+    local.forEach((m, i) => {
+        const existing = byId.get(m.id);
+        // Prefer the local copy when both sides have the same id, and keep
+        // whichever order value we already had (remote's if the message was
+        // seen there first; local's fallback otherwise).
+        byId.set(m.id, { m, order: existing ? existing.order : (m.createdAt || (i + 100000)) });
+    });
+    const merged = Array.from(byId.values()).sort((a, b) => a.order - b.order).map(x => x.m);
+    return trimChat(merged);
+}
+
+// Cross-device pull. Returns the merged message array to display when the
+// pull produced any change, or null when the local copy is already
+// current. Bumps the local timestamp marker to whatever the cloud reports
+// so the next pull won't over-fetch the same state.
 export async function pullChatHistory() {
     try {
         const row = await DB.AiChat.get();
         if (!row) return null;
         const localTs = parseInt(localStorage.getItem('atlas_ai_history_ts') || '0', 10);
         const remoteTs = new Date(row.updated_at).getTime();
-        if (remoteTs > localTs) {
-            const messages = row.messages || [];
-            localStorage.setItem('atlas_ai_history', JSON.stringify({ ts: Date.now(), messages }));
+        if (remoteTs <= localTs) return null;
+        const local = loadChatHistory();
+        const merged = mergeChatMessages(local, row.messages || []);
+        // No change after merge -> nothing to write, nothing to return.
+        if (merged.length === local.length && merged.every((m, i) => m.id === local[i]?.id)) {
             localStorage.setItem('atlas_ai_history_ts', String(remoteTs));
-            return messages;
+            return null;
         }
-        return null;
+        localStorage.setItem('atlas_ai_history', JSON.stringify({ ts: Date.now(), messages: merged }));
+        localStorage.setItem('atlas_ai_history_ts', String(remoteTs));
+        return merged;
     } catch (e) { return null; }
 }
 

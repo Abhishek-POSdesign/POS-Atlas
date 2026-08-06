@@ -2953,6 +2953,10 @@ body:has(.ai-panel-open) .content-area {
 .ai-header-icons { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
 .hicon { width: 26px; height: 26px; border-radius: 6px; border: 0; background: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .hicon:hover { color: var(--text-primary); background: var(--surface-2); }
+/* Chat sync failure dot: coral, appears in the AI-panel header row only when
+   a chat push failed. Non-interactive, sits next to the close button.
+   Deliberately tiny -- this is a "worth mentioning" signal, not an alert. */
+.ai-sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-coral); flex-shrink: 0; align-self: center; margin: 0 2px; }
 
 .model-pill-wrap { position: relative; flex-shrink: 0; }
 .model-pill { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary); font-family: inherit; font-size: 10.5px; font-weight: 600; padding: 4px 8px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
