@@ -3023,6 +3023,7 @@ body:has(.ai-panel-open) .content-area {
 .composer-wrap textarea { width: 100%; background: none; border: 0; outline: 0; color: var(--text-primary); font-family: inherit; font-size: 13.5px; line-height: 1.5; resize: none; min-height: 2.9em; max-height: 4.4em; overflow-y: auto; display: block; }
 .composer-wrap textarea::placeholder { color: var(--text-muted); }
 .composer-hint { font-size: 10px; color: var(--text-muted); opacity: .7; margin-top: 6px; padding: 0 3px; }
+.ai-voice-loop-hint { font-size: 12px; font-weight: 500; color: var(--accent-blue); background: var(--accent-blue-tint); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; }
 .composer-icons { position: absolute; right: 6px; bottom: 6px; display: flex; align-items: center; gap: 5px; }
 .mic-btn { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--surface-1); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all var(--dur-fast) var(--ease-out); }
 .mic-btn:hover { color: var(--accent-blue); }

@@ -32,6 +32,12 @@ import {
     sendToProvider, buildSystemPrompt, getNotebookContext
 } from '../features/aiConfig.js';
 import { buildFactPackage, WRITE_FLOWS, sanitizeDraftFields } from '../features/aiContext.js';
+import {
+    CONVERSATIONAL_ACTIONS, detectActionStart, resolveAmbiguous, newDraft,
+    mergeExtractedFields, firstMissingField, markSkipped, isCancelPhrase,
+    isDeclineAnswer, isYes, isNo, formatReadBack, draftToCardFields, draftToRawFields,
+    applyDeclinedFields
+} from '../features/conversationalActions.js';
 
 const PERSONA_FIELD_DEFS = [
     { key: 'role', label: '1 · Role / Identity' },
@@ -56,6 +62,7 @@ function dayLabel(dateStr) {
 }
 
 let speechRecognition = null;   // module-level, not reactive -- avoids Alpine proxy issues with a browser API object
+let _lastInputWasVoice = false; // set true when the draft was produced by dictation; cleared by manual typing (see composer's @input in index.html) -- drives the Phase A auto-relisten loop
 let _taskCache = null;          // populated from explain_day packages; used for complete_task resolution
 let _checklistCache = null;     // populated from explain_day packages; used for mark_checklist resolution
 let _checklistDate = null;      // todayKey() value matching _checklistCache
@@ -81,6 +88,14 @@ export function atlasAi() {
         errorMsg: '',
         listening: false,
         pendingUseCase: null,
+
+        // Conversational Actions (voice-first logging & creation, approved
+        // 2026-08-07 -- see PLAN.md's "NEXT UP" section / CLAUDE.md). One
+        // running draft lives here across every turn until saved or
+        // cancelled; _pendingActionChoice holds a disambiguation shortlist
+        // when a message matched more than one action's trigger.
+        activeAction: null,
+        _pendingActionChoice: null,
 
         notebookEntries: [],
 
@@ -241,7 +256,7 @@ export function atlasAi() {
                     msg.voiceState = 'playing';
                     const url = URL.createObjectURL(blob);
                     this.currentCloudAudio = new Audio(url);
-                    this.currentCloudAudio.onended = () => { msg.voiceState = 'idle'; };
+                    this.currentCloudAudio.onended = () => { msg.voiceState = 'idle'; this._autoContinueVoice(); };
                     this.currentCloudAudio.onerror = () => { msg.voiceState = 'idle'; };
                     this.currentCloudAudio.play();
                 }).catch(e => {
@@ -262,10 +277,21 @@ export function atlasAi() {
                     const match = voices.find(v => v.name === this.voiceName);
                     if (match) utt.voice = match;
                 }
-                utt.onend = () => { msg.voiceState = 'idle'; };
+                utt.onend = () => { msg.voiceState = 'idle'; this._autoContinueVoice(); };
                 utt.onerror = () => { msg.voiceState = 'idle'; };
                 window.speechSynthesis.speak(utt);
             }
+        },
+
+        // Auto-relisten after Atlas finishes speaking -- only while a
+        // voice-initiated Conversational Action is still active and the panel
+        // is still open. This is the "then the whole conversation happens by
+        // voice" half of Phase A; see voiceExchange() for the capture side.
+        _autoContinueVoice() {
+            if (!this.activeAction || !this.activeAction.viaVoice || !this.panelOpen) return;
+            setTimeout(() => {
+                if (this.activeAction && this.activeAction.viaVoice && this.panelOpen) this.voiceExchange();
+            }, 400);
         },
         toggleAudio(msg) {
             if (msg.voiceState === 'playing' || msg.voiceState === 'loading') {
@@ -337,18 +363,44 @@ export function atlasAi() {
             this.sendMessage();
         },
 
-        // ---- Three-track routing ----
+        // ---- Four-track routing ----
+        // Track D: Conversational Action — multi-turn draft (log sleep/workout, create task/reminder). Checked first: an
+        //          active draft or a pending disambiguation captures every subsequent message until saved/cancelled.
         // Track A: AI Memory save — client-side phrase detection, no model call, immediate confirm card.
-        // Track B: Write-flow intent — parallel extraction call (JSON) + prose call (natural reply).
+        // Track B: Write-flow intent — parallel extraction call (JSON) + prose call (natural reply). (complete_task/mark_checklist/journal_reflection only -- log_sleep/log_workout moved to Track D.)
         // Track C: Normal chat — single prose call.
         async sendMessage() {
             const text = this.draft.trim();
             if (!text || this.thinking) return;
+            const viaVoice = _lastInputWasVoice;
+            _lastInputWasVoice = false;
             if (window.speechSynthesis) window.speechSynthesis.cancel();
             this._pushMessage({ role: 'user', type: 'text', text });
             this.draft = '';
             this.errorMsg = '';
             this.$nextTick(() => this.autoGrowComposer());
+
+            // Track D, in progress: every message goes to the active draft until it's saved or cancelled.
+            if (this.activeAction) {
+                if (isCancelPhrase(text)) {
+                    this.activeAction = null;
+                    this._pushAssistantText("Okay, cancelled — nothing was saved.");
+                    return;
+                }
+                await this._continueConversationalAction(text, viaVoice);
+                return;
+            }
+            // Track D, disambiguation follow-up ("did you mean sleep or workout?")
+            if (this._pendingActionChoice) {
+                const resolved = resolveAmbiguous(text, this._pendingActionChoice);
+                if (resolved) {
+                    this._pendingActionChoice = null;
+                    await this._startConversationalAction(resolved, text, viaVoice);
+                } else {
+                    this._pushAssistantText(`Sorry, I still couldn't tell -- ${this._pendingActionChoice.map(k => CONVERSATIONAL_ACTIONS[k].label).join(' or ')}?`);
+                }
+                return;
+            }
 
             // Auto-clear pendingUseCase if the 90-second window expired
             if (this.pendingUseCase && Date.now() > _pendingUseCaseExpiry) {
@@ -365,6 +417,20 @@ export function atlasAi() {
             if (this._isMemorySaveRequest(text)) {
                 this._pushMemoryConfirmCard(text);
                 // Removed return; to let the model generate a conversational reply
+            }
+
+            // Track D, start: deterministic trigger match, checked before Track B/C so a natural
+            // "log my sleep" / "add a task" always opens a real conversation instead of falling
+            // through to plain chat or a one-shot extraction.
+            const startMatch = detectActionStart(text);
+            if (startMatch) {
+                if (startMatch.ambiguous) {
+                    this._pendingActionChoice = startMatch.ambiguous;
+                    this._pushAssistantText(`Did you mean ${startMatch.ambiguous.map(k => CONVERSATIONAL_ACTIONS[k].label).join(' or ')}?`);
+                } else {
+                    await this._startConversationalAction(startMatch.action, text, viaVoice);
+                }
+                return;
             }
 
             // Track B: Write-flow intent -- parallel extraction + prose
@@ -465,6 +531,129 @@ export function atlasAi() {
             this.thinking = false;
         },
 
+        // ---- Track D: Conversational Actions ----
+        // The running draft (this.activeAction) is the actual fix for the old
+        // single-shot bug: every message here is judged in the context of
+        // what was already said, not judged alone. Missing-field detection,
+        // skip handling, and the final yes/no are all decided deterministically
+        // in conversationalActions.js -- the model is only ever asked to pull
+        // field values out of a sentence, never to decide what happens next.
+
+        async _startConversationalAction(actionKey, seedText, viaVoice) {
+            this.thinking = true;
+            const draft = newDraft(actionKey, viaVoice);
+            const extracted = await this._extractActionFields(draft, seedText, null);
+            mergeExtractedFields(draft, extracted);
+            applyDeclinedFields(draft, extracted && extracted.declined);
+            this.activeAction = draft;
+            this.thinking = false;
+            this._advanceConversationalAction();
+        },
+
+        async _continueConversationalAction(text, viaVoice) {
+            const draft = this.activeAction;
+            // Once the user types instead of speaking, stop auto-relistening for the rest of this draft.
+            draft.viaVoice = draft.viaVoice && viaVoice;
+
+            if (draft.awaitingConfirm) {
+                // Safety-critical: only ever save on an UNAMBIGUOUS yes. If the
+                // reply matches both patterns ("no wait, yes") or neither, treat
+                // it as unclear and re-ask rather than guess -- a misheard word
+                // must never be able to produce a wrong write (see CLAUDE.md).
+                const yes = isYes(text), no = isNo(text);
+                if (yes && !no) {
+                    const msg = this.messages.find(m => m.id === draft._confirmMsgId);
+                    if (msg && !msg.decided) await this.confirmDraft(msg);
+                    return;
+                }
+                if (no && !yes) {
+                    const msg = this.messages.find(m => m.id === draft._confirmMsgId);
+                    if (msg && !msg.decided) this.cancelDraft(msg);
+                    this._pushAssistantText("Okay, discarded. Say it again whenever you're ready.");
+                    return;
+                }
+                this._pushAssistantText("Sorry, just to be safe -- was that a clear yes to save, or no?");
+                return;
+            }
+
+            const action = CONVERSATIONAL_ACTIONS[draft.action];
+            const field = draft.awaitingField ? action.fields.find(f => f.key === draft.awaitingField) : null;
+
+            if (field && isDeclineAnswer(text)) {
+                if (field.required) {
+                    this._pushAssistantText(`I do need that one -- ${field.question}`);
+                    return;
+                }
+                markSkipped(draft, field.key);
+                this._advanceConversationalAction();
+                return;
+            }
+
+            this.thinking = true;
+            const extracted = await this._extractActionFields(draft, text, field ? field.key : null);
+            mergeExtractedFields(draft, extracted);
+            applyDeclinedFields(draft, extracted && extracted.declined);
+            this.thinking = false;
+            this._advanceConversationalAction();
+        },
+
+        // Deterministic (no model call): decide whether another field is worth
+        // asking about, or whether every ask-worthy field is filled/skipped and
+        // it's time for the read-back-and-confirm.
+        _advanceConversationalAction() {
+            const draft = this.activeAction;
+            const field = firstMissingField(draft);
+            if (field) {
+                draft.awaitingField = field.key;
+                draft.awaitingConfirm = false;
+                this._pushAssistantText(field.question);
+                return;
+            }
+            draft.awaitingField = null;
+            draft.awaitingConfirm = true;
+            const action = CONVERSATIONAL_ACTIONS[draft.action];
+            const msgId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            draft._confirmMsgId = msgId;
+            this._pushMessage({
+                id: msgId,
+                role: 'assistant',
+                type: 'confirm',
+                draft: { title: action.cardTitle, icon: action.icon, fields: draftToCardFields(draft), flowKey: '__conv:' + draft.action, rawFields: draftToRawFields(draft) },
+                decided: null
+            });
+            // Speak the read-back even though it isn't its own chat bubble --
+            // the confirm card is the visual record, this is what a voice
+            // conversation actually hears before saying yes/no.
+            this._speak({ text: formatReadBack(draft), voiceState: 'idle' });
+        },
+
+        // Extraction-only model call for Track D. Minimal, scoped to the
+        // active action's own field schema -- same "no persona, no history"
+        // isolation as Track B's _extractFields, so it can't be pulled toward
+        // prose or contaminated by unrelated conversation.
+        async _extractActionFields(draft, userText, currentFieldKey) {
+            try {
+                const action = CONVERSATIONAL_ACTIONS[draft.action];
+                const todayCtx = `Today's date is ${todayIsoDate()} (${new Date().toLocaleDateString('en-US', { weekday: 'long' })}).`;
+                const fieldDocs = action.fields.map(f => `"${f.key}": ${f.extractHint}`).join('\n');
+                const schemaKeys = action.fields.map(f => `"${f.key}":${f.type === 'number' ? 'number|null' : 'string|null'}`).join(',');
+                const focusHint = currentFieldKey ? `The user was just asked specifically about "${currentFieldKey}". If their reply is a bare value with no other context, it belongs there.` : '';
+                const systemContent = `Extract structured data from the user's message for a ${action.label} entry. Return ONLY valid JSON, no prose: {${schemaKeys},"declined":[string]}\n${todayCtx}\nField meanings:\n${fieldDocs}\n${focusHint}\nDates must resolve to YYYY-MM-DD, times to 24-hour HH:MM. Use null for anything not mentioned. Do not invent values. "declined" lists the keys of any field the user explicitly said they don't have/don't know, even in the same sentence as giving a different field (e.g. "no HRV but resting rate was 60" -> declined:["hrv"], resting_hr:60).`;
+                const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: false };
+                const reply = await sendToProvider([{ role: 'system', content: systemContent }, { role: 'user', content: userText }], cfg);
+                return this._parseJsonReply(reply);
+            } catch (e) {
+                return null;
+            }
+        },
+
+        _parseJsonReply(reply) {
+            const raw = reply.trim();
+            const fenceMatch = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+            const cleanStr = fenceMatch ? fenceMatch[1].trim() : raw;
+            try { return JSON.parse(cleanStr); } catch (e) { return this._extractFirstJson(cleanStr); }
+        },
+
         // Prose-only model call for Track B. Builds full system prompt (persona + facts + history)
         // but NO extraction instruction. Returns raw reply string; never throws -- returns an
         // error string instead so Track B can always display something.
@@ -535,15 +724,7 @@ export function atlasAi() {
                     cfg
                 );
 
-                // Parse JSON from reply
-                let parsed = null;
-                const raw = reply.trim();
-                const fenceMatch = raw.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
-                const cleanStr = fenceMatch ? fenceMatch[1].trim() : raw;
-                try { parsed = JSON.parse(cleanStr); } catch (e) {
-                    parsed = this._extractFirstJson(cleanStr);
-                }
-                return parsed;
+                return this._parseJsonReply(reply);
             } catch (e) {
                 return null; // Extraction failure is silently handled -- prose reply stands alone
             }
@@ -814,21 +995,21 @@ export function atlasAi() {
         },
 
         // Client-side intent classifier. Determines which write flow (if any) a message
-        // belongs to, before any model call. Only handles the five model-backed flows;
-        // save_ai_memory is handled upstream by _isMemorySaveRequest().
+        // belongs to, before any model call. log_workout/log_sleep moved to Track D
+        // (Conversational Actions, see detectActionStart() in conversationalActions.js) --
+        // this now only covers the three flows Track D doesn't own; save_ai_memory is
+        // handled upstream by _isMemorySaveRequest().
         _detectIntent(text) {
             const t = text.toLowerCase();
-            const w = /\b(workout|exercise|training|cardio|strength|calories|gym|leg\s*day|push\s*day|pull\s*day|run(ning)?|jog(ging)?|swim(ming)?|cycling|lift(ing)?|weights?|squats?|deadlifts?|bench|hiit|yoga|burned|reps|sets|treadmill|session|went\s+to\s+(the\s+)?gym|personal\s+record|PR\b|vo2)\b/.test(t);
-            const s = /\b(sle(ep|pt)|nap(ped)?|sleep\s*score|deep\s*sleep|rem\b|resting\s*(heart\s*rate|hr)|hrv|heart\s*rate\s*variability|woke\s*up|bed\s*time|hours?\s+(of\s+)?sleep|fell\s+asleep|night\s+was|slept\s+(well|poorly|badly|great))\b/.test(t);
-            if (w && !s) return 'log_workout';
-            if (s && !w) return 'log_sleep';
             // Task completion: clear "task is done" language
             if (/\btask\b/.test(t) && /\b(done|finish(ed)?|complet(e|ed)?|mark(ed)?(\s+done)?)\b/.test(t)) return 'complete_task';
             if (/\b(finish(ed)?|complet(e|ed)?|done\s+with|knocked?\s+out)\b/.test(t) && /\btask\b/.test(t)) return 'complete_task';
             // Checklist marking
             if (/\bmark\b/.test(t) && /\b(checklist|routine|morning|afternoon|night|items?)\b/.test(t)) return 'mark_checklist';
-            if (/\bskipped?\b/.test(t) && !w && !s) return 'mark_checklist';
-            if (/\bi\s+(did|completed|finished)\b/.test(t) && !/\btask\b/.test(t) && !w && !s) return 'mark_checklist';
+            // !w && !s no longer needed here -- Track D's detectActionStart() already
+            // ran first and returned null, so neither pattern matched this message.
+            if (/\bskipped?\b/.test(t)) return 'mark_checklist';
+            if (/\bi\s+(did|completed|finished)\b/.test(t) && !/\btask\b/.test(t)) return 'mark_checklist';
             // Journal: emotional/reflective language
             if (/\b(felt|feeling|i\s+feel)\b/.test(t)) return 'journal_reflection';
             if (/\btoday\s+(was|felt|went)\b/.test(t)) return 'journal_reflection';
@@ -954,6 +1135,24 @@ export function atlasAi() {
 
         async confirmDraft(msg) {
             const flowKey = msg.draft.flowKey;
+            // Track D (Conversational Actions) writes reuse this exact same
+            // verified path -- only the flowKey prefix differs from a
+            // WRITE_FLOWS entry.
+            if (flowKey.startsWith('__conv:')) {
+                const actionKey = flowKey.slice(7);
+                try {
+                    await CONVERSATIONAL_ACTIONS[actionKey].write(msg.draft.rawFields);
+                    msg.decided = 'saved';
+                    if (this.activeAction && this.activeAction._confirmMsgId === msg.id) this.activeAction = null;
+                    window.dispatchEvent(new CustomEvent('atlas:data-changed', { detail: { source: actionKey } }));
+                    this._pushAssistantText('Saved.');
+                } catch (e) {
+                    msg.decided = null;
+                    this.errorMsg = 'Save failed: ' + e.message;
+                }
+                saveChatHistory(this.messages);
+                return;
+            }
             const flow = WRITE_FLOWS[flowKey];
             if (!flow && flowKey !== 'save_ai_memory') return;
             try {
@@ -990,6 +1189,9 @@ export function atlasAi() {
         },
         cancelDraft(msg) {
             msg.decided = 'cancelled';
+            if (msg.draft.flowKey && msg.draft.flowKey.startsWith('__conv:') && this.activeAction && this.activeAction._confirmMsgId === msg.id) {
+                this.activeAction = null;
+            }
             saveChatHistory(this.messages);
         },
 
@@ -1076,6 +1278,7 @@ export function atlasAi() {
                 let transcript = '';
                 for (let i = event.resultIndex; i < event.results.length; i++) transcript += event.results[i][0].transcript;
                 this.draft = (this.draft ? this.draft + ' ' : '') + transcript.trim();
+                _lastInputWasVoice = true;
                 this.$nextTick(() => this.autoGrowComposer());
             };
             speechRecognition.onerror = (event) => {
@@ -1085,6 +1288,56 @@ export function atlasAi() {
             speechRecognition.onend = () => { speechRecognition = null; this.listening = false; };
             speechRecognition.start();
         },
+
+        // Phase A voice loop (Conversational Actions only -- see PLAN.md/CLAUDE.md).
+        // A single-utterance capture: recognition ends itself on a natural pause
+        // (continuous:false), and the result auto-sends immediately -- no second
+        // tap needed. Paired with the auto-relisten hook in _speak() below, this
+        // is what makes "tap once, then the whole conversation happens by voice"
+        // real: the mic button only needs pressing to start the very first turn
+        // of a voice-initiated conversation (see micTap()); every turn after that
+        // is driven by this method firing again once Atlas finishes speaking.
+        voiceExchange() {
+            if (speechRecognition) return; // already mid-capture
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) { this.errorMsg = 'Voice input is not supported in this browser.'; return; }
+            speechRecognition = new SpeechRecognition();
+            speechRecognition.lang = 'en-US';
+            speechRecognition.interimResults = false;
+            speechRecognition.continuous = false;
+            speechRecognition.onstart = () => { this.listening = true; this.errorMsg = ''; };
+            speechRecognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
+                this.draft = transcript.trim();
+                _lastInputWasVoice = true;
+            };
+            speechRecognition.onerror = (event) => {
+                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                    this.errorMsg = 'Voice input error: ' + event.error + ' -- you can still type.';
+                }
+            };
+            speechRecognition.onend = () => {
+                speechRecognition = null;
+                this.listening = false;
+                if (this.draft && this.draft.trim()) this.sendMessage();
+            };
+            speechRecognition.start();
+        },
+
+        // Mic button dispatcher: mid-conversation, a tap should mean "capture my
+        // next answer and send it" (voiceExchange); otherwise it's the existing
+        // free-form dictation toggle, unchanged.
+        micTap() {
+            if (this.activeAction) { this.voiceExchange(); return; }
+            this.toggleVoice();
+        },
+
+        // Bound to the composer textarea's @input in index.html -- fires only on
+        // a real keystroke (programmatic value-setting from voice does not raise
+        // a DOM input event), so this is a reliable "the user is typing now"
+        // signal that demotes the current turn out of the voice auto-loop.
+        markManualInput() { _lastInputWasVoice = false; },
 
         handleGlobalKey(event) {
             if (!this.panelOpen || this.view !== 'chat') return;
