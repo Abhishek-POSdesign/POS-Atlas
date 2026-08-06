@@ -27,6 +27,34 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-08 · Claude Code (Sonnet 5) — comprehensive build: full task/reminder lifecycle, project-linked create, real health trend awareness, Google Cloud STT, cross-device chat sync
+
+**Session scope:** After three rounds of live-testing patches the same day, Abhishek explicitly asked for a stop to one-bug-at-a-time fixes and a proper systematic pass instead — "give it all, everything: whatever the database and tables have, chat-running actions, completing... I don't mind if it takes a week." He named the priorities (task/reminder lifecycle awareness, project linking, sleep/workout trend awareness "very important," STT if I was confident about key reuse) and explicitly delegated sequencing/depth/timing to me. This entry covers that whole build, done in one continuous pass, commit `92f4637`.
+
+**Audit done first (no code until this was understood):** read `db.js`'s full Tasks/Projects/Checklist sections, the `atlas_tasks`/`atlas_projects`/`atlas_workout_sessions` schemas directly via SQL, and the manual "Log workout"/task pause/start UI in `today.js`/`project-workspace.js`, to find every real capability gap rather than guessing from symptoms.
+
+**What shipped:**
+1. **Task/reminder lifecycle** — `start_task`/`pause_task`/`delete_task` added alongside the existing `complete_task` (WRITE_FLOWS in `aiContext.js` + `_detectIntent()` triggers in `aiPanel.js`), all sharing a new `_resolveTaskFromFields()` helper factored out of the old `_handleTaskCompletion` instead of duplicating cache-matching logic four times. `delete_task` queues the identical 8-second undo toast the manual Delete button does (`showUndoToast` + `DB.Tasks.restoreFromTrash`) — no bespoke exception for the AI path. Reminders and project-linked tasks resolve identically to standalone tasks since they're the same cached list.
+2. **Project-aware create_task/create_reminder** — new `project` field in `conversationalActions.js`, resolved against `DB.Projects.listActive()` (exact then substring match) at write time. A miss never blocks the save — creates standalone and says so via a `_projectRequestedButUnmatched` flag surfaced in the confirm message, never silently drops the stated intent.
+3. **Health trend awareness** — `buildExplainHistory()`'s sleep/workout sections used to report only duration/score/calories per day, nothing else. Now includes HRV, resting HR, deep/REM minutes, sleep notes, workout notes, and per-day session detail (activity type, intensity, session notes) joined in from `atlas_workout_sessions`. This is what actually makes "spot a pattern" or "why was that score low" conversations possible — before this the data existed but the AI literally couldn't see most of it.
+4. **Google Cloud Speech-to-Text** — new `atlas-stt-proxy` Edge Function (`supabase/functions/atlas-stt-proxy/index.ts`), copying `atlas-tts-proxy`'s exact JWT/OAuth pattern (same `GCP_SERVICE_ACCOUNT_KEY` secret, same `cloud-platform` scope — confirmed by reading the actual TTS function first that no new credential was needed). Client-side, `toggleVoice()` was rewritten from the ground up: `MediaRecorder` records a finished clip (reliable start/stop, none of SpeechRecognition's live-session flakiness) and posts it to the proxy for transcription. Same interaction model as the previous round's fix (tap to start, tap to stop, review before send) — the backend under it is just trustworthy now instead of a flaky browser API.
+5. **Cross-device AI chat sync** — new `atlas_ai_chat` table (migration `026_ai_chat_sync.sql`) and `DB.AiChat`, wired through `aiConfig.js`'s new `pushChatHistory`/`pullChatHistory` (exact same last-write-wins pattern as the pre-existing AI Memory Notebook sync). Chat history used to be local-only with a 24-hour wipe; a phone conversation didn't show up on desktop at all, confirmed directly by Abhishek mid-session.
+6. **Insight Ticker time-window bug** (bundled in, small) — `loadAiInsights()` in `today.js` queried strictly for today's date, which is empty from midnight until the noon digest runs, i.e. exactly Abhishek's working hours on his night-shift schedule. Now falls back to yesterday's row before 6am, hides entirely 6am-noon (his sleep window), fresh at noon. Matches the schedule he described exactly.
+
+`service-worker.js` → `v95`.
+
+**What was verified live:** `atlas-stt-proxy` deployed successfully and correctly rejects an unauthenticated request (401) — confirms routing/deploy worked. The Google OAuth/JWT mechanism itself is unverified end-to-end (no real audio + session token available in this environment to test a full transcription round-trip) but is copy-identical to `atlas-tts-proxy`'s already-proven-live code path. Everything else: `node --check` on every file, zero duplicate method declarations, local dev boots with zero console errors. No human has tested any of this yet.
+
+**What's still open:**
+- Real human retest of everything above, especially the new mic (genuinely can't be verified in this environment) and the full task-lifecycle set (start/pause/delete never existed before this session).
+- GitHub Actions deploy still stuck on the same outage from earlier in the day — commit `92f4637` had not started a new Actions run as of this entry; check `github.com/Abhishek-POSdesign/POS-Atlas/actions` before assuming any of this is live.
+- The generic trigger-phrase gap flagged in earlier entries ("I want to log my data" with no keyword) is still open — not in scope for this pass.
+- Whether the whole PROJECT lifecycle (not just its tasks) should also be AI-triggerable (mark a project Running/Completed via conversation) was flagged as a possible different, bigger ask and deliberately not built — confirm with Abhishek if he actually wants that too.
+
+**What NOT to do:** Don't reintroduce a model-driven field-skip signal (the removed `"declined"` array) into any extraction call. Don't add auto-send-on-pause or auto-relisten to voice capture without Abhishek explicitly asking for another attempt. Don't build Phase B (hands-free/wake-word) voice — still explicitly out of scope per CLAUDE.md.
+
+---
+
 ## 2026-08-08 · Claude Code (Sonnet 5) — third live-testing round: reminder-completion trigger, stale persona text, incomplete workout writes
 
 **Session scope:** Same day, third round of real bugs from continued live testing (screenshots): "mark this reminder done" got refused, the workout card lost its score/calories/notes display after a conversational log, and he asked a substantive question about whether the browser's native mic is reliable enough at all.

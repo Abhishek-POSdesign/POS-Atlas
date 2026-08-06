@@ -10,14 +10,17 @@ Sibling docs:
 
 **Last updated:** 2026-08-07
 
-## 🎯 Voice-First Conversational Logging — Phase 1 built 2026-08-07, TWO live-testing fix rounds shipped 2026-08-08, re-test still needed
+## 🎯 Voice-First Conversational Logging + AI action layer — comprehensive build 2026-08-08, re-test still needed
 
-**Read this section before touching this area.** Built 2026-08-07 (commit `3df7bb2`), then Abhishek live-tested it immediately and found real bugs across two rounds — see `SESSION_LOG.md`'s two 2026-08-08 entries for the full story. **Current state as of commit `84d8b12`:**
-- The mic no longer auto-sends on a detected pause and no longer auto-relistens after Atlas speaks (that whole design was removed — it was cutting sentences off mid-thought and could transcribe Atlas's own TTS reply as if the user said it). It's back to one plain tap-to-start/tap-to-stop capture: speak as long as you want, tap again when done, review the text, send it yourself. This is a deliberate, permanent step back from "hands-free after one tap" — don't reintroduce auto-send/auto-relisten without Abhishek explicitly asking for another attempt at it.
-- Every field in every action is genuinely `ask:true` now, and a field can ONLY be skipped by the user's own direct decline answer to the specific question asked about it — the model has zero ability to silently skip a field (a `"declined"` array the model could set was found and removed; it was the real cause of REM sleep/notes going unasked even after the first fix).
-- **Not yet re-tested by a human.** The mic redesign in particular needs a real retry before anyone should treat it as settled.
+**Read this section before touching this area.** Phase 1 built 2026-08-07 (commit `3df7bb2`), then two rounds of live-testing fixes, then — per Abhishek's own explicit request for one systematic pass instead of one-bug-at-a-time patching — a much larger comprehensive build, commit `92f4637`. Full detail in `SESSION_LOG.md`'s 2026-08-08 entries (there are several; read the most recent "comprehensive build" one first). **Current true state:**
+- Mic: MediaRecorder + a new Google Cloud Speech-to-Text Edge Function (`atlas-stt-proxy`) replaced the browser's native SpeechRecognition API entirely — that API was genuinely unreliable (sessions ending themselves, occasionally transcribing Atlas's own TTS reply). Tap to start, speak as long as you want, tap again to stop and review before sending — same interaction model as before, real backend under it now. **Not yet human-tested** — this environment has no mic to verify with.
+- Task/reminder lifecycle is now fully AI-triggerable: complete (existing), plus new start/pause/delete, all resolving reminders and project-linked tasks the same way as standalone tasks. `create_task`/`create_reminder` can now link to a real project (asked conversationally, resolved against the live list, never blocks the save on a miss).
+- Sleep/workout fact packages (what the AI actually sees when discussing trends) now include HRV, resting HR, deep/REM minutes, sleep notes, workout notes, and full session detail (activity type, intensity, per-session notes) — previously the AI could see a score but nothing about why.
+- AI chat history syncs across devices now (new `atlas_ai_chat` table, same last-write-wins pattern as the Notebook) — used to be local-only with a 24h wipe.
+- The Insight Ticker's blank-until-noon bug is fixed (see the "AI Insight Ticker" section further down for the original feature).
+- A model-driven "declined field" mechanism (let the extraction model itself decide a field was skippable) was found and removed — it was the actual cause of REM sleep/notes going unasked even after they were marked `ask:true`. A field can now ONLY be skipped by the user's own direct decline to the specific question asked about it.
 
-Original build (steps 1-3, first pass at 4-5) follows below, kept intact for reference — the field-list/voice-loop details in it are now superseded by the above, everything else still holds.
+Original Phase 1 build (steps 1-3, first pass at 4-5) follows below, kept intact for reference — largely superseded by the above but the core mechanism description still holds.
 
 **What's actually built, precisely:**
 - The core mechanism (`Deploy/js/features/conversationalActions.js`): running draft, deterministic missing-field check, one-question-at-a-time, explicit-skip (including compound replies like "no HRV but resting rate was 60" via a `declined` list the extraction call returns), read-back + confirm reusing the existing verified confirm-card/write path (`aiPanel.js`'s `confirmDraft`/`cancelDraft` extended for a `__conv:` flowKey prefix — the DB write plumbing itself is untouched).
