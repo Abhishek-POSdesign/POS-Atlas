@@ -27,6 +27,37 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-06 · Claude Code (Sonnet 4.6) — full build round: priority, chart rebuild, snooze fix, checklist notify
+
+**Session scope:** Abhishek requested 7 fixes/features. Diagnosed all 7 with real code+DB+log evidence, mockup round (2 rounds, all approved), then built the full approved set in one session.
+
+**What shipped (commit `ba95630`):**
+- Priority (Normal/High) wired end-to-end: both task modals, badges on Today/Upcoming/workspace/Calendar rows.
+- Calendar future days show real task names now (was grouped project counts — confirmed bug via his own screenshot, "Zomato email" was hidden).
+- Sleep trend chart rebuilt: real Y (hours)/X (dates) axes, live 14/30-day toggle. Replaces the old hover-only sparkline entirely.
+- Workout consistency rebuilt: closing rings (Apple Fitness-style), pure SVG, stretches full card width. Replaces the old fixed-38px box strip ("hidden inside 4 dots").
+- Ritu's family strip rebuilt: full-width 4-stat card, note-send is now a modal with real text contrast + inline error.
+- **Two confirmed real bugs fixed in `push-client.js`**: (1) `handlePushAction`'s guard checked `window.supabase`, which is never set anywhere in this codebase — the entire push-action handler (Complete AND Snooze both) has been silently dead code this whole time; (2) snooze only added +1h to `scheduled_time` alone, ignoring `scheduled_date`, breaking on midnight rollover.
+- Snooze is now a 15/30/60-min picker (global modal in `app()`, triggered via a `window` CustomEvent from push-client.js) instead of a fixed +1h.
+- Checklist items get a real per-item "Notify me" toggle + time, opt-in/off by default.
+- `send-reminders` edge function redeployed (v3): fixed the actual root cause of "snooze doesn't work" — `atlas_push_history` dedup was permanent (any row ever = suppressed forever); now scoped to `sent_date`. Added a second selector for checklist notifications, same per-day dedup shape. Only logs a send as successful if delivery actually succeeded (same defensive pattern as the sibling POS app's known-good fix for this exact class of bug).
+- Migration `023`: `atlas_checklist_items.notify_enabled`/`notify_time`; `atlas_push_history.sent_date` (backfilled from real `sent_at`); new `atlas_checklist_push_history` table.
+- `service-worker.js` cache bumped v84 → v85.
+
+**What was verified:** `node --check` clean on all 7 touched JS files. CSS brace balance and HTML div/template tag balance checked after every edit group. Ran the sleep-chart and workout-rings JS logic through a Node DOM stub before publishing the mockup, and read the edge function's live invocation logs (all prior calls 200 OK) before and after redeploying it.
+
+**What's still open:**
+- Not yet tested live by Abhishek on the deployed app — this was a same-day diagnose-mockup-build session, no live-testing round happened yet.
+- **Three unrelated `handover-docs/` files were already deleted from disk before this session started** (`SLEEP-ROADMAP.md`, `atlas-health-phase5-implementation-plan.md`, `atlas-health-phase5-sleep-workout.md`) — confirmed via `git status`/`ls`, not something this session did. Left untouched (not staged, not restored) since the intent behind the deletion isn't known. Flagged to Abhishek; needs an explicit decision (commit the deletion, or restore the files) before the next session touches `handover-docs/`.
+- The original "cannot send note to Ritu" bug's exact root cause was never 100% confirmed (no matching write ever appeared in Supabase API logs, and the fix session couldn't reproduce live) — the inline-error fix means the *real* error message will surface next time it happens, but if it recurs, check that first.
+
+**What NOT to do:**
+- Don't reintroduce a fixed-duration snooze — the 15/30/60 picker exists because push notifications cap at 2 action buttons, confirmed during this session.
+- Don't reintroduce `window.supabase` as a readiness guard anywhere — it's never set; the module-level `supabase` import is what's actually used everywhere.
+- Don't touch the three deleted `handover-docs/` files without asking Abhishek first (see "What's still open" above).
+
+---
+
 ## 2026-08-04 · Antigravity (Gemini) + Claude Code (Sonnet 4.6) QA
 
 **Session scope:** Antigravity shipped five UI/architecture commits; Claude Code ran a read-only stability check and applied three close-out fixes.
