@@ -260,13 +260,10 @@
                                 </template>
                             </div>
                             <div class="ai-composer">
-                                <template x-if="activeAction && activeAction.viaVoice">
-                                    <div class="ai-voice-loop-hint">🎙️ Voice conversation active — say "cancel" anytime to stop.</div>
-                                </template>
                                 <div class="composer-wrap">
-                                    <textarea x-ref="composerEl" x-model="draft" rows="1" placeholder="Ask Atlas… (Enter to send, Shift+Enter for a new line)" @keydown.enter="handleComposerEnter($event)" @input="autoGrowComposer(); markManualInput()"></textarea>
+                                    <textarea x-ref="composerEl" x-model="draft" rows="1" placeholder="Ask Atlas… (Enter to send, Shift+Enter for a new line)" @keydown.enter="handleComposerEnter($event)" @input="autoGrowComposer()"></textarea>
                                     <div class="composer-icons">
-                                        <button class="mic-btn" :class="{ 'mic-listening': listening }" @click="micTap()" :title="listening ? 'Stop listening' : 'Voice input'">
+                                        <button class="mic-btn" :class="{ 'mic-listening': listening }" @click="toggleVoice()" :title="listening ? 'Stop listening' : 'Voice input'">
                                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
                                         </button>
                                         <button class="send-btn" @click="sendMessage()">
@@ -275,7 +272,7 @@
                                     </div>
                                 </div>
                                 <div class="field-error" x-show="errorMsg" x-text="errorMsg" style="margin: 6px 0 0; font-size: 11.5px;"></div>
-                                <div class="composer-hint">Voice input only, text replies · Alt+M toggles the mic</div>
+                                <div class="composer-hint">Tap the mic, speak, tap again to review before sending · Alt+M toggles the mic</div>
                             </div>
                         </div>
                     </template>

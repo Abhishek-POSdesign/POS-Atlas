@@ -169,11 +169,11 @@ export function resolveAmbiguous(text, candidates) {
 
 // ---- Draft lifecycle ----
 
-export function newDraft(actionKey, viaVoice) {
+export function newDraft(actionKey) {
     const action = CONVERSATIONAL_ACTIONS[actionKey];
     const fields = {};
     for (const f of action.fields) fields[f.key] = { value: null, skipped: false };
-    return { action: actionKey, fields, awaitingField: null, awaitingConfirm: false, viaVoice: !!viaVoice };
+    return { action: actionKey, fields, awaitingField: null, awaitingConfirm: false };
 }
 
 export function draftHasAnyValue(draft) {
@@ -209,25 +209,16 @@ export function firstMissingField(draft) {
     return null;
 }
 
+// A field is ONLY ever skipped by the user's own literal decline answer to
+// the specific question asked about it (see isDeclineAnswer() below, called
+// from aiPanel.js's _continueConversationalAction()) -- there used to also be
+// a model-reported "declined" list here that could mark a field skipped on
+// the model's own judgment. Removed 2026-08-08: it was a real bug (confirmed
+// live -- REM sleep and a closing note both went unasked despite being
+// ask:true) and a direct violation of the "model never decides what happens
+// next" rule this whole engine is built on. Don't bring it back.
 export function markSkipped(draft, fieldKey) {
     draft.fields[fieldKey] = { value: null, skipped: true };
-}
-
-// Applies a model-reported "declined" list (fields the user explicitly said
-// they don't have, possibly in the same breath as giving a different field --
-// e.g. "no HRV but resting heart rate was 60") onto a draft. Only ever
-// touches a field that's still empty after mergeExtractedFields already ran
-// -- never overwrites a real value with a skip -- and never skips a required
-// field, same rule isDeclineAnswer()'s caller enforces for a direct decline.
-export function applyDeclinedFields(draft, declinedKeys) {
-    if (!declinedKeys || !declinedKeys.length) return;
-    const action = CONVERSATIONAL_ACTIONS[draft.action];
-    for (const key of declinedKeys) {
-        const f = action.fields.find(x => x.key === key);
-        if (!f || f.required) continue;
-        if (draft.fields[key].value !== null) continue;
-        markSkipped(draft, key);
-    }
 }
 
 // ---- Deterministic phrase detectors ----

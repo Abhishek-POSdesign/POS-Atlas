@@ -35,8 +35,7 @@ import { buildFactPackage, WRITE_FLOWS, sanitizeDraftFields } from '../features/
 import {
     CONVERSATIONAL_ACTIONS, detectActionStart, resolveAmbiguous, newDraft,
     mergeExtractedFields, firstMissingField, markSkipped, isCancelPhrase,
-    isDeclineAnswer, isYes, isNo, formatReadBack, draftToCardFields, draftToRawFields,
-    applyDeclinedFields
+    isDeclineAnswer, isYes, isNo, formatReadBack, draftToCardFields, draftToRawFields
 } from '../features/conversationalActions.js';
 
 const PERSONA_FIELD_DEFS = [
@@ -62,9 +61,7 @@ function dayLabel(dateStr) {
 }
 
 let speechRecognition = null;   // module-level, not reactive -- avoids Alpine proxy issues with a browser API object
-let _lastInputWasVoice = false; // set true when the draft was produced by dictation; cleared by manual typing (see composer's @input in index.html) -- drives the Phase A auto-relisten loop
-let _manualStopRequested = false; // set right before a user-initiated speechRecognition.stop() -- distinguishes "user tapped mic to stop" from "recognition ended itself" in onend
-let _recognitionWatchdog = null;  // setTimeout id -- forces a hard reset if the browser never fires onend/onerror (confirmed real, not hypothetical -- see toggleVoice()/voiceExchange() comments)
+let _recognitionWatchdog = null;  // setTimeout id -- forces a hard reset if the browser never fires onend/onerror (confirmed real, not hypothetical -- see toggleVoice() comments)
 let _taskCache = null;          // populated from explain_day packages; used for complete_task resolution
 let _checklistCache = null;     // populated from explain_day packages; used for mark_checklist resolution
 let _checklistDate = null;      // todayKey() value matching _checklistCache
@@ -258,7 +255,7 @@ export function atlasAi() {
                     msg.voiceState = 'playing';
                     const url = URL.createObjectURL(blob);
                     this.currentCloudAudio = new Audio(url);
-                    this.currentCloudAudio.onended = () => { msg.voiceState = 'idle'; this._autoContinueVoice(); };
+                    this.currentCloudAudio.onended = () => { msg.voiceState = 'idle'; };
                     this.currentCloudAudio.onerror = () => { msg.voiceState = 'idle'; };
                     this.currentCloudAudio.play();
                 }).catch(e => {
@@ -279,24 +276,10 @@ export function atlasAi() {
                     const match = voices.find(v => v.name === this.voiceName);
                     if (match) utt.voice = match;
                 }
-                utt.onend = () => { msg.voiceState = 'idle'; this._autoContinueVoice(); };
+                utt.onend = () => { msg.voiceState = 'idle'; };
                 utt.onerror = () => { msg.voiceState = 'idle'; };
                 window.speechSynthesis.speak(utt);
             }
-        },
-
-        // Auto-relisten after Atlas finishes speaking -- only while a
-        // voice-initiated Conversational Action is still active and the panel
-        // is still open. This is the "then the whole conversation happens by
-        // voice" half of Phase A; see voiceExchange() for the capture side.
-        _autoContinueVoice() {
-            if (!this.activeAction || !this.activeAction.viaVoice || !this.panelOpen) return;
-            // 600ms margin beyond onended firing -- voiceExchange() also checks
-            // _voiceBlockedByPlayback() itself, this is just extra room for any
-            // speaker/room echo to die down before the mic opens.
-            setTimeout(() => {
-                if (this.activeAction && this.activeAction.viaVoice && this.panelOpen) this.voiceExchange();
-            }, 600);
         },
         toggleAudio(msg) {
             if (msg.voiceState === 'playing' || msg.voiceState === 'loading') {
@@ -377,8 +360,6 @@ export function atlasAi() {
         async sendMessage() {
             const text = this.draft.trim();
             if (!text || this.thinking) return;
-            const viaVoice = _lastInputWasVoice;
-            _lastInputWasVoice = false;
             if (window.speechSynthesis) window.speechSynthesis.cancel();
             this._pushMessage({ role: 'user', type: 'text', text });
             this.draft = '';
@@ -392,7 +373,7 @@ export function atlasAi() {
                     this._pushAssistantText("Okay, cancelled — nothing was saved.");
                     return;
                 }
-                await this._continueConversationalAction(text, viaVoice);
+                await this._continueConversationalAction(text);
                 return;
             }
             // Track D, disambiguation follow-up ("did you mean sleep or workout?")
@@ -400,7 +381,7 @@ export function atlasAi() {
                 const resolved = resolveAmbiguous(text, this._pendingActionChoice);
                 if (resolved) {
                     this._pendingActionChoice = null;
-                    await this._startConversationalAction(resolved, text, viaVoice);
+                    await this._startConversationalAction(resolved, text);
                 } else {
                     this._pushAssistantText(`Sorry, I still couldn't tell -- ${this._pendingActionChoice.map(k => CONVERSATIONAL_ACTIONS[k].label).join(' or ')}?`);
                 }
@@ -433,7 +414,7 @@ export function atlasAi() {
                     this._pendingActionChoice = startMatch.ambiguous;
                     this._pushAssistantText(`Did you mean ${startMatch.ambiguous.map(k => CONVERSATIONAL_ACTIONS[k].label).join(' or ')}?`);
                 } else {
-                    await this._startConversationalAction(startMatch.action, text, viaVoice);
+                    await this._startConversationalAction(startMatch.action, text);
                 }
                 return;
             }
@@ -544,21 +525,18 @@ export function atlasAi() {
         // in conversationalActions.js -- the model is only ever asked to pull
         // field values out of a sentence, never to decide what happens next.
 
-        async _startConversationalAction(actionKey, seedText, viaVoice) {
+        async _startConversationalAction(actionKey, seedText) {
             this.thinking = true;
-            const draft = newDraft(actionKey, viaVoice);
+            const draft = newDraft(actionKey);
             const extracted = await this._extractActionFields(draft, seedText, null);
             mergeExtractedFields(draft, extracted);
-            applyDeclinedFields(draft, extracted && extracted.declined);
             this.activeAction = draft;
             this.thinking = false;
             this._advanceConversationalAction();
         },
 
-        async _continueConversationalAction(text, viaVoice) {
+        async _continueConversationalAction(text) {
             const draft = this.activeAction;
-            // Once the user types instead of speaking, stop auto-relistening for the rest of this draft.
-            draft.viaVoice = draft.viaVoice && viaVoice;
 
             if (draft.awaitingConfirm) {
                 // Safety-critical: only ever save on an UNAMBIGUOUS yes. If the
@@ -597,7 +575,6 @@ export function atlasAi() {
             this.thinking = true;
             const extracted = await this._extractActionFields(draft, text, field ? field.key : null);
             mergeExtractedFields(draft, extracted);
-            applyDeclinedFields(draft, extracted && extracted.declined);
             this.thinking = false;
             this._advanceConversationalAction();
         },
@@ -643,7 +620,16 @@ export function atlasAi() {
                 const fieldDocs = action.fields.map(f => `"${f.key}": ${f.extractHint}`).join('\n');
                 const schemaKeys = action.fields.map(f => `"${f.key}":${f.type === 'number' ? 'number|null' : 'string|null'}`).join(',');
                 const focusHint = currentFieldKey ? `The user was just asked specifically about "${currentFieldKey}". If their reply is a bare value with no other context, it belongs there.` : '';
-                const systemContent = `Extract structured data from the user's message for a ${action.label} entry. Return ONLY valid JSON, no prose: {${schemaKeys},"declined":[string]}\n${todayCtx}\nField meanings:\n${fieldDocs}\n${focusHint}\nDates must resolve to YYYY-MM-DD, times to 24-hour HH:MM. Use null for anything not mentioned. Do not invent values. "declined" lists the keys of any field the user explicitly said they don't have/don't know, even in the same sentence as giving a different field (e.g. "no HRV but resting rate was 60" -> declined:["hrv"], resting_hr:60).`;
+                // Deliberately does NOT ask the model to report "declined" fields
+                // anymore -- that was a real bug (2026-08-08): the model could
+                // silently mark a field skipped on its own judgment, which is
+                // exactly the "let the model decide what happens next" failure
+                // mode this whole mechanism exists to avoid. A field is now
+                // ONLY ever skipped by the user's own literal decline answer to
+                // the specific question asked about it (see isDeclineAnswer()
+                // in conversationalActions.js) -- extraction here only ever
+                // fills in values, never removes the need to ask about one.
+                const systemContent = `Extract structured data from the user's message for a ${action.label} entry. Return ONLY valid JSON, no prose: {${schemaKeys}}\n${todayCtx}\nField meanings:\n${fieldDocs}\n${focusHint}\nDates must resolve to YYYY-MM-DD, times to 24-hour HH:MM. Use null for anything not mentioned. Do not invent values.`;
                 const cfg = { provider: this.provider, model: this.model, endpoint: this.endpoint, webSearch: false };
                 const reply = await sendToProvider([{ role: 'system', content: systemContent }, { role: 'user', content: userText }], cfg);
                 return this._parseJsonReply(reply);
@@ -1270,12 +1256,24 @@ export function atlasAi() {
             clearChatHistory();
         },
 
+        // Voice capture -- one universal method for every turn, in or out of a
+        // Conversational Action. Redesigned 2026-08-08 after live testing found
+        // the previous auto-send-on-pause design (voiceExchange + an
+        // auto-relisten loop after every spoken reply) genuinely unreliable: it
+        // cut sentences off the instant the browser detected a pause (even
+        // mid-thought), and an aggressive auto-relisten window could pick up
+        // Atlas's own TTS reply as if it were the user speaking. This is
+        // deliberately simpler and matches CLAUDE.md's "tap-to-talk" wording
+        // literally: tap to start, speak for as long as you want (pauses do
+        // NOT end it), tap again to stop. Stopping only fills the composer --
+        // it never auto-sends, so a mis-transcription can be caught and fixed
+        // before it ever reaches the AI, exactly the review step manual typing
+        // already gives for free.
         toggleVoice() {
-            if (speechRecognition) { _manualStopRequested = true; try { speechRecognition.stop(); } catch (e) {} return; }
+            if (speechRecognition) { try { speechRecognition.stop(); } catch (e) {} return; }
             if (this._voiceBlockedByPlayback()) { this.errorMsg = 'Wait for Atlas to finish talking first.'; return; }
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRecognition) { this.errorMsg = 'Voice input is not supported in this browser.'; return; }
-            _manualStopRequested = false;
             speechRecognition = new SpeechRecognition();
             speechRecognition.lang = 'en-US';
             speechRecognition.interimResults = false;
@@ -1285,7 +1283,6 @@ export function atlasAi() {
                 let transcript = '';
                 for (let i = event.resultIndex; i < event.results.length; i++) transcript += event.results[i][0].transcript;
                 this.draft = (this.draft ? this.draft + ' ' : '') + transcript.trim();
-                _lastInputWasVoice = true;
                 this.$nextTick(() => this.autoGrowComposer());
             };
             speechRecognition.onerror = (event) => {
@@ -1293,63 +1290,16 @@ export function atlasAi() {
                     this.errorMsg = 'Voice input error: ' + event.error + ' -- you can still type.';
                 }
             };
-            speechRecognition.onend = () => { clearTimeout(_recognitionWatchdog); speechRecognition = null; this.listening = false; _manualStopRequested = false; };
-            try { speechRecognition.start(); } catch (e) { speechRecognition = null; this.listening = false; }
-        },
-
-        // Phase A voice loop (Conversational Actions only -- see PLAN.md/CLAUDE.md).
-        // A single-utterance capture: recognition ends itself on a natural pause
-        // (continuous:false), and the result auto-sends immediately -- no second
-        // tap needed. Paired with the auto-relisten hook in _speak() below, this
-        // is what makes "tap once, then the whole conversation happens by voice"
-        // real: the mic button only needs pressing to start the very first turn
-        // of a voice-initiated conversation (see micTap()); every turn after that
-        // is driven by this method firing again once Atlas finishes speaking.
-        voiceExchange() {
-            if (speechRecognition) return; // already mid-capture -- micTap() is the stop path, not this
-            if (this._voiceBlockedByPlayback()) { this.errorMsg = 'Wait for Atlas to finish talking first.'; return; } // never listen while Atlas's own voice could still be audible
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRecognition) { this.errorMsg = 'Voice input is not supported in this browser.'; return; }
-            _manualStopRequested = false;
-            speechRecognition = new SpeechRecognition();
-            speechRecognition.lang = 'en-US';
-            speechRecognition.interimResults = false;
-            speechRecognition.continuous = false;
-            speechRecognition.onstart = () => { this.listening = true; this.errorMsg = ''; this._armRecognitionWatchdog(); };
-            speechRecognition.onresult = (event) => {
-                let transcript = '';
-                for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
-                this.draft = transcript.trim();
-                _lastInputWasVoice = true;
-            };
-            speechRecognition.onerror = (event) => {
-                if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                    this.errorMsg = 'Voice input error: ' + event.error + ' -- you can still type.';
-                }
-            };
-            speechRecognition.onend = () => {
-                clearTimeout(_recognitionWatchdog);
-                speechRecognition = null;
-                this.listening = false;
-                const stoppedManually = _manualStopRequested;
-                _manualStopRequested = false;
-                if (stoppedManually && !this.draft.trim()) {
-                    // A manual tap-to-stop with nothing captured means "give me
-                    // control back", not "go ahead and keep looping" -- stop
-                    // auto-relistening for the rest of this draft.
-                    if (this.activeAction) this.activeAction.viaVoice = false;
-                    return;
-                }
-                if (this.draft && this.draft.trim()) this.sendMessage();
-            };
+            speechRecognition.onend = () => { clearTimeout(_recognitionWatchdog); speechRecognition = null; this.listening = false; };
             try { speechRecognition.start(); } catch (e) { speechRecognition = null; this.listening = false; }
         },
 
         // True while Atlas's own voice could still be audible -- covers both
         // the cloud-TTS <audio> element and the browser speechSynthesis
-        // fallback. Every recognition start (manual tap or auto-relisten)
-        // checks this first so the mic can never pick up Atlas's own reply
-        // and mistake it for the user speaking.
+        // fallback. Checked before every recognition start so the mic can
+        // never pick up Atlas's own reply and mistake it for the user
+        // speaking (confirmed live 2026-08-08 -- a spoken read-back got
+        // transcribed back in as if the user had said it).
         _voiceBlockedByPlayback() {
             if (this.currentCloudAudio && !this.currentCloudAudio.paused && !this.currentCloudAudio.ended) return true;
             if (window.speechSynthesis && window.speechSynthesis.speaking) return true;
@@ -1359,34 +1309,19 @@ export function atlasAi() {
         // Safety valve: the Web Speech API is known to sometimes never fire
         // onend/onerror at all (browser-dependent). Without this, a stuck
         // session leaves speechRecognition non-null and the mic button red
-        // forever, with no way to reach it again (voiceExchange/toggleVoice
-        // both no-op while a session is already open). Force a hard reset
-        // after 15s no matter what the browser does.
+        // forever, with no way to reach it again (toggleVoice no-ops while a
+        // session is already open -- that's its stop path, but only if the
+        // browser cooperates). Force a hard reset after 60s no matter what
+        // the browser does -- generous on purpose, this is a safety net for
+        // real browser bugs, not a normal-use limit.
         _armRecognitionWatchdog() {
             clearTimeout(_recognitionWatchdog);
             _recognitionWatchdog = setTimeout(() => {
                 if (speechRecognition) { try { speechRecognition.abort(); } catch (e) {} }
                 speechRecognition = null;
                 this.listening = false;
-            }, 15000);
+            }, 60000);
         },
-
-        // Mic button dispatcher. A tap always means "toggle" first: if a
-        // session is already open, stop it -- this is the fix for the mic
-        // button appearing stuck red with no way to turn it off, since
-        // voiceExchange() alone silently no-ops while already listening.
-        // Only when nothing is listening does it decide which mode to start.
-        micTap() {
-            if (speechRecognition) { _manualStopRequested = true; try { speechRecognition.stop(); } catch (e) {} return; }
-            if (this.activeAction) { this.voiceExchange(); return; }
-            this.toggleVoice();
-        },
-
-        // Bound to the composer textarea's @input in index.html -- fires only on
-        // a real keystroke (programmatic value-setting from voice does not raise
-        // a DOM input event), so this is a reliable "the user is typing now"
-        // signal that demotes the current turn out of the voice auto-loop.
-        markManualInput() { _lastInputWasVoice = false; },
 
         handleGlobalKey(event) {
             if (!this.panelOpen || this.view !== 'chat') return;
