@@ -2769,8 +2769,30 @@
 .chart-insight .arrow.down { color: var(--accent-sage); }
 .chart-insight .arrow.up { color: var(--accent-coral); }
 .health-axis-chart { display: block; }
-.axis-label { font-size: 10px; fill: var(--text-muted); font-family: var(--font-sans, system-ui); }
+.axis-label { font-size: 10.5px; font-weight: 500; fill: var(--text-secondary); font-family: var(--font-sans, system-ui); }
 .axis-grid { stroke: var(--border); stroke-width: 1; }
+
+/* Hover/touch tooltip overlay on the axis chart, added 2026-08-07 (direct
+   feedback: axes alone weren't enough, exact per-night numbers on hover
+   were still wanted). Percent-positioned HTML layered over the SVG. */
+.chart-svg-wrap { position: relative; }
+.chart-hitboxes { position: absolute; inset: 0; display: flex; }
+.chart-hitbox { flex: 1; position: relative; }
+.chart-hover-dot {
+    position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent-blue); box-shadow: 0 0 0 4px var(--surface-1);
+    transform: translate(-50%, -50%); opacity: 0; pointer-events: none;
+    transition: opacity var(--dur-fast) var(--ease-out);
+}
+.chart-hover-dot.is-active { opacity: 1; }
+.chart-tooltip {
+    position: absolute; bottom: calc(100% + 8px); transform: translateX(-50%);
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 11px; display: flex; flex-direction: column; gap: 2px;
+    z-index: 20; pointer-events: none; box-shadow: var(--shadow-card); white-space: nowrap;
+}
+.chart-tooltip .tooltip-title { font-size: 10.5px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+.chart-tooltip .tooltip-val { font-size: 13px; font-weight: 700; color: var(--text-primary); }
 
 /* Workout: 4-week consistency rings (Option F, approved 2026-08-06).
    Pure SVG, viewBox-based (not raster) so a ring never looks broken or
@@ -2783,7 +2805,11 @@
    panel's typography -- same restrained sizing language as everything
    else in this card. */
 .rings-row { display: flex; gap: 14px; }
-.ring-cell { flex: 1; min-width: 0; max-width: 96px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+/* No max-width (2026-08-07 fix, direct feedback: the earlier 96px cap
+   made all 4 rings cluster on the left with dead space on the right on
+   any card wider than ~440px). flex:1 alone now lets each ring truly
+   share the row's full width evenly, growing or shrinking with it. */
+.ring-cell { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .ring-cell svg { width: 100%; height: auto; display: block; }
 .ring-cell-label { font-size: 10px; color: var(--text-muted); font-weight: 600; letter-spacing: .02em; }
 .ring-cell-range { font-size: 9.5px; color: var(--text-muted); }

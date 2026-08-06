@@ -2,6 +2,22 @@ import Alpine from 'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/+esm';
 import { supabase } from '../js/supabase-client.js';
 import { DB } from '../js/db.js';
 
+// Same VAPID public key the main Atlas app already uses (js/push-client.js)
+// -- one shared key pair for all of Atlas's push infrastructure, this is
+// just a different subscriptions table (atlas_family_push_subscriptions)
+// for a different device. A public key is safe to duplicate; only the
+// private half (server-side only, never shipped to any browser) matters.
+const PUBLIC_VAPID_KEY = 'BL12XRcZgRHzKZxumH9Qh-ft0FDAblQSTN7AElr-yqyaNfKraAJtg6CnxJoEE5VIuB2hips3DNfgP14zkEn7Lng';
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+}
+
 Alpine.data('familyApp', () => ({
 
     // ── Auth ──────────────────────────────────────────────
@@ -35,6 +51,13 @@ Alpine.data('familyApp', () => ({
     // ── Reminder ──────────────────────────────────────────
     reminderInterval: null,
 
+    // ── Push notifications (2026-08-07) ───────────────────
+    // Real push, not just the in-tab Notification calls below (those only
+    // ever fire while a tab is actually open). Off by default -- browsers
+    // require a direct user tap to subscribe, so this can't be silent.
+    familyPushStatus: 'Checking…',
+    familyPushEnabled: false,
+
     // ─────────────────────────────────────────────────────
     // INIT
     // ─────────────────────────────────────────────────────
@@ -56,6 +79,54 @@ Alpine.data('familyApp', () => ({
             Notification.requestPermission();
         }
         this.setupReminder();
+        this.checkFamilyPushStatus();
+    },
+
+    // ─────────────────────────────────────────────────────
+    // PUSH NOTIFICATIONS
+    // ─────────────────────────────────────────────────────
+    async checkFamilyPushStatus() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            this.familyPushStatus = 'Not supported on this device';
+            return;
+        }
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            this.familyPushEnabled = !!subscription;
+            this.familyPushStatus = subscription ? 'On' : 'Off';
+        } catch (e) {
+            console.error('Push status check failed:', e);
+            this.familyPushStatus = 'Off';
+        }
+    },
+    async toggleFamilyPush() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        this.familyPushStatus = 'Working…';
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const existing = await registration.pushManager.getSubscription();
+            if (existing) {
+                await DB.Family.removePushSubscription(existing.endpoint);
+                await existing.unsubscribe();
+                this.familyPushEnabled = false;
+                this.familyPushStatus = 'Off';
+            } else {
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(PUBLIC_VAPID_KEY)
+                });
+                const subJson = subscription.toJSON();
+                await DB.Family.savePushSubscription({ endpoint: subJson.endpoint, p256dh: subJson.keys.p256dh, auth: subJson.keys.auth });
+                this.familyPushEnabled = true;
+                this.familyPushStatus = 'On';
+            }
+        } catch (e) {
+            console.error('Push toggle failed:', e);
+            // Inline status text, not a browser alert -- same fix applied
+            // to Abhishek's note-send error this same session.
+            this.familyPushStatus = 'Could not enable: ' + (e.message || 'try again');
+        }
     },
 
     // ─────────────────────────────────────────────────────

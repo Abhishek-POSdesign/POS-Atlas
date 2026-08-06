@@ -772,6 +772,34 @@ export const DB = {
         async markNoteRead() {
             const payload = { is_read: true, updated_at: new Date().toISOString() };
             return verifiedUpdate('atlas_family_notes', 1, payload);
+        },
+
+        // ---- push subscriptions (2026-08-07) ----
+        // Separate table from pos_push_subscriptions -- this is Ritu's
+        // device, not Abhishek's own reminders. Used by the family app's
+        // own subscribe toggle, read by the send-family-push Edge Function.
+        async getPushSubscription(endpoint) {
+            const { data, error } = await supabase
+                .from('atlas_family_push_subscriptions')
+                .select('*')
+                .eq('endpoint', endpoint)
+                .maybeSingle();
+            if (error) throw new Error(error.message);
+            return data;
+        },
+        async savePushSubscription(sub) {
+            const payload = { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, updated_at: new Date().toISOString() };
+            const { data, error } = await supabase
+                .from('atlas_family_push_subscriptions')
+                .upsert(payload, { onConflict: 'endpoint' })
+                .select()
+                .single();
+            if (error || !data) throw new Error(error?.message || 'Push subscription save was not confirmed');
+            return data;
+        },
+        async removePushSubscription(endpoint) {
+            const { error } = await supabase.from('atlas_family_push_subscriptions').delete().eq('endpoint', endpoint);
+            if (error) throw new Error(error.message);
         }
     }
 };

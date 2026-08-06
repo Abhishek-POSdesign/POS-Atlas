@@ -1,4 +1,5 @@
 import { DB } from '../db.js';
+import { supabase } from '../supabase-client.js';
 import { getLogicalDate, todayKey, todayIsoDate, toLocalIsoDate } from '../date-utils.js';
 import { showUndoToast } from '../components/undo-toast.js';
 import { askConfirm } from '../components/confirm-dialog.js';
@@ -247,10 +248,20 @@ export function todayPage(nav) {
             if (!this.familyNoteDraft.trim()) return;
             this.familyNoteSaving = true;
             this.familyNoteError = '';
+            const noteText = this.familyNoteDraft.trim();
             try {
-                await DB.Family.setNote(this.familyNoteDraft.trim());
+                await DB.Family.setNote(noteText);
                 this.familyNoteDraft = '';
                 this.familyNoteModalOpen = false;
+                // Real push to Ritu's device (2026-08-07) -- best-effort,
+                // deliberately not awaited-and-thrown: the note itself is
+                // already saved and she'll see it next time she opens the
+                // app either way, so a push failure (she hasn't enabled
+                // notifications yet, her device unsubscribed, etc.) must
+                // never make the note-send itself look like it failed.
+                supabase.functions.invoke('send-family-push', {
+                    body: { title: 'Note from Abhishek', body: noteText }
+                }).catch(e => console.error('Family push notify failed (note was still saved):', e));
             } catch (e) {
                 console.error('Failed to send note:', e);
                 this.familyNoteError = e.message || 'Could not send note. Please try again.';
@@ -1006,7 +1017,16 @@ export function todayPage(nav) {
 
             const xFor = i => M.left + Math.round((i / (days.length - 1)) * plotW);
             const yFor = v => M.top + Math.round((1 - (v - yMin) / yRange) * plotH);
-            const pts = days.map((d, i) => ({ x: xFor(i), y: yFor(d.duration) }));
+            const fmtOne = m => Math.floor(m / 60) + 'h ' + (m % 60) + 'm';
+            const pts = days.map((d, i) => {
+                const dateObj = new Date(d.date + 'T00:00:00');
+                return {
+                    x: xFor(i), y: yFor(d.duration),
+                    dateLabel: dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+                    durLabel: fmtOne(d.duration),
+                    date: d.date
+                };
+            });
             const goalY = yFor(goal);
 
             let yAxisSvg = '';
@@ -1070,7 +1090,7 @@ export function todayPage(nav) {
                 insight = `<span class="arrow">→</span> Holding steady across this period.`;
             }
 
-            return { svg, avgLabel, goalPct, insight };
+            return { svg, avgLabel, goalPct, insight, points: pts, W, H };
         },
 
         get workoutConsistency() {
@@ -1087,34 +1107,46 @@ export function todayPage(nav) {
             });
         },
 
-        // ---- 4-week consistency, aggregated per week (Comet review, Option A) ----
-        // Derived from workoutConsistency (unchanged) -- no new data loading.
-        // A week is 'met' only if every activity type hit its target that
-        // week, 'missed' only if none did, otherwise 'partial'.
+        // ---- 4-week consistency, aggregated per week ----
+        // Fixed 2026-08-07: the ring's center number used to be "how many
+        // activity types fully hit 100% of their own weekly target" --
+        // confirmed via direct feedback + a live data check that this reads
+        // as "0/4, my workouts aren't being tracked" even with real logged
+        // sessions, because hitting 3 of a 4-session target still counts as
+        // not-met under an all-or-nothing per-type definition. Real example
+        // confirmed live: 3 strength sessions logged against a target of 4
+        // showed 0/4 on the ring despite the activity being real and logged.
+        // Now shows real sessions-done vs sessions-targeted, summed across
+        // every tracked activity (each activity's own contribution capped
+        // at its own target, so overachieving on one activity can't inflate
+        // the ring past 100% or hide that another activity was skipped).
+        // This is the same underlying data `workoutConsistency` already
+        // computes -- just summed differently -- so it will always agree
+        // with the per-activity fractions shown in the "This week" strip
+        // above it.
         get workoutWeekAggregate() {
-            const rows = this.workoutConsistency;
-            if (!rows.length) return [];
-            return this.workoutTrendWeeks.map((week, i) => {
-                const states = rows.map(r => r.weekDots[i]);
+            const targets = this._workoutTrendTargets || [];
+            if (!targets.length) return [];
+            return this.workoutTrendWeeks.map(week => {
+                let actual = 0, total = 0;
+                targets.forEach(t => {
+                    const count = week.sessions.filter(s => s.activity_type === t.activity_type).length;
+                    total += t.target_days_per_week;
+                    actual += Math.min(count, t.target_days_per_week);
+                });
+                const pct = total ? actual / total : 0;
                 let state;
-                if (states.every(s => s === 'met')) state = 'met';
-                else if (states.every(s => s === 'missed')) state = 'missed';
-                else state = 'partial';
-                
+                if (pct >= 1) state = 'met';
+                else if (pct > 0) state = 'partial';
+                else state = 'missed';
+
                 const s = new Date(week.start + 'T00:00:00');
                 const e = new Date(week.end + 'T00:00:00');
                 const sMon = s.toLocaleString('en-US', { month: 'short' });
                 const eMon = e.toLocaleString('en-US', { month: 'short' });
                 const range = sMon === eMon ? `${sMon} ${s.getDate()}–${e.getDate()}` : `${sMon} ${s.getDate()}–${eMon} ${e.getDate()}`;
 
-                // metCount/total added 2026-08-06 for the closing-rings chart
-                // (Option F) -- how many of the tracked activity types hit
-                // their own weekly target, out of how many are tracked. Same
-                // underlying met/partial/missed classification as `state`
-                // above, just carried as a real fraction so the ring's
-                // center number means something (not a made-up percentage).
-                const metCount = states.filter(s => s === 'met').length;
-                return { label: week.label, state, range, sessionCount: week.sessions.length, metCount, total: rows.length };
+                return { label: week.label, state, range, sessionCount: week.sessions.length, metCount: actual, total };
             });
         },
 

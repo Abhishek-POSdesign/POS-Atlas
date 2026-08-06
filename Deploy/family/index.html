@@ -302,9 +302,15 @@
             </template>
 
             <!-- Header -->
-            <div class="header">
-                <h1>My Day</h1>
-                <div class="date-label" x-text="todayLabel"></div>
+            <div class="header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h1>My Day</h1>
+                    <div class="date-label" x-text="todayLabel"></div>
+                </div>
+                <button class="btn-icon" style="width: auto; padding: 0 10px; height: 32px; gap: 5px; flex-shrink: 0;" @click="toggleFamilyPush()" :title="familyPushEnabled ? 'Turn off notifications' : 'Turn on notifications'">
+                    <span x-text="familyPushEnabled ? '🔔' : '🔕'"></span>
+                    <span style="font-size: 11px;" x-text="familyPushStatus"></span>
+                </button>
             </div>
 
             <!-- ── ROUTINE ──────────────────────────────── -->
