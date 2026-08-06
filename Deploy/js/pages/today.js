@@ -950,14 +950,27 @@ export function todayPage(nav) {
                 }
                 this.sleepTrendDays = sleepDays;
 
-                // Workout: 4-week consistency grid (per activity type)
+                // Workout: 4-week consistency grid (per activity type), aligned
+                // to real Monday-Sunday calendar weeks (2026-08-08 fix). Was a
+                // rolling "today minus 27 days" window sliced into 7-day
+                // blocks -- not real weeks, which is why the current week's
+                // label could read e.g. "Jul 31-Aug 6" even though Aug 6 was
+                // a Thursday, not a week boundary. Same Monday-anchoring
+                // formula calendar.js already uses for its own month grid.
+                // Week 4 is always the current real week (Monday through
+                // Sunday), even though Sunday may still be in the future --
+                // that's expected, it's showing this week's progress so far.
                 const workoutByDate = {};
                 (workoutLogs || []).forEach(w => { workoutByDate[w.entry_date] = w; });
-                // Get sessions for last 28 days
-                const fourWeeksAgo = new Date(today);
-                fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 27);
+                const dowOffset = (today.getDay() + 6) % 7; // days since Monday
+                const thisWeekMonday = new Date(today);
+                thisWeekMonday.setDate(thisWeekMonday.getDate() - dowOffset);
+                const fourWeeksAgo = new Date(thisWeekMonday);
+                fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 21);
+                const weekFourSunday = new Date(thisWeekMonday);
+                weekFourSunday.setDate(weekFourSunday.getDate() + 6);
                 const startStr = fourWeeksAgo.toLocaleDateString('en-CA');
-                const endStr = today.toLocaleDateString('en-CA');
+                const endStr = weekFourSunday.toLocaleDateString('en-CA');
                 let sessions = [];
                 try { sessions = await DB.WorkoutSessions.listForDateRange(startStr, endStr); } catch(e) {}
 
