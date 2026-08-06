@@ -283,9 +283,14 @@ Deno.serve(async (req: Request) => {
         const system = `You help pick what's worth telling Abhishek about today, from a fixed list of facts about his tasks, checklist, sleep, workouts, projects, and bills. Rules:
 - Choose at most 5 of the listed facts -- the ones most worth his attention today. Fewer is fine if fewer are truly worth it.
 - Never invent a fact, number, or date not in the list.
-- For each chosen fact, return its exact [id] from the list, a short "title" (2-4 words, a category label), a one-sentence "text" (what he'd read on a card), and a one-sentence "discuss" (a natural opening line for an assistant that already knows this fact, inviting him to talk it through).
+- For each chosen fact, return:
+    * "id" -- the exact [id] from the list.
+    * "title" -- a short 2-4 word category label (kept for compatibility; the ticker UI no longer displays it, but future views may).
+    * "text" -- the PRIMARY line the ticker shows. Write it as the task/reminder/insight itself, in the fewest words that read naturally when spoken aloud. For a reminder, write it like "Call Mohit at 9 PM" or "Book the hotel". For a plain task, just the task name ("Finish the chapter API"). For a health insight, one clean sentence ("Sleep score dropped to 68 last night").
+    * "meta" -- the OPTIONAL muted second line on the ticker. Use this for context the primary shouldn't carry: how many days a task has been carried, which project it belongs to, when a reminder fires, what an insight compares to, why a bill is amber. Leave "meta" as an empty string ("") when there is nothing worth adding. Meta is short (under ~50 chars where possible). Separate multiple bits with " · " (middle-dot with spaces).
+    * "discuss" -- a natural opening line for an assistant that already knows this fact, inviting him to talk it through.
 - Favor facts that connect to a standing pattern below when relevant, but do not fabricate a pattern that isn't listed.
-- Reply with ONLY a JSON array, no markdown fence, no commentary: [{"id":"...","title":"...","text":"...","discuss":"..."}]`
+- Reply with ONLY a JSON array, no markdown fence, no commentary: [{"id":"...","title":"...","text":"...","meta":"...","discuss":"..."}]`
         const user = `Standing patterns noticed on past days:\n${memoryText}\n\nToday's candidate facts:\n${candidateList}`
         try {
           const raw = await askGemini(accessToken, sa.project_id, system, user)
@@ -300,6 +305,7 @@ Deno.serve(async (req: Request) => {
                 id: c.id, type: c.type, accent: c.accent,
                 title: String(p.title || c.type).slice(0, 40),
                 text: String(p.text || c.fact).slice(0, 200),
+                meta: String(p.meta || '').slice(0, 120),
                 discuss: String(p.discuss || c.fact).slice(0, 300),
                 ref: c.ref,
               }

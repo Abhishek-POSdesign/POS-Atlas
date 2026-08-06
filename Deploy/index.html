@@ -586,6 +586,33 @@
                                 <h1>Today</h1>
                                 <div class="today-date" x-text="todayLabel"></div>
                             </div>
+                            <!-- AI insight tile lives INLINE with the Today header now,
+                                 filling the horizontal space to the right of the title
+                                 block. Rebuilt 2026-08-09 (Tactile Tile design) after
+                                 the old strip-above-hero + accent-tint-fill design was
+                                 explicitly rejected across two rounds of mockups. See
+                                 components.css .ai-ticker for the full rationale on
+                                 layout, content-tier, and no-per-type-tint decisions. -->
+                            <div class="ticker-slot" x-show="currentInsight">
+                                <template x-if="currentInsight">
+                                    <div class="ai-ticker" @click="discussInsight(currentInsight)">
+                                        <div class="ai-ticker-primary" x-text="currentInsight.text"></div>
+                                        <template x-if="currentInsight.meta || currentInsight.type === 'carried_task'">
+                                            <div class="ai-ticker-meta">
+                                                <template x-if="currentInsight.type === 'carried_task'">
+                                                    <span class="carried">Carried</span>
+                                                </template>
+                                                <span x-show="currentInsight.meta" x-text="currentInsight.meta"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <div class="ai-ticker-dots" x-show="aiVisibleInsights.length > 1">
+                                    <template x-for="(item, i) in aiVisibleInsights" :key="item.id">
+                                        <span class="ai-ticker-dot" :class="{on: i === (aiInsightIndex % aiVisibleInsights.length)}"></span>
+                                    </template>
+                                </div>
+                            </div>
                             <button class="icon-button journal-btn" :class="{active: journalOpen}" @click="journalOpen = !journalOpen" aria-label="Log an emotion or thought about today" style="display:none">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                                 <span class="tooltip">Log an emotion or thought about today</span>
@@ -602,26 +629,10 @@
                         <template x-if="!loading">
                             <div class="stack">
 
-                                <!-- AI daily digest ticker ("Worth knowing") -- generated once a
-                                     day at noon by the atlas-daily-digest Edge Function. Rotates
-                                     through whatever's still live per aiVisibleInsights; clicking
-                                     it opens the AI panel already holding that topic's context. -->
-                                <template x-if="currentInsight">
-                                    <div class="ai-ticker" :class="'accent-' + currentInsight.accent" @click="discussInsight(currentInsight)">
-                                        <div class="ai-ticker-icon">
-                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-                                        </div>
-                                        <div class="ai-ticker-body">
-                                            <div class="ai-ticker-eyebrow" x-text="currentInsight.title"></div>
-                                            <div class="ai-ticker-text" x-text="currentInsight.text"></div>
-                                        </div>
-                                    </div>
-                                </template>
-                                <div class="ai-ticker-dots" x-show="aiVisibleInsights.length > 1">
-                                    <template x-for="(item, i) in aiVisibleInsights" :key="item.id">
-                                        <span class="ai-ticker-dot" :class="{on: i === (aiInsightIndex % aiVisibleInsights.length)}"></span>
-                                    </template>
-                                </div>
+                                <!-- (Insight ticker moved into the section-header row
+                                     as of 2026-08-09 -- see index.html above and the
+                                     .ai-ticker CSS block for full rationale. Nothing
+                                     lives here above the hero band any more.) -->
 
                                 <!-- Hero band: streaks flank the KPI strip -->
                                 <div class="hero-band">
