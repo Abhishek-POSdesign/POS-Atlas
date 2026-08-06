@@ -101,6 +101,17 @@ These are settled decisions from real design-review rounds. Do not re-litigate t
 - Section headers use serif-italic titles with a solid top-border in that section's real locked accent (sage = Health/Checklist, blue = Tasks & Reminders, lilac = Projects & Work Logs, Journal stays uncoloured — same "no locked-accent home" rule as everywhere else). Don't go back to one flat blue icon regardless of section meaning — that was a real, confirmed bug.
 - The "AI range" preset row that used to sit above the month grid (This week / Last week / Last 10 days / Next 10 days) was **removed entirely 2026-07-31** — confirmed genuinely non-functional (set a `rangePreset` value nothing else in the app ever read). Don't reintroduce it without actually wiring it to something real.
 
+### g) Insight ticker is a Tactile Tile inline with the Today header (locked 2026-08-09, in testing)
+
+Ticker design was reworked across three mockup rounds and landed here. Locked decisions:
+
+- **Placement:** the tile lives INLINE with the Today header row, filling the space to the right of the title block via a `.ticker-slot` child of `.section-header`. It is NOT on its own row above the hero band. Don't move it back.
+- **Visual:** deep-black (`#0d0d0d`) in dark theme / pure white in light theme. 6px softly-rounded corners (never pill). Inset top highlight + real drop shadow via the `--tile-body` and `--tile-shadow` tokens (defined per theme in `tokens.css`). No border, no accent-tint background, no colored left rail — the old "accent-tint fill + colored left border" design was explicitly rejected and is gone.
+- **Content — two-tier:** `.ai-ticker-primary` (bold, high contrast, `--text-primary`) carries the task/reminder/insight itself in natural language. `.ai-ticker-meta` (muted, smaller, `--text-muted`) is optional; the AI writes it for context that shouldn't crowd the primary (carried days, project name, reminder time, insight comparison, bill reason). When there's nothing worth adding, meta is empty and the tile shrinks.
+- **Carried indication:** a small amber `.carried` pill prefixes the meta line for `carried_task` items — the one remaining accent-color signal on the tile itself. Don't add per-type icons or per-type body-color tints; the tile is meant to be calm and let the content do the work.
+- **Mobile:** at ≤720px the `.section-header` wraps and the tile drops beneath the title block. Preserve this — squeezing the tile at narrow widths reads badly.
+- **The `atlas-daily-digest` edge function (v5+) generates the `meta` field.** Don't strip it from the schema; old rows without meta already render fine because the client treats it as optional.
+
 ---
 
 ## Contrast and accessibility (enforced)

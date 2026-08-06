@@ -27,6 +27,31 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-09 · Claude Code (Opus 4.7) — Insight ticker redesigned as Tactile Tile (shipped, awaiting live-test feedback)
+
+**Session scope:** Landed the ticker visual redesign that had been open since the 2026-08-08 debug audit. Three mockup rounds this session (delivered as Artifact `4f190230-...`, republished with each iteration): first proposed three completely different aesthetics (Editorial Rail, Whisper, Signal); Abhishek rejected all three; second round proposed three inline 3D-card variants; he picked Tactile Tile (variant 3); third round refined the density (One-liner / Primary+meta / Freeform); he picked Primary + optional meta with a critical layout change (tile centered/inline with header, not on its own row). Then shipped the build straight after with no further mockup churn since it was 5am his time and he was going to sleep. Feedback pending after he wakes up.
+
+**What shipped (commit `c5410e6`):**
+- **`Deploy/css/components.css`** — old `.ai-ticker` block (accent-tint-fill + colored left border + icon eyebrow) fully rewritten as Tactile Tile: deep-black in dark / pure white in light, softly rounded 6px corners (not pill), inset top highlight + real drop shadow that lifts it off the page ground. Two-tier text via new `.ai-ticker-primary` (bold, high contrast) and `.ai-ticker-meta` (muted, smaller, optional). Small amber `.carried` pill prefixes the meta line for `carried_task` items. No per-type accent tint on the tile body (explicit feedback — "too eye-catching"). Mobile breakpoint at 720px drops the tile beneath the title block.
+- **`Deploy/css/tokens.css`** — new `--tile-body` and `--tile-shadow` tokens per theme (dark: `#0d0d0d` body + drop-shadow with inset white top highlight; light: `#ffffff` body + warm-tinted paper-native shadow). Any future consumer of the same 3D card treatment can reuse them.
+- **`Deploy/index.html`** — ticker markup moved out of `.stack` (above the hero band) into the `.section-header` row, wrapped in a new `.ticker-slot` that fills the horizontal space to the right of `.today-block`. Templated for `currentInsight.text` (primary) and `currentInsight.meta` (optional). Old markup block replaced with a comment pointer explaining the move.
+- **`supabase/functions/atlas-daily-digest`** — deployed v5 with an updated system prompt that generates the new `meta` field alongside the existing `text`/`title`/`discuss`. Prompt spells out exactly what meta is for (carried duration, project name, reminder time, insight comparison, bill reason) and to leave it empty when there's nothing worth adding. `p.meta` written to the item with a 120-char safety cap.
+- **`Deploy/service-worker.js`** → `v97`.
+
+**What was verified live:** Edge function deployed successfully (v5 ACTIVE). Local dev boots with zero console errors. `node --check` clean. No live-test feedback yet (this session ended at 5am his time; Abhishek explicitly asked to ship without further mockup rounds and would review when he woke up).
+
+**What's still open:**
+- Real human test of the new ticker on both desktop and mobile at his actual viewport widths. Especially: whether the "centered in the space after Today" layout reads right at wide desktop widths, and whether the mobile-breakpoint drop looks OK at his phone's exact width.
+- Whether the AI actually starts writing useful meta lines. The prompt is fresh; next noon-IST cron run (12:00 tomorrow) is the first real test of the meta-generation quality. Until then the tile just shows primary text alone, which is a valid state per the design.
+- The pending Abhishek retest of the 14-bug fix bundle from earlier in this cycle (also in testing).
+
+**What NOT to do:**
+- Don't reintroduce the accent-tint-fill background or colored left border on the ticker without an explicit new design round — that's what got rejected across two rounds of mockups.
+- Don't move the ticker back to its own row above the hero band; the inline-with-header position was a deliberate direct request.
+- Don't add per-type icons or type-color signals inside the tile; the tile is meant to be visually calm and let the content do the work.
+
+---
+
 ## 2026-08-08 · Claude Code (Opus 4.7) — post-build debug audit: 14 bugs found, all fixed, batched by subsystem; ticker mockup delivered
 
 **Session scope:** Abhishek switched me into a "Debug Technician" role and asked for a systematic audit of everything shipped on 2026-08-06/07. Found 15 real bugs across the code Claude committed that window. Skipped #1 (Safari/iOS MP4 encoding mismatch) at his explicit direction -- no iOS devices in the family -- and fixed the remaining 14 in one continuous pass, batched by file/subsystem so each change is one auditable unit. Also delivered the ticker design mockup (3 variants) that had been outstanding since the ticker time-window bug fix landed without any visual redesign.

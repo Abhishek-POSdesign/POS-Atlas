@@ -8,7 +8,24 @@ Sibling docs:
 - [`handover-docs/CLAUDE.md`](handover-docs/CLAUDE.md) — full history + detail
 - [`handover-docs/SLEEP-ROADMAP.md`](handover-docs/SLEEP-ROADMAP.md) — sleep future plan
 
-**Last updated:** 2026-08-07
+**Last updated:** 2026-08-09
+
+## 🎨 Insight ticker — Tactile Tile redesigned 2026-08-09, IN TESTING (feedback pending)
+
+**Read this before touching anything ticker-related.** The old accent-tint-fill + colored-left-border + icon-eyebrow ticker (which sat on its own row above the hero band) was explicitly rejected across two rounds of mockups and is retired. The current design (commit `c5410e6`):
+
+- **Placement:** inline with the Today header row, filling the horizontal space to the right of the title block (not on its own row). At ≤720px viewport the tile drops beneath the title block instead of squeezing.
+- **Visual:** deep-black (`#0d0d0d`) in dark theme / pure white in light theme. Softly rounded 6px corners (never pill). Inset top highlight + real drop shadow that physically lifts it off the page ground. New `--tile-body` and `--tile-shadow` tokens in `tokens.css` per theme.
+- **Content — two-tier:** primary line (bold, high contrast, the task/reminder/insight itself in natural language) + optional muted meta line (context — carried duration, project name, reminder time, insight comparison, bill reason). Meta is left empty when nothing worth adding; tile shrinks accordingly. `carried_task` items get a small amber "CARRIED" pill prefix on the meta line — the only remaining accent-color signal on the tile itself.
+- **No per-type accent tint on the tile body.** The type-color signal from the old design was explicit feedback ("too eye-catching"), gone.
+- **Edge function `atlas-daily-digest` v5 deployed** with an updated prompt that generates the new `meta` field alongside `text`/`title`/`discuss`. Old rows without meta still render fine (`meta` defaults to empty).
+
+**Status: IN TESTING, awaiting Abhishek's live feedback after he wakes up.** Shipped at ~5am his time with no live-test cycle. He'll retest on both desktop and mobile. If anything breaks on real viewport widths, or if the AI-generated meta lines don't read right after the next noon-IST cron, that's the immediate follow-up. Do not treat this as settled until he confirms.
+
+**Rules not to walk back silently:**
+- Don't reintroduce the accent-tint-fill background or the colored left border without a new design round.
+- Don't move the ticker back to a full-width row above the hero band; inline-with-header is a direct request.
+- Don't add per-type icons or type-color signals inside the tile.
 
 ## 🎯 Voice-First Conversational Logging + AI action layer — comprehensive build 2026-08-08, re-test still needed
 
