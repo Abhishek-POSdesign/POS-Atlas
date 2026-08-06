@@ -1174,36 +1174,35 @@ export function todayPage(nav) {
         },
 
         // ---- 4-week consistency, aggregated per week ----
-        // Fixed 2026-08-07: the ring's center number used to be "how many
-        // activity types fully hit 100% of their own weekly target" --
-        // confirmed via direct feedback + a live data check that this reads
-        // as "0/4, my workouts aren't being tracked" even with real logged
-        // sessions, because hitting 3 of a 4-session target still counts as
-        // not-met under an all-or-nothing per-type definition. Real example
-        // confirmed live: 3 strength sessions logged against a target of 4
-        // showed 0/4 on the ring despite the activity being real and logged.
-        // Now shows real sessions-done vs sessions-targeted, summed across
-        // every tracked activity (each activity's own contribution capped
-        // at its own target, so overachieving on one activity can't inflate
-        // the ring past 100% or hide that another activity was skipped).
-        // This is the same underlying data `workoutConsistency` already
-        // computes -- just summed differently -- so it will always agree
-        // with the per-activity fractions shown in the "This week" strip
-        // above it.
+        // Reworked 2026-08-08 after a direct, confirmed data check. The prior
+        // version summed sessions toward each activity's own weekly target,
+        // each activity capped at its target -- which meant a week of 5 real
+        // workout days that were mostly ONE activity (e.g. 4 strength + 1
+        // active-play, against a strength target of only 2) collapsed to 3/7,
+        // because the 4 strength days were capped down to 2. Abhishek trains
+        // almost entirely strength 4-5x/week, so his real, consistent weeks
+        // were being shown as low. Confirmed via SQL that Jul 13-19 genuinely
+        // has 5 workout days logged, yet the old ring read 3/7.
+        //
+        // The ring now measures the thing "consistency" actually means to him:
+        // how many distinct days that week he trained (day_type='workout',
+        // i.e. any logged session), out of the 7 days in the week. No
+        // per-activity capping -- 5 workout days reads as 5/7, full stop.
+        // Colour is by real days trained, not by fill %: >=4 days is his own
+        // stated floor for a good week ("I never work out less than 4 days"),
+        // so that's the green/"met" threshold. The per-activity target strip
+        // above (workoutConsistency) is unchanged -- that's still where the
+        // "did I hit my strength/yoga/etc targets" breakdown lives.
         get workoutWeekAggregate() {
-            const targets = this._workoutTrendTargets || [];
-            if (!targets.length) return [];
+            if (!this.workoutTrendWeeks || !this.workoutTrendWeeks.length) return [];
+            const DAYS_IN_WEEK = 7;
             return this.workoutTrendWeeks.map(week => {
-                let actual = 0, total = 0;
-                targets.forEach(t => {
-                    const count = week.sessions.filter(s => s.activity_type === t.activity_type).length;
-                    total += t.target_days_per_week;
-                    actual += Math.min(count, t.target_days_per_week);
-                });
-                const pct = total ? actual / total : 0;
+                const trainedDays = new Set(
+                    week.sessions.map(s => s.atlas_workout_logs?.entry_date).filter(Boolean)
+                ).size;
                 let state;
-                if (pct >= 1) state = 'met';
-                else if (pct > 0) state = 'partial';
+                if (trainedDays >= 4) state = 'met';
+                else if (trainedDays > 0) state = 'partial';
                 else state = 'missed';
 
                 const s = new Date(week.start + 'T00:00:00');
@@ -1212,7 +1211,7 @@ export function todayPage(nav) {
                 const eMon = e.toLocaleString('en-US', { month: 'short' });
                 const range = sMon === eMon ? `${sMon} ${s.getDate()}–${e.getDate()}` : `${sMon} ${s.getDate()}–${eMon} ${e.getDate()}`;
 
-                return { label: week.label, state, range, sessionCount: week.sessions.length, metCount: actual, total };
+                return { label: week.label, state, range, sessionCount: week.sessions.length, metCount: trainedDays, total: DAYS_IN_WEEK };
             });
         },
 

@@ -2819,10 +2819,17 @@
    feedback: axes alone weren't enough, exact per-night numbers on hover
    were still wanted). Percent-positioned HTML layered over the SVG. */
 .chart-svg-wrap { position: relative; }
-.chart-hitboxes { position: absolute; inset: 0; display: flex; }
-.chart-hitbox { flex: 1; position: relative; }
+.chart-hitboxes { position: absolute; inset: 0; }
+/* Each hitbox is absolutely anchored on its own data point's x (set inline
+   from p.x, the same coordinate the visible SVG dot uses) and centered via
+   translateX(-50%) -- NOT flex-distributed. The old flex layout spread N
+   equal cells across the full width, but the plotted points sit inside a
+   left-axis margin and are spaced i/(n-1), so cell i never lined up with
+   point i and hovering a dot surfaced a neighbouring day's tooltip
+   (confirmed live 2026-08-08). Anchoring each hitbox to its point fixes it. */
+.chart-hitbox { position: absolute; top: 0; bottom: 0; transform: translateX(-50%); }
 .chart-hover-dot {
-    position: absolute; width: 8px; height: 8px; border-radius: 50%;
+    position: absolute; left: 50%; width: 8px; height: 8px; border-radius: 50%;
     background: var(--accent-blue); box-shadow: 0 0 0 4px var(--surface-1);
     transform: translate(-50%, -50%); opacity: 0; pointer-events: none;
     transition: opacity var(--dur-fast) var(--ease-out);

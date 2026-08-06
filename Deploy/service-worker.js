@@ -1,4 +1,4 @@
-const CACHE_NAME = 'atlas-offline-shell-v89';
+const CACHE_NAME = 'atlas-offline-shell-v90';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',

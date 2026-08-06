@@ -1003,8 +1003,8 @@
                                                             <svg class="health-axis-chart" viewBox="0 0 600 190" width="100%" height="190" role="img" aria-label="Sleep trend chart" x-html="sleepChart.svg"></svg>
                                                             <div class="chart-hitboxes">
                                                                 <template x-for="p in sleepChart.points" :key="p.date">
-                                                                    <div class="chart-hitbox" @mouseenter="activePt = p" @mouseleave="activePt = null" @touchstart.passive="activePt = p" @touchend.passive="setTimeout(() => { if (activePt === p) activePt = null }, 2000)">
-                                                                        <div class="chart-hover-dot" :class="{ 'is-active': activePt === p }" :style="`left: ${(p.x / sleepChart.W) * 100}%; top: ${(p.y / sleepChart.H) * 100}%;`"></div>
+                                                                    <div class="chart-hitbox" :style="`left: ${(p.x / sleepChart.W) * 100}%; width: ${100 / sleepChart.points.length}%;`" @mouseenter="activePt = p" @mouseleave="activePt = null" @touchstart.passive="activePt = p" @touchend.passive="setTimeout(() => { if (activePt === p) activePt = null }, 2000)">
+                                                                        <div class="chart-hover-dot" :class="{ 'is-active': activePt === p }" :style="`top: ${(p.y / sleepChart.H) * 100}%;`"></div>
                                                                     </div>
                                                                 </template>
                                                             </div>
@@ -1254,7 +1254,7 @@
                                                     <div class="rings-row">
                                                         <template x-for="week in workoutWeekAggregate" :key="week.label">
                                                             <div class="ring-cell">
-                                                                <svg viewBox="0 0 76 76" role="img" :aria-label="week.label + ': ' + week.metCount + ' of ' + week.total + ' activity targets met, ' + week.sessionCount + ' sessions'">
+                                                                <svg viewBox="0 0 76 76" role="img" :aria-label="week.label + ': trained ' + week.metCount + ' of ' + week.total + ' days'">
                                                                     <circle cx="38" cy="38" r="32" fill="none" stroke="var(--surface-2)" stroke-width="7"></circle>
                                                                     <circle cx="38" cy="38" r="32" fill="none" stroke-width="7" stroke-linecap="round"
                                                                         :stroke="week.state==='met' ? 'var(--accent-sage)' : (week.state==='partial' ? 'var(--accent-amber)' : 'var(--accent-coral)')"
