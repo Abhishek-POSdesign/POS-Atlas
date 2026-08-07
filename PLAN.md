@@ -10,6 +10,38 @@ Sibling docs:
 
 **Last updated:** 2026-08-09
 
+## 🧪 2026-08-09 IS A FULL-DAY TESTING DAY — do not start new work
+
+**Read this before doing anything.** Abhishek is spending the whole of 2026-08-09 testing everything shipped across the current cycle. He has explicitly said he will **not** report problems one at a time — he'll come back at the end of the day with a single consolidated verdict (everything works / these specific things need fixing / nothing works).
+
+**What that means for any agent picking this up mid-day:**
+- **Do not start speculative fixes.** If something looks wrong in the code, note it, don't ship it.
+- **Do not begin new features.** The backlog waits until his verdict lands.
+- If he does come back mid-day, it's with the consolidated report, not a single bug.
+
+**What's under test:**
+- The Conversational Action mechanism end to end — sleep + workout logging, task/reminder create / complete / start / pause / delete, project linking.
+- The redesigned Tactile Tile insight ticker (see section below) on real desktop and mobile viewports.
+- Cross-device AI chat sync (phone ↔ desktop).
+- The 14 bug fixes from the 2026-08-08 post-build debug audit.
+- Voice input — **already confirmed working by him this morning** ✅ ("catching the correct phrase and correct words"). The rest is unverified.
+
+**Confirmed working so far (2026-08-09 morning):** voice input (Google Cloud STT), and sleep logging via the Conversational Action flow (typed).
+
+---
+
+## 🎤 Voice input (Speech-to-Text) — WORKING as of 2026-08-09
+
+Google Cloud Speech-to-Text via the `atlas-stt-proxy` Edge Function, replacing the browser's native `SpeechRecognition` API entirely (which was banned after real failures — see `CLAUDE.md`'s voice-input subsection for the full rule set and reasoning).
+
+**Two GCP prerequisites, both required, both were initially missing and caused a 100% failure rate:** the Cloud Speech-to-Text API must be **enabled** on the project, and the service account behind `GCP_SERVICE_ACCOUNT_KEY` must hold **`roles/speech.client`**. Having TTS and Vertex AI working does not imply either. Both are now in place.
+
+**`handover-docs/SPEECH-TO-TEXT-IMPLEMENTATION.md` is a portable, self-contained guide** for adding the same STT setup to Abhishek's other apps (which already have TTS). It's written to be handed to an agent in a different repo with zero context from this one — full Edge Function source, full client code, GCP setup with the exact `gcloud` command, gotchas, cost model, and a per-app checklist. **Not yet applied to any other app** — ready to hand over whenever he wants it.
+
+**Note for anyone touching the voice or chat layers:** STT and TTS are completely independent of the chat model provider. Ollama local or Cloud Gemini — voice in and voice out work identically. Never wire voice into the provider toggle.
+
+---
+
 ## 🎨 Insight ticker — Tactile Tile redesigned 2026-08-09, IN TESTING (feedback pending)
 
 **Read this before touching anything ticker-related.** The old accent-tint-fill + colored-left-border + icon-eyebrow ticker (which sat on its own row above the hero band) was explicitly rejected across two rounds of mockups and is retired. The current design (commit `c5410e6`):

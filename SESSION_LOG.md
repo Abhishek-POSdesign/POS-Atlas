@@ -27,6 +27,33 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-09 · Claude Code (Sonnet 5) — Speech-to-Text fixed and CONFIRMED WORKING; portable STT guide written; full-day testing begins
+
+**Session scope:** Abhishek woke up, tried to log sleep by voice, and hit a hard failure — the Conversational Action flow itself worked (he logged sleep by typing) but speech-to-text failed every time. Root-caused, fixed, confirmed working live. Then wrote a portable implementation guide so his other apps can adopt the same STT setup.
+
+**Root cause (confirmed via edge-function logs, not guessed):** every `atlas-stt-proxy` call returned 500, while `atlas-tts-proxy` returned 200 using the *same* `GCP_SERVICE_ACCOUNT_KEY` — proving auth/OAuth were never the problem. Two GCP prerequisites were missing: (1) the **Cloud Speech-to-Text API was not enabled** on the project, and (2) the service account lacked **`roles/speech.client`**. Having Text-to-Speech and Vertex AI already working does NOT imply Speech-to-Text is enabled — separate products, separate switches. Abhishek fixed both on the GCP side (API enabled via console; IAM role granted via `gcloud projects add-iam-policy-binding`).
+
+**Contributing failure that made this expensive to diagnose:** the error was invisible. `atlas-stt-proxy` logged Google's real response server-side then threw a bare "Google STT API returned an error" (→ generic 500), and `aiPanel.js` caught any non-ok response and replaced it with its own "transcription request failed". Two layers each discarding the one piece of information needed. Fixed — the proxy now returns Google's real status + detail with plain-English translation for the API-disabled / 403 / 400 cases, and the client passes that message straight through to the UI.
+
+**What shipped:**
+- `31bf6a0` — real error surfacing in both `atlas-stt-proxy` (deployed v3) and `aiPanel.js`. Cache → `v98`.
+- `dcd4b5e` — `CLAUDE.md` gains a "Voice input: Google Cloud Speech-to-Text, NOT the browser API" subsection under the Conversational Actions rules: records the browser-API ban and *why* (live streaming recognition ends sessions and finalises transcripts on its own — the actual mechanism behind "turns off by itself" and "catches half words"), the two GCP prerequisites, the never-hide-the-upstream-error rule, and the WEBM_OPUS-only codec decision.
+- New `handover-docs/SPEECH-TO-TEXT-IMPLEMENTATION.md` — a **portable, self-contained implementation guide** written to be handed to an agent in a *different repo* with no access to this conversation. Contains the full Edge Function source, full client-side MediaRecorder code, GCP prerequisites with the exact `gcloud` command, browser/codec support matrix, 8 named gotchas, cost model, and a per-app setup checklist. Written because Abhishek wants his other apps (which already have TTS) to adopt STT without re-deriving any of this.
+
+**What was verified live — by Abhishek, on the deployed app:** ✅ **Voice input works.** His words: "it worked, and it's catching the correct phrase and correct words as well." This closes the loop on the record-then-transcribe architecture — the erratic-mic symptoms (self-terminating sessions, half-caught words) are structurally gone because `MediaRecorder` has no pause detection or session timeout; it records until the user taps stop.
+
+**Also clarified for the record:** STT and TTS are fully independent of the chat model provider. Ollama local or Cloud Gemini — voice in and voice out work identically. No shared code path, no coupling to the provider toggle. Do not wire voice into provider selection.
+
+**Status: 2026-08-09 is a FULL-DAY TESTING DAY.** Abhishek is testing everything shipped across this whole cycle — the Conversational Action mechanism (sleep/workout logging, task/reminder create/complete/start/pause/delete), the project linking, the redesigned Tactile Tile ticker, cross-device chat sync, the 14 bug fixes from the debug audit, and voice input. **He will NOT report problems one at a time.** He'll come back at the end of the day with a consolidated verdict: everything working, specific fixes needed, or nothing working. Do not expect incremental feedback and do not start speculative fixes in the meantime.
+
+**What's still open (pending his full-day test):**
+- Everything from the 2026-08-08 comprehensive build and debug-audit bundle — none of it has had a real human test cycle yet beyond voice input and typed sleep logging.
+- The redesigned ticker's real-viewport behaviour on desktop and mobile.
+- Whether the AI writes useful `meta` lines — first real proof comes at the next noon-IST digest cron run.
+- Other apps adopting STT via the new portable guide (not started; guide is ready to hand over).
+
+---
+
 ## 2026-08-09 · Claude Code (Opus 4.7) — Insight ticker redesigned as Tactile Tile (shipped, awaiting live-test feedback)
 
 **Session scope:** Landed the ticker visual redesign that had been open since the 2026-08-08 debug audit. Three mockup rounds this session (delivered as Artifact `4f190230-...`, republished with each iteration): first proposed three completely different aesthetics (Editorial Rail, Whisper, Signal); Abhishek rejected all three; second round proposed three inline 3D-card variants; he picked Tactile Tile (variant 3); third round refined the density (One-liner / Primary+meta / Freeform); he picked Primary + optional meta with a critical layout change (tile centered/inline with header, not on its own row). Then shipped the build straight after with no further mockup churn since it was 5am his time and he was going to sleep. Feedback pending after he wakes up.
