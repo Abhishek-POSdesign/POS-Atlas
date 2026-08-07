@@ -154,6 +154,14 @@ Every AI-driven write in Atlas — logging sleep, logging a workout, creating a 
 - **Voice is Phase A only: a tap-to-talk full conversation (listen → gather → confirm → save), not hands-free/wake-word.** Always-on background listening ("Hey Atlas" with no tap) is a deliberately separate future phase — do not build toward it, even partially, without Abhishek explicitly reopening that as its own decision.
 - **No provider lock-in.** This mechanism must work identically on both the local (Ollama) and cloud (Gemini/`pos-partner`) providers, using the existing provider toggle — do not add a code path that only works with one model.
 
+### Voice input: Google Cloud Speech-to-Text, NOT the browser API (locked 2026-08-09)
+
+- **The browser's native `SpeechRecognition` API is banned for voice input.** It was tried and removed after real failures: sessions ending themselves regardless of `continuous: true`, transcripts finalising mid-sentence at a misjudged pause ("catches half words"), and the mic occasionally transcribing Atlas's own TTS reply. These are properties of live streaming recognition, not bugs that can be patched.
+- **The replacement is record-then-transcribe:** `MediaRecorder` captures a complete clip (no pause detection, no silence timer — it records until the user taps stop, with a 3-minute safety cap), then the clip is POSTed to the `atlas-stt-proxy` Edge Function, which returns plain text. Transcription is not live/word-by-word, and that's the deliberate trade for reliability.
+- **GCP prerequisites — both are required, and missing either produces a 100% failure rate:** (1) the **Cloud Speech-to-Text API must be enabled** on the GCP project, and (2) the service account behind the `GCP_SERVICE_ACCOUNT_KEY` Supabase secret (`pos-tts-proxy@project-80489c04-...`) must hold **`roles/speech.client`**. Both were missing when STT first shipped and cost a full debug cycle — Text-to-Speech and Vertex AI being enabled does NOT imply Speech-to-Text is. If voice input starts failing wholesale after a GCP change, check these two first.
+- **Never hide the upstream Google error.** `atlas-stt-proxy` returns Google's real status and detail (with a plain-English translation for the API-disabled / 403 / 400 cases) and `aiPanel.js` passes that message through to the UI. The original version logged the detail server-side and returned a bare generic error, which made a total-failure bug undiagnosable from the app. Don't reintroduce a generic catch-all here.
+- **Codec: `audio/webm;codecs=opus` only.** Android Chrome, Chrome, and Edge all produce it; the proxy declares `WEBM_OPUS` to Google and rejects anything else with a clear message. Safari/iOS (MP4/AAC) is deliberately unsupported — Abhishek has no Apple devices in the family (confirmed 2026-08-08), so don't spend effort on that path.
+
 ---
 
 ## Local dev
