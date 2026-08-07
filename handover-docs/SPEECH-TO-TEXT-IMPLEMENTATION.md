@@ -485,3 +485,84 @@ Realistically: a voice command like "log my sleep, eight hours, score 82" is ~4 
 - [ ] Mic button with a clear active state (§4)
 - [ ] Verified: tap mic, speak a sentence *with a deliberate pause in the middle*, tap again — full sentence should transcribe, not just the first half
 - [ ] Verified: error path shows a real message (temporarily disable the API to test, if you want certainty)
+
+---
+
+## 9. Deployment map — the four apps, as actually built (2026-08-09)
+
+This guide was written before the rollout. What was actually built is **two
+shared proxy pairs, not four**, because the apps sit on only two Supabase
+projects. Don't fork a per-app copy — extend the shared one and add the new
+origin to its allowlist.
+
+### Supabase project `vcndlorrrtueofzuynvi` — "Sikka Personal Apps"
+
+| Function | Used by |
+|---|---|
+| `atlas-stt-proxy` | Atlas (`atlas.abhisheksikka.com`), Finance (`finn.abhisheksikka.com`) |
+| `atlas-tts-proxy` | Atlas, Finance |
+
+Secret name: `GCP_SERVICE_ACCOUNT_KEY`. Auth: **real Supabase user session**
+only — both apps have logins, and both functions verify the token server-side
+with `auth.getUser()`. The anon key alone is rejected.
+
+### Supabase project `wxijlrwoiaeaupaaqecc` — "Sikka Business Apps"
+
+| Function | Used by |
+|---|---|
+| `stt-proxy` | Learning Hub (`learntech.abhisheksikka.com`), Biz Research Hub (`biz.abhisheksikka.com`) |
+| `learning-hub-tts` | Learning Hub, Biz Research Hub |
+
+Secret name: `GOOGLE_SERVICE_ACCOUNT_JSON` (note: **different** from the
+personal project's). `learning-hub-tts` is named after one app for historical
+reasons; it is the shared voice proxy for that project now.
+
+**Auth here is a dual gate**, because the two apps are not alike:
+
+1. **A valid Supabase user session** — Learning Hub, which has a real login.
+2. **`x-app-secret` matching `APP_SHARED_SECRET`** — Biz Research Hub, which
+   has no Supabase login at all (single user, hardcoded `profile_id`) and so
+   cannot present a session. It reuses the same secret it already had for
+   `vertex-chat`.
+
+### The security rules that came out of this rollout
+
+Both were **real holes found in the live `learning-hub-tts`**, not
+hypotheticals. Read them before touching any voice function:
+
+1. **Never gate an auth check on the presence of its own configuration.**
+   The old code wrapped its user check in
+   `if (supabaseUrl && supabaseAnonKey) { ... }`, so a missing or renamed
+   environment variable silently switched authentication **off** and left a
+   billed Google API open to anyone. Missing config must be a 500, never a
+   free pass.
+
+2. **Never reflect the request's Origin in CORS.** The old code returned
+   `Access-Control-Allow-Origin: <whatever origin asked>`, meaning any website
+   on the internet could call it from a visitor's browser. Use a strict
+   allowlist. These functions spend real money.
+
+3. **Never accept the anon key alone as proof of identity.** It is readable in
+   the page source by anyone who opens DevTools. Require either a real user
+   session or a genuine shared secret.
+
+Verified after the fix — all four return 401, and an unknown origin gets the
+default origin back rather than its own:
+
+```bash
+# anon key only, no session, no secret -> 401 on every one of them
+curl -X POST "$PROJECT/functions/v1/stt-proxy" -H "Authorization: Bearer $ANON_KEY" -d '{}'
+```
+
+### Per-app notes
+
+- **Atlas** — reference implementation, matches §4 exactly.
+- **Finance** — same functions as Atlas. Replaced *both* browser built-ins
+  (`webkitSpeechRecognition` **and** `speechSynthesis`) in
+  `v2/js/modules/aiAssistant.js`.
+- **Learning Hub** — STT added; Google TTS already existed. Its mic button
+  had been shared between "recording" and "coach is speaking" state and was
+  split so the mic reports only its own state.
+- **Biz Research Hub** — had no voice at all. Mic added to the chat composer,
+  read-aloud added per assistant message, both gated on the shared secret
+  being set (voice is switched off, with a message, when it is missing).

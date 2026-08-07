@@ -5,11 +5,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 // hardcoded prod-only Access-Control-Allow-Origin blocked all local-dev
 // voice testing; matched with atlas-stt-proxy's own dynamic origin picker
 // so voice input and voice reply have identical CORS behavior.
+// Allowlist, widened 2026-08-09 -- see atlas-stt-proxy for the full
+// rationale. The Finance app (finn.abhisheksikka.com) shares this project's
+// voice proxies rather than getting duplicates of its own.
 const PROD_ORIGIN = 'https://atlas.abhisheksikka.com';
-const DEV_ORIGIN_PATTERN = /^http:\/\/localhost:\d+$/;
+const ALLOWED_ORIGINS = [
+  PROD_ORIGIN,
+  'https://finn.abhisheksikka.com',
+];
+const DEV_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
 function pickCorsOrigin(reqOrigin: string | null): string {
   if (!reqOrigin) return PROD_ORIGIN;
-  if (reqOrigin === PROD_ORIGIN) return PROD_ORIGIN;
+  if (ALLOWED_ORIGINS.includes(reqOrigin)) return reqOrigin;
   if (DEV_ORIGIN_PATTERN.test(reqOrigin)) return reqOrigin;
   return PROD_ORIGIN;
 }
@@ -207,8 +214,23 @@ serve(async (req) => {
 
     if (!ttsResponse.ok) {
       const errorText = await ttsResponse.text();
-      console.error('Google TTS Error:', errorText);
-      throw new Error('Google TTS API returned an error');
+      console.error('Google TTS Error:', ttsResponse.status, errorText);
+      // Surface Google's ACTUAL error rather than a generic 500. The sibling
+      // STT proxy once failed 100% of the time in production and the cause
+      // was invisible for a full debug cycle purely because the real detail
+      // was logged server-side and a generic error returned to the UI.
+      let friendly = `Google Text-to-Speech returned ${ttsResponse.status}.`;
+      if (errorText.includes('SERVICE_DISABLED') || errorText.includes('has not been used in project') || errorText.includes('is disabled')) {
+        friendly = 'The Cloud Text-to-Speech API is not enabled on this Google Cloud project. Enable it in the Google Cloud console, wait a minute, then try again.';
+      } else if (ttsResponse.status === 403) {
+        friendly = 'Google denied the Text-to-Speech request (403). The service account likely lacks permission to call Text-to-Speech.';
+      } else if (ttsResponse.status === 400) {
+        friendly = 'Google rejected the synthesis request (400). The voice name and language code may not match.';
+      }
+      return new Response(JSON.stringify({ error: friendly, googleStatus: ttsResponse.status, googleDetail: errorText.slice(0, 600) }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     const ttsData = await ttsResponse.json();
@@ -232,7 +254,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Edge Function Exception:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+    return new Response(JSON.stringify({ error: 'Text-to-Speech failed: ' + ((error as Error).message || 'unknown error') }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

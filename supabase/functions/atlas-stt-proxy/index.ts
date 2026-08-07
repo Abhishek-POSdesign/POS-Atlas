@@ -21,11 +21,21 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 // TTS proxy still needs the same treatment for symmetry; both edge
 // functions ship together. Local origins are matched dynamically because
 // Access-Control-Allow-Origin only accepts one exact value at a time.
+// Allowlist, widened 2026-08-09. The Finance app (finn.abhisheksikka.com)
+// lives on this same Supabase project and now shares these voice proxies
+// instead of getting duplicates of its own -- one function, one GCP bill,
+// one place to fix a bug. Still a strict allowlist, never a reflected
+// origin: this calls a billed Google API, so an open CORS policy would let
+// any website spend Abhishek's money from a visitor's browser.
 const PROD_ORIGIN = 'https://atlas.abhisheksikka.com';
-const DEV_ORIGIN_PATTERN = /^http:\/\/localhost:\d+$/;
+const ALLOWED_ORIGINS = [
+  PROD_ORIGIN,
+  'https://finn.abhisheksikka.com',
+];
+const DEV_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/;
 function pickCorsOrigin(reqOrigin: string | null): string {
   if (!reqOrigin) return PROD_ORIGIN;
-  if (reqOrigin === PROD_ORIGIN) return PROD_ORIGIN;
+  if (ALLOWED_ORIGINS.includes(reqOrigin)) return reqOrigin;
   if (DEV_ORIGIN_PATTERN.test(reqOrigin)) return reqOrigin;
   return PROD_ORIGIN;
 }

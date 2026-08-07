@@ -27,6 +27,34 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-09 (later) · Claude Code (Sonnet 5) — Voice rolled out to all four apps + a real security hole closed
+
+**Session scope:** put Speech-to-Text and Text-to-Speech into the other three apps (Finance, B.tech Learning Hub, Biz Research Hub), and lock down who is allowed to spend money on Abhishek's Google Cloud account.
+
+**Corrections to the starting assumptions** (they changed the shape of the work):
+- It is **three** other apps, not four. `D:/Kimi/Learning Hub` is a stale July-9 copy; the live one is `B.tech-Learning-Hub`.
+- Biz Research Hub and B.tech Learning Hub are on the **same** Supabase project, so one proxy pair serves both.
+- Finance is on **Atlas's** project, so it needed no new backend at all — only a CORS entry.
+- Biz Research Hub had **no voice at all** (not TTS either), so that was a build, not a swap. Finance's "TTS" was the free browser voice, not Google's.
+
+**The security hole (found while working, not reported):** `learning-hub-tts` wrapped its entire auth check in `if (supabaseUrl && supabaseAnonKey)`, so a missing or renamed env var would silently switch authentication **off**; and it returned the request's own Origin in `Access-Control-Allow-Origin`, so any website could call it from a visitor's browser. Both fixed. Rules now recorded in the STT guide: never gate an auth check on the presence of its own configuration, and never reflect the request Origin on a function that spends money.
+
+**What shipped:**
+- Business Supabase project: new `stt-proxy`; `learning-hub-tts` hardened. Both fail-closed, strict origin allowlist, dual auth gate (a real user session **or** `x-app-secret` — the latter for Biz, which has no login).
+- Personal Supabase project: `atlas-stt-proxy` + `atlas-tts-proxy` redeployed with `finn.abhisheksikka.com` allowed, and real Google errors now surfaced on TTS (STT already did).
+- Finance, Learning Hub, Biz — client voice code, each committed to its own repo with a `handover/VOICE.md`.
+- Learning Hub also got two pre-existing bugs fixed, found in passing: its mic button was shared between "recording" and "coach is speaking" state, and several voice icons had been corrupted into literal `?` / `??` characters.
+
+**What was verified live:** auth gates and CORS, by direct curl against both projects — anon-key-only, no-auth, and wrong-secret all return 401; an unknown origin does not get its own origin back; `finn.`, `biz.` and `learntech.` all do.
+
+**What's still open:**
+- **Not verified: whether the Google service account behind the *business* project can call Speech-to-Text.** Its TTS works, and Biz's own handover doc records a debug probe confirming both Supabase projects use the same GCP service account — but that was not re-verified this session, and verifying it needs either the shared secret or a Learning Hub login. If STT fails there, the app now shows Google's real error, which names the fix.
+- Abhishek's full-day Atlas test from the entry below is still the outstanding item.
+
+**What NOT to do:** don't fork a per-app STT/TTS function. Two shared pairs exist; add the origin to the allowlist instead. See `handover-docs/SPEECH-TO-TEXT-IMPLEMENTATION.md` §9 for the map.
+
+---
+
 ## 2026-08-09 · Claude Code (Sonnet 5) — Speech-to-Text fixed and CONFIRMED WORKING; portable STT guide written; full-day testing begins
 
 **Session scope:** Abhishek woke up, tried to log sleep by voice, and hit a hard failure — the Conversational Action flow itself worked (he logged sleep by typing) but speech-to-text failed every time. Root-caused, fixed, confirmed working live. Then wrote a portable implementation guide so his other apps can adopt the same STT setup.
@@ -1534,7 +1562,8 @@ The AI write-flow architecture (detect intent → extract JSON → confirm card 
  -   F i x e d   a s k N o t e   b u g   w h e r e   c a n c e l l i n g   o r   e s c a p i n g   a c c i d e n t a l l y   t r i g g e r e d   t h e   s t a r t   o f   a   t a s k . 
  -   A d d e d   ' P a u s e   t a s k '   b u t t o n   i n   t h e   T a s k   E d i t   m o d a l   f o r   i n - p r o g r e s s   t a s k s   t o   c l e a n l y   r e s e t   t h e m   t o   n o t _ s t a r t e d . 
  -   A d d e d   ' M a r k   a s   c o m p l e t e d '   f o r   p r o j e c t s   i n   t h e   w o r k s p a c e   o v e r f l o w   m e n u . 
-  
+ 
+ 
  
 ### 2026-07-27 - Phase 6 tasks and time picker starter slice
 - **Time Picker Overhaul**: Switched the 12-hour time picker numeric inputs to <select> dropdowns enforcing 15-minute minute intervals (00, 15, 30, 45) to enable native mobile scrolling. Time format displayed to user remains strictly AM/PM while silently mapping to HH:MM internally.
