@@ -1490,7 +1490,17 @@ export function atlasAi() {
                     body: JSON.stringify({ audio_base64: base64, mime_type: mimeType }),
                     signal: controller.signal
                 });
-                if (!res.ok) throw new Error('transcription request failed');
+                // Read the server's real error instead of replacing it with a
+                // generic string. The old `throw new Error('transcription
+                // request failed')` is why a 100%-failure production bug
+                // (2026-08-09) showed the user nothing actionable -- the
+                // proxy knew exactly what Google said and the client threw
+                // it away. Keep passing the upstream message through.
+                if (!res.ok) {
+                    let serverMsg = '';
+                    try { const errBody = await res.json(); serverMsg = errBody.error || ''; } catch (e) { /* non-JSON error body */ }
+                    throw new Error(serverMsg || ('transcription request failed (' + res.status + ')'));
+                }
                 const data = await res.json();
                 if (data.text) {
                     this.draft = (this.draft ? this.draft + ' ' : '') + data.text;

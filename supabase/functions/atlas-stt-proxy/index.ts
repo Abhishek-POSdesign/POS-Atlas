@@ -206,8 +206,27 @@ serve(async (req) => {
 
     if (!sttResponse.ok) {
       const errorText = await sttResponse.text();
-      console.error('Google STT Error:', errorText);
-      throw new Error('Google STT API returned an error');
+      console.error('Google STT Error:', sttResponse.status, errorText);
+      // Surface Google's ACTUAL error to the client instead of a generic
+      // 500. Added 2026-08-09 after this function failed 100% of the time
+      // in production and the real cause was invisible -- the old code
+      // logged the detail server-side and threw a bare "Google STT API
+      // returned an error", so the UI only ever said "transcription
+      // request failed" and there was no way to tell an unenabled API
+      // from a bad audio payload from an auth problem. Never hide the
+      // upstream error here again.
+      let friendly = `Google Speech-to-Text returned ${sttResponse.status}.`;
+      if (errorText.includes('SERVICE_DISABLED') || errorText.includes('has not been used in project') || errorText.includes('is disabled')) {
+        friendly = 'The Cloud Speech-to-Text API is not enabled on this Google Cloud project. Enable it in the Google Cloud console, wait a minute, then try again.';
+      } else if (sttResponse.status === 403) {
+        friendly = 'Google denied the Speech-to-Text request (403). The service account likely lacks permission to call Speech-to-Text.';
+      } else if (sttResponse.status === 400) {
+        friendly = 'Google rejected the audio (400). The recording format may not match what was declared.';
+      }
+      return new Response(JSON.stringify({ error: friendly, googleStatus: sttResponse.status, googleDetail: errorText.slice(0, 600) }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     const sttData = await sttResponse.json();
@@ -223,8 +242,13 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   } catch (error) {
+    // Same reasoning as the Google-error branch above: a bare "Internal
+    // Server Error" made a 100%-failure bug undiagnosable from the UI.
+    // This function handles no sensitive user data beyond the audio clip
+    // itself, so echoing the exception message is safe and worth far more
+    // than the opacity.
     console.error('Edge Function Exception:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+    return new Response(JSON.stringify({ error: 'Speech-to-Text failed: ' + ((error as Error).message || 'unknown error') }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
