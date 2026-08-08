@@ -26,15 +26,68 @@ export function checklistPage() {
 
         managing: false,
         addingToBlock: null,
-        addForm: { name: '', icon: '', days: [] },
+        addForm: { name: '', icon: '', days: [], type: 'routine', notify: false, notifyTime: '' },
         editingItemId: null,
-        editForm: { name: '', block: '', icon: '', days: [], notify: false, notifyTime: '' },
+        editForm: { name: '', block: '', icon: '', days: [], notify: false, notifyTime: '', type: 'routine' },
+
+        // The three kinds of checklist item (migration 028). Abhishek's design:
+        // one checklist, a type per item, rather than a separate medicines
+        // list. Order here is the order the picker and the ring breakdown use.
+        types: [
+            { key: 'routine', label: 'Routine', short: 'Routine' },
+            { key: 'supplement', label: 'Supplement', short: 'Supp' },
+            { key: 'medicine', label: 'Medicine', short: 'Med' }
+        ],
+        typeOf(item) { return item.type || 'routine'; },
+        typeLabel(item) {
+            const t = this.types.find(x => x.key === this.typeOf(item));
+            return t ? t.short : 'Routine';
+        },
 
         logItem: null,
         logForm: { time: '', note: '' },
 
+        // 30-day done/skipped/missed trend. Moved here from today.js on
+        // 2026-08-09 along with the checklist itself -- a "Checklist
+        // Completion" chart stranded on a dashboard that no longer has the
+        // checklist on it made no sense. Self-contained: it reads the same two
+        // DB calls the rest of this page already uses.
+        trendDays: [],
+
         async init() {
             await this.load();
+            this.loadTrend().catch(console.error);
+        },
+
+        async loadTrend() {
+            try {
+                const items = await DB.Checklist.listItems();
+                const end = getLogicalDate();
+                const start = new Date(end);
+                start.setDate(start.getDate() - 29);
+                const fmt = d => d.toLocaleDateString('en-CA');
+                const history = await DB.Checklist.listHistoryRange(fmt(start), fmt(end));
+                const byDate = {};
+                history.forEach(h => {
+                    if (!byDate[h.entry_date]) byDate[h.entry_date] = { done: 0, skipped: 0 };
+                    if (h.status === 'done') byDate[h.entry_date].done++;
+                    else byDate[h.entry_date].skipped++;
+                });
+                const days = [];
+                for (let i = 0; i < 30; i++) {
+                    const d = new Date(start);
+                    d.setDate(d.getDate() + i);
+                    const key = fmt(d);
+                    const dow = d.getDay();
+                    const total = items.filter(it => !it.days || it.days.includes(dow)).length;
+                    const rec = byDate[key] || { done: 0, skipped: 0 };
+                    const missed = Math.max(0, total - rec.done - rec.skipped);
+                    days.push({ date: key, label: d.getDate(), done: rec.done, skipped: rec.skipped, missed, total: total || 1 });
+                }
+                this.trendDays = days;
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
         },
 
         async load() {
@@ -148,7 +201,7 @@ export function checklistPage() {
         toggleManaging() { this.managing = !this.managing; this.addingToBlock = null; this.editingItemId = null; },
 
         openAdd(blockKey) {
-            this.addForm = { name: '', icon: '', days: [] };
+            this.addForm = { name: '', icon: '', days: [], type: 'routine', notify: false, notifyTime: '' };
             this.addingToBlock = blockKey;
         },
         cancelAdd() { this.addingToBlock = null; },
@@ -159,17 +212,29 @@ export function checklistPage() {
         },
         async submitAdd() {
             if (!this.addForm.name.trim()) return;
+            // Same guard the edit form already had -- a reminder with no time
+            // never fires, and "I forget whether I have taken the medicine" is
+            // the whole reason this feature exists, so a silently dead alarm
+            // would defeat it.
+            if (this.addForm.notify && !this.addForm.notifyTime) {
+                this.errorMsg = 'Pick a time for the reminder, or turn the reminder off.';
+                return;
+            }
             try {
                 const maxOrder = this.items.reduce((m, i) => Math.max(m, i.order_index), -1);
                 await DB.Checklist.createItem({
                     name: this.addForm.name.trim(),
                     block: this.addingToBlock,
+                    type: this.addForm.type,
                     icon: this.addForm.icon.trim() || '📋',
                     days: this.addForm.days.length ? this.addForm.days : null,
+                    notify_enabled: this.addForm.notify,
+                    notify_time: this.addForm.notify ? this.addForm.notifyTime + ':00' : null,
                     order_index: maxOrder + 1,
                     active: true
                 });
                 this.addingToBlock = null;
+                this.errorMsg = '';
                 await this.load();
             } catch (e) {
                 this.errorMsg = e.message;
@@ -183,6 +248,7 @@ export function checklistPage() {
                 block: item.block,
                 icon: item.icon || '',
                 days: item.days ? [...item.days] : [],
+                type: item.type || 'routine',
                 notify: !!item.notify_enabled,
                 notifyTime: item.notify_time ? item.notify_time.slice(0, 5) : ''
             };
@@ -203,6 +269,7 @@ export function checklistPage() {
                 await DB.Checklist.updateItem(item.id, {
                     name: this.editForm.name.trim(),
                     block: this.editForm.block,
+                    type: this.editForm.type,
                     icon: this.editForm.icon.trim() || '📋',
                     days: this.editForm.days.length ? this.editForm.days : null,
                     notify_enabled: this.editForm.notify,

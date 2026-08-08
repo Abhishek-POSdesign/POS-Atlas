@@ -68,12 +68,43 @@ const MINI_CSS = `
     color:var(--text-muted);
   }
   .mw-count { font-size:11px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
-  .mw-list { flex:1; min-height:0; overflow-y:auto; padding:7px; display:flex; flex-direction:column; gap:5px; }
+  .mw-list {
+    flex:1; min-height:0; padding:7px; display:flex; flex-direction:column; gap:5px;
+    /* Vertical scroll only. A long task name must ellipsis, never widen the
+       row -- a horizontal scrollbar appeared across the bottom of the window
+       in his first real test, which is exactly the "grows with content"
+       behaviour the Today card is already forbidden from doing. */
+    overflow-y:auto; overflow-x:hidden;
+    scrollbar-width:thin;
+    scrollbar-color:var(--border-hover) transparent;
+  }
+  /* The OS default scrollbar read as a grey slab bolted onto a dark window.
+     Slim, transparent-track, token-coloured -- visible enough to grab, quiet
+     enough to disappear. Firefox uses scrollbar-width/color above. */
+  .mw-list::-webkit-scrollbar { width:8px; }
+  .mw-list::-webkit-scrollbar-track { background:transparent; }
+  .mw-list::-webkit-scrollbar-thumb {
+    background:var(--border-hover); border-radius:99px;
+    border:2px solid transparent; background-clip:content-box;
+  }
+  .mw-list::-webkit-scrollbar-thumb:hover { background:var(--text-muted); background-clip:content-box; }
+  .mw-group {
+    font-size:9.5px; font-weight:700; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--text-muted); padding:5px 3px 1px; flex:none;
+  }
+  .mw-group:first-child { padding-top:1px; }
   .mw-row {
     display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:9px;
     padding:8px 9px; border-radius:7px; background:var(--surface-1);
     border:1px solid var(--border); flex:none;
   }
+  /* Running work carries a blue left edge so the two groups stay separable
+     even when the window is squeezed short enough to hide a group heading. */
+  .mw-row.running { border-left:3px solid var(--accent-blue); }
+  /* Without min-width:0 the middle cell refuses to shrink and the name
+     pushes the time column off the edge -- the cause of the overlap and the
+     horizontal scrollbar in his screenshot. */
+  .mw-body { min-width:0; display:block; }
   .mw-check {
     width:18px; height:18px; border-radius:5px; flex:none; cursor:pointer;
     border:1.5px solid var(--border-hover); background:transparent;
@@ -83,10 +114,13 @@ const MINI_CSS = `
   .mw-check.armed { border-color:var(--accent-sage); background:var(--accent-sage-tint); }
   .mw-check:focus-visible { outline:2px solid var(--accent-blue); outline-offset:2px; }
   .mw-name {
-    font-size:13.5px; font-weight:500; color:var(--text-primary); line-height:1.3;
+    display:block; font-size:13.5px; font-weight:500; color:var(--text-primary); line-height:1.3;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  .mw-sub { font-size:11px; color:var(--text-muted); margin-top:2px; line-height:1.3; }
+  .mw-sub {
+    display:block; font-size:11px; color:var(--text-muted); margin-top:2px; line-height:1.3;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
   .mw-sub .mw-late { color:var(--accent-coral); }
   .mw-sub .mw-run { color:var(--accent-blue); }
   .mw-sub .mw-arm { color:var(--accent-sage); }
@@ -137,11 +171,25 @@ export function renderRowsInto(doc, rows) {
         return;
     }
 
-    listEl.innerHTML = rows.map(r => {
+    // Two labelled groups, not one mixed list. His words: "it is a mix and
+    // match, and it is very hard to find which one is running and which one
+    // is a pending task." Headings only render when that group has something
+    // in it, so a window with no running work doesn't waste a row on an empty
+    // "In progress" label.
+    const running = rows.filter(r => r.running);
+    const pending = rows.filter(r => !r.running);
+    listEl.innerHTML =
+        (running.length ? `<div class="mw-group">In progress</div>` + rowsHtml(running) : '') +
+        (pending.length ? `<div class="mw-group">Tasks &amp; reminders</div>` + rowsHtml(pending) : '');
+}
+
+function rowsHtml(rows) {
+    return rows.map(r => {
         const cues = [];
         if (r.armed) cues.push('<span class="mw-arm">Tap again to confirm</span>');
         else {
-            if (r.running) cues.push('<span class="mw-run">In progress</span>');
+            // "In progress" is no longer repeated per row -- the group heading
+            // above already says it, and repeating it just crowded the line.
             if (r.late) cues.push('<span class="mw-late">Late</span>');
             if (r.projectName) cues.push(esc(r.projectName));
             if (r.kind === 'reminder') cues.push('Reminder');
@@ -149,11 +197,11 @@ export function renderRowsInto(doc, rows) {
         const chip = r.projectName
             ? `<span class="mw-chip" style="background:var(--accent-${r.projectColor || 'blue'}-tint);color:var(--accent-${r.projectColor || 'blue'})">${esc(r.initial)}</span>`
             : '';
-        return `<div class="mw-row">
+        return `<div class="mw-row${r.running ? ' running' : ''}">
             <button class="mw-check${r.armed ? ' armed' : ''}" data-id="${esc(r.id)}"
                     aria-label="${r.armed ? 'Confirm complete' : 'Mark done'}: ${esc(r.name)}"
                     title="${r.armed ? 'Tap again to confirm' : 'Mark done'}">${CHECK_SVG}</button>
-            <span>
+            <span class="mw-body">
               <span class="mw-name">${chip}${esc(r.name)}</span>
               ${cues.length ? `<span class="mw-sub">${cues.join(' · ')}</span>` : ''}
             </span>

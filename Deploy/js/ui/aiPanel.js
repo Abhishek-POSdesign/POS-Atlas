@@ -1116,6 +1116,27 @@ export function atlasAi() {
                 if (matches.length === 1) task = matches[0];
             }
             if (!task) {
+                // Did he actually name or number a task at all? If not, this
+                // was never a real instruction -- the keyword classifier just
+                // over-matched on ordinary conversation.
+                //
+                // Confirmed live 2026-08-09: "I don't know others but right now
+                // I am working on this. As soon as it is FINISHED I will look
+                // for the others. This is the main TASK I'm running right now"
+                // tripped complete_task on "finished" + "task". Atlas gave a
+                // perfectly good conversational reply AND THEN dumped a
+                // numbered list of ten pending tasks asking which one he meant.
+                // He meant none of them; he was just talking.
+                //
+                // A write flow that cannot find its target now stands down
+                // silently and lets the conversational reply stand alone. The
+                // list is only genuinely helpful when he DID name something and
+                // it didn't match -- otherwise it's the app shouting at him for
+                // speaking normally. Tightening the trigger regex further
+                // wouldn't fix this class of bug; making the failure quiet does.
+                const namedATarget = fields.task_number != null
+                    || (fields.task_name && String(fields.task_name).trim().length > 0);
+                if (!namedATarget) return { task: null, message: null };
                 const list = _taskCache.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
                 return { task: null, message: "I couldn't identify which task you meant. Say the task number or its exact name. Your pending tasks:\n" + list };
             }
@@ -1125,7 +1146,9 @@ export function atlasAi() {
         // Resolves a task-completion intent against the cached task list.
         _handleTaskCompletion(fields, providerLabel) {
             const { task, message } = this._resolveTaskFromFields(fields);
-            if (!task) { this._pushAssistantText(message, providerLabel); return; }
+            // message is null when he never named a target -- stay quiet, the
+            // conversational reply already answered him (see _resolveTaskFromFields).
+            if (!task) { if (message) this._pushAssistantText(message, providerLabel); return; }
             this._pushMessage({
                 role: 'assistant',
                 type: 'confirm',
@@ -1145,7 +1168,9 @@ export function atlasAi() {
         // parameterized on the flow/title/icon/extra fields each one needs.
         _handleTaskLifecycleAction(fields, providerLabel, opts) {
             const { task, message } = this._resolveTaskFromFields(fields);
-            if (!task) { this._pushAssistantText(message, providerLabel); return; }
+            // message is null when he never named a target -- stay quiet, the
+            // conversational reply already answered him (see _resolveTaskFromFields).
+            if (!task) { if (message) this._pushAssistantText(message, providerLabel); return; }
             const cardFields = [{ k: 'Task', v: task.name }];
             if (opts.extraCardField) cardFields.push(opts.extraCardField);
             this._pushMessage({
@@ -1168,10 +1193,13 @@ export function atlasAi() {
                 this._pushAssistantText("I don't have today's routine items loaded -- try sending your message again.", providerLabel);
                 return;
             }
-            if (!fields.items || !fields.items.length) {
-                this._pushAssistantText("I couldn't identify which routine items you meant. Try naming them exactly as they appear in your checklist.", providerLabel);
-                return;
-            }
+            // Same rule as _resolveTaskFromFields: if he never named an item,
+            // the classifier over-matched on ordinary conversation and this
+            // flow stands down silently rather than answering a question with
+            // an error. Confirmed live 2026-08-09 -- the lone word "skipped"
+            // in a sentence about what ATLAS had noticed produced exactly this
+            // dead-end right after a good conversational reply.
+            if (!fields.items || !fields.items.length) return;
             const normalize = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
             const blockOrder = ['morning', 'afternoon', 'night', 'sleep'];
             const byBlock = {};

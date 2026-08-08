@@ -84,9 +84,12 @@ export function todayPage(nav) {
         checklistDoneToday: 0,
         checklistTotalToday: 0,
         checklistSkippedToday: 0,
+        // [{ key, done, total }] per item type, for the breakdown line under
+        // the checklist ring. Types with no items today are dropped, so a day
+        // with no medicines doesn't show an empty "Med 0/0".
+        checklistByType: [],
 
         // ---- trend (last 30 days, checklist done/skipped/missed) ----
-        trendDays: [],
 
         // ---- Family Companion App Integration ----
         familySummary: { morning: '0/0', afternoon: '0/0', evening: '0/0', sleep: '0/0' },
@@ -191,7 +194,6 @@ export function todayPage(nav) {
                 this.streaks = streaks;
                 this._applyChecklistCounts(checklistItems, checklistHistory, dow);
 
-                this.loadTrend().catch(console.error);
                 this.loadWorkoutTargets().catch(console.error);
                 this.loadHealthTrend().catch(console.error);
                 this.loadFamilyData().catch(console.error);
@@ -211,6 +213,16 @@ export function todayPage(nav) {
             this.checklistTotalToday = todaysItems.length;
             this.checklistDoneToday = todaysItems.filter(i => doneIds.has(i.id)).length;
             this.checklistSkippedToday = todaysItems.filter(i => skippedIds.has(i.id)).length;
+            // Per-type counts for the breakdown line under the ring (2026-08-09).
+            // The ring itself is deliberately unchanged -- it keeps meaning
+            // sage=done / amber=skipped / coral=missed. Colouring the ring by
+            // type instead was drawn as an option and rejected: a ring has one
+            // colour channel, so type colours would have cost the done/skipped/
+            // missed distinction that's already a locked decision.
+            this.checklistByType = ['routine', 'supplement', 'medicine'].map(key => {
+                const of = todaysItems.filter(i => (i.type || 'routine') === key);
+                return { key, done: of.filter(i => doneIds.has(i.id)).length, total: of.length };
+            }).filter(t => t.total > 0);
             // Feeds the AI insight ticker's live recheck (see aiVisibleInsights) --
             // any item id in here (done OR skipped) counts as "no longer pending".
             this._checklistMarkedTodayIds = new Set([...doneIds, ...skippedIds]);
@@ -1361,38 +1373,6 @@ export function todayPage(nav) {
 
                 return { label: week.label, state, range, sessionCount: week.sessions.length, metCount: trainedDays, total: DAYS_IN_WEEK };
             });
-        },
-
-        // ---- trend: last 30 logical days, checklist done/skipped/missed ----
-        async loadTrend() {
-            try {
-                const items = await DB.Checklist.listItems();
-                const end = getLogicalDate();
-                const start = new Date(end);
-                start.setDate(start.getDate() - 29);
-                const fmt = d => d.toLocaleDateString('en-CA');
-                const history = await DB.Checklist.listHistoryRange(fmt(start), fmt(end));
-                const byDate = {};
-                history.forEach(h => {
-                    if (!byDate[h.entry_date]) byDate[h.entry_date] = { done: 0, skipped: 0 };
-                    if (h.status === 'done') byDate[h.entry_date].done++;
-                    else byDate[h.entry_date].skipped++;
-                });
-                const days = [];
-                for (let i = 0; i < 30; i++) {
-                    const d = new Date(start);
-                    d.setDate(d.getDate() + i);
-                    const key = fmt(d);
-                    const dow = d.getDay();
-                    const total = items.filter(it => !it.days || it.days.includes(dow)).length;
-                    const rec = byDate[key] || { done: 0, skipped: 0 };
-                    const missed = Math.max(0, total - rec.done - rec.skipped);
-                    days.push({ date: key, label: d.getDate(), done: rec.done, skipped: rec.skipped, missed, total: total || 1 });
-                }
-                this.trendDays = days;
-            } catch (e) {
-                this.errorMsg = e.message;
-            }
         }
     };
 }

@@ -3458,3 +3458,78 @@ body:has(.ai-panel-open) .content-area {
 .switch.on { background: var(--accent-sage); }
 .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform var(--dur-fast) var(--ease-out); }
 .switch.on::after { transform: translateX(16px); }
+
+/* ── Checklist item types: Routine / Supplement / Medicine (2026-08-09) ──
+   Abhishek's design -- one checklist with a type per item, not a separate
+   medicines list. See migration 028 for the reasoning.
+
+   Colour choice, deliberately: the five semantic accents are all spoken for
+   (sage=done, blue=tasks, lilac=projects, coral=overdue, amber=skipped) and
+   sage/amber/coral appear on these very rows as the mark state. Using them
+   for type as well would put two different meanings of the same colour a
+   couple of centimetres apart on one row. So type uses the deep-shade
+   identity palette added for project colours -- real existing tokens that
+   carry none of the five locked meanings. Amber and bronze are deliberately
+   excluded: he asked for nothing gold and nothing neon. */
+.ck-row.type-supplement { border-left: 3px solid var(--accent-forest); padding-left: 9px; }
+.ck-row.type-medicine   { border-left: 3px solid var(--accent-plum);   padding-left: 9px; }
+.ck-row.type-routine    { border-left: 3px solid transparent;          padding-left: 9px; }
+
+.ck-type {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex: none;
+}
+.ck-type.type-routine    { background: var(--accent-indigo-tint); color: var(--accent-indigo); }
+.ck-type.type-supplement { background: var(--accent-forest-tint); color: var(--accent-forest); }
+.ck-type.type-medicine   { background: var(--accent-plum-tint);   color: var(--accent-plum); }
+
+/* Type picker in the add/edit forms -- segmented, same language as the
+   existing .tp-ampm control rather than a new widget. */
+.ck-type-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+.ck-type-picker button {
+    font-size: 13px;
+    padding: 7px 13px;
+    border-radius: 7px;
+    border: 1px solid var(--border-hover);
+    background: var(--surface-2);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out);
+}
+.ck-type-picker button:hover { border-color: var(--text-muted); }
+.ck-type-picker button[aria-pressed="true"].type-routine    { background: var(--accent-indigo-tint); color: var(--accent-indigo); border-color: transparent; font-weight: 600; }
+.ck-type-picker button[aria-pressed="true"].type-supplement { background: var(--accent-forest-tint); color: var(--accent-forest); border-color: transparent; font-weight: 600; }
+.ck-type-picker button[aria-pressed="true"].type-medicine   { background: var(--accent-plum-tint);   color: var(--accent-plum);   border-color: transparent; font-weight: 600; }
+
+/* Breakdown line under the checklist ring on Today. Plain text with a colour
+   dot -- not cards, not pills with borders. The ring keeps its own meaning;
+   this only says WHICH KIND he is behind on. */
+.ck-type-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px 14px;
+    margin-top: 10px;
+}
+.ck-type-breakdown span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+.ck-type-breakdown i {
+    width: 7px; height: 7px; border-radius: 50%; flex: none;
+}
+.ck-type-breakdown .dot-routine    { background: var(--accent-indigo); }
+.ck-type-breakdown .dot-supplement { background: var(--accent-forest); }
+.ck-type-breakdown .dot-medicine   { background: var(--accent-plum); }

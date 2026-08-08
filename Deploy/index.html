@@ -110,6 +110,7 @@
                 <nav class="top-tabs">
                     <button class="tab" :class="{active: tab==='today'}" @click="setTab('today')">Today</button>
                     <button class="tab" :class="{active: tab==='projects'}" @click="setTab('projects')">Projects</button>
+                    <button class="tab" :class="{active: tab==='routine'}" @click="setTab('routine')">Routine</button>
                     <button class="tab" :class="{active: tab==='calendar'}" @click="setTab('calendar')">Calendar</button>
                 </nav>
             </div>
@@ -715,6 +716,22 @@
                                                     <span style="margin-left: 6px;">
                                                         <span class="trend-dot trend-skipped" style="width:8px;height:8px;margin-right:4px;"></span>
                                                         <span x-text="checklistSkippedToday + (checklistSkippedToday === 1 ? ' skipped' : ' skipped')"></span>
+                                                    </span>
+                                                </template>
+                                            </div>
+                                            <!-- Per-type breakdown (2026-08-09). The ring above is unchanged
+                                                 and keeps its meaning (sage done / amber skipped); this line
+                                                 answers the separate question "which KIND am I behind on".
+                                                 Colouring the ring itself by type was drawn as an option and
+                                                 rejected -- a ring has one colour channel, so it would have
+                                                 cost the done/skipped distinction that's already locked.
+                                                 Hidden entirely while every item is the same type, so it
+                                                 doesn't add a line that says nothing. -->
+                                            <div class="ck-type-breakdown" x-show="checklistByType.length > 1">
+                                                <template x-for="t in checklistByType" :key="t.key">
+                                                    <span>
+                                                        <i :class="'dot-' + t.key"></i>
+                                                        <span x-text="(t.key === 'routine' ? 'Routine' : (t.key === 'supplement' ? 'Supp' : 'Med')) + ' ' + t.done + '/' + t.total"></span>
                                                     </span>
                                                 </template>
                                             </div>
@@ -1345,177 +1362,6 @@
                                     </div>
                                 </template>
 
-                                <!-- Routine: checklist only -->
-                                <div x-data="checklistPage()">
-                                    <div class="card panel">
-                                        <div class="panel-head">
-                                            <h2 style="margin:0;">Routine</h2>
-                                            <button class="btn-text" @click="toggleManaging()" x-text="managing ? 'Done managing' : 'Manage items'"></button>
-                                        </div>
-                                        <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
-                                        <template x-if="loading"><p>Loading…</p></template>
-                                        <template x-if="!loading">
-                                            <div class="stack">
-                                                <template x-for="block in blocks" :key="block.key">
-                                                    <div class="cl-block" :class="'color-' + block.colorKey + (collapsedBlocks[block.key] ? ' collapsed' : '')" x-show="itemsForBlock(block.key).length > 0 || managing">
-                                                        <div class="cl-block-header" @click="toggleBlock(block.key)">
-                                                            <span class="cl-block-icon" x-text="block.icon"></span>
-                                                            <span class="cl-block-title" x-text="block.label"></span>
-                                                            <div class="cl-block-stats">
-                                                                <span class="cl-block-count" x-text="`${doneCountForBlock(block.key)}/${itemsForBlock(block.key).length}`"></span>
-                                                                <div class="cl-mini-dots">
-                                                                    <template x-for="item in itemsForBlock(block.key)" :key="item.id">
-                                                                        <span class="cl-mini-dot" :class="statusFor(item)==='done' ? 'done' : (statusFor(item) ? 'skip' : 'pending')" :title="item.name"></span>
-                                                                    </template>
-                                                                </div>
-                                                                <div class="cl-mini-bar"><div class="cl-mini-fill" :class="'color-' + block.colorKey" :style="`width:${blockProgress(block.key)}%`"></div></div>
-                                                                <span class="cl-chevron">▼</span>
-                                                            </div>
-                                                        </div>
-
-                                                        <div class="cl-block-body">
-                                                            <template x-for="(item, idx) in itemsForBlock(block.key)" :key="item.id">
-                                                                <div class="ck-row" :class="statusFor(item)==='done' ? 'is-done' : (statusFor(item)==='skipped' ? 'is-skipped' : '')">
-                                                                    <template x-if="editingItemId !== item.id">
-                                                                        <div class="ck-row-main">
-                                                                            <span class="ck-num" x-text="idx + 1"></span>
-                                                                            <div class="ck-icon" x-text="item.icon || '📋'"></div>
-                                                                            <div class="ck-info">
-                                                                                <div class="ck-title" x-text="item.name"></div>
-                                                                                <template x-if="item.notify_enabled"><span class="ck-notify-badge" :title="'Reminds at ' + (window.formatTime12h ? window.formatTime12h(item.notify_time) : item.notify_time)">🔔</span></template>
-                                                                            </div>
-                                                                            <template x-if="!managing">
-                                                                                <div class="ck-row-actions">
-                                                                                    <span class="ck-status" :class="'ck-status-' + (statusFor(item) || 'pending')" x-text="statusLabel(item)"></span>
-                                                                                    <button class="ck-log-btn" @click="openLog(item)">Log</button>
-                                                                                </div>
-                                                                            </template>
-                                                                            <template x-if="managing">
-                                                                                <div class="ck-row-actions">
-                                                                                    <button class="icon-button" @click="moveItem(item,'up')" title="Move up">↑</button>
-                                                                                    <button class="icon-button" @click="moveItem(item,'down')" title="Move down">↓</button>
-                                                                                    <button class="btn-text" @click="startEditItem(item)">Edit</button>
-                                                                                    <button class="btn-text" style="color: var(--accent-coral)" @click="archiveItem(item)">Archive</button>
-                                                                                </div>
-                                                                            </template>
-                                                                        </div>
-                                                                    </template>
-                                                                    <template x-if="editingItemId === item.id">
-                                                                        <div class="ck-edit-form">
-                                                                            <div class="field"><label>Name</label><input type="text" x-model="editForm.name"></div>
-                                                                            <div class="field">
-                                                                                <label>Block</label>
-                                                                                <select x-model="editForm.block">
-                                                                                    <template x-for="b in blocks" :key="b.key"><option :value="b.key" x-text="b.label"></option></template>
-                                                                                </select>
-                                                                            </div>
-                                                                            <div class="field"><label>Icon (optional)</label><input type="text" x-model="editForm.icon" maxlength="4"></div>
-                                                                            <div class="field">
-                                                                                <label>Days (leave all off for every day)</label>
-                                                                                <div class="day-picker">
-                                                                                    <template x-for="(d, idx) in dayNames" :key="idx">
-                                                                                        <button type="button" class="day-chip" :class="{active: editForm.days.includes(idx)}" @click="toggleEditDay(idx)" x-text="d"></button>
-                                                                                    </template>
-                                                                                </div>
-                                                                            </div>
-                                                                            <div class="toggle-row">
-                                                                                <span class="lbl">Notify me<span class="sub">Get a reminder at a set time -- turn off once it's a habit</span></span>
-                                                                                <div class="switch" :class="{on: editForm.notify}" @click="editForm.notify = !editForm.notify" role="switch" :aria-checked="editForm.notify"></div>
-                                                                            </div>
-                                                                            <div class="field" x-show="editForm.notify">
-                                                                                <label>Reminder time</label>
-                                                                                <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="editForm.notifyTime">
-                                                                                    <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
-                                                                                </div>
-                                                                            </div>
-                                                                            <div class="modal-actions">
-                                                                                <button class="btn-text" @click="cancelEditItem()">Cancel</button>
-                                                                                <button class="btn btn-primary" @click="saveEditItem(item)">Save</button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </template>
-                                                                </div>
-                                                            </template>
-
-                                                            <template x-if="managing && addingToBlock !== block.key">
-                                                                <button class="btn-text" @click="openAdd(block.key)">+ Add item</button>
-                                                            </template>
-                                                            <template x-if="managing && addingToBlock === block.key">
-                                                                <div class="card-nested" style="padding: var(--pad-sm) var(--pad-md);">
-                                                                    <div class="field"><input type="text" x-model="addForm.name" placeholder="Item name" @keydown.enter="submitAdd()"></div>
-                                                                    <div class="field"><input type="text" x-model="addForm.icon" placeholder="Icon (optional)" maxlength="4"></div>
-                                                                    <div class="field">
-                                                                        <label>Days (leave all off for every day)</label>
-                                                                        <div class="day-picker">
-                                                                            <template x-for="(d, idx) in dayNames" :key="idx">
-                                                                                <button type="button" class="day-chip" :class="{active: addForm.days.includes(idx)}" @click="toggleAddDay(idx)" x-text="d"></button>
-                                                                            </template>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="modal-actions">
-                                                                        <button class="btn-text" @click="cancelAdd()">Cancel</button>
-                                                                        <button class="btn btn-primary" @click="submitAdd()">Add</button>
-                                                                    </div>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-                                    </div>
-
-                                    <!-- Log popup: time + optional note, then Done / Skip / Holiday / Undo -->
-                                    <template x-if="logItem">
-                                        <div class="modal-overlay" @click.self="closeLog()">
-                                            <div class="modal">
-                                                <h2 x-text="logItem.name"></h2>
-                                                <p class="system-text" x-text="'Currently: ' + statusLabel(logItem)"></p>
-                                                <div class="field">
-                                                    <label>Time</label>
-                                                    <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="logForm.time">
-                                                        <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
-                                                    </div>
-                                                </div>
-                                                <div class="field">
-                                                    <label>Note (optional)</label>
-                                                    <input type="text" x-model="logForm.note" placeholder="Optional note...">
-                                                </div>
-                                                <div class="modal-actions" style="flex-wrap: wrap;">
-                                                    <button class="btn btn-primary" style="flex:1;" @click="confirmLog('done')">✓ Done</button>
-                                                    <button class="btn" style="flex:1;" @click="confirmLog('skipped')">Skip</button>
-                                                    <button class="btn" style="flex:1;" @click="confirmLog('holiday')">🏖️ Holiday</button>
-                                                </div>
-                                                <div class="modal-actions">
-                                                    <button class="btn-text" @click="closeLog()">Cancel</button>
-                                                    <button class="btn btn-danger" @click="clearLog()">Undo / Clear</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-
-                                <!-- Checklist Completion trend -->
-                                <div class="card workspace-section">
-                                    <h2>Checklist Completion</h2>
-                                    <div class="trend-legend">
-                                        <span><span class="trend-dot trend-done"></span>Done</span>
-                                        <span><span class="trend-dot trend-skipped"></span>Skipped</span>
-                                        <span><span class="trend-dot trend-missed"></span>Missed</span>
-                                    </div>
-                                    <div class="trend-chart">
-                                        <template x-for="d in trendDays" :key="d.date">
-                                            <div class="trend-col" :title="`${d.date} — ${d.done} done, ${d.skipped} skipped, ${d.missed} missed`">
-                                                <div class="trend-bar">
-                                                    <div class="trend-seg trend-missed" :style="`height:${d.missed/d.total*100}%`"></div>
-                                                    <div class="trend-seg trend-skipped" :style="`height:${d.skipped/d.total*100}%`"></div>
-                                                    <div class="trend-seg trend-done" :style="`height:${d.done/d.total*100}%`"></div>
-                                                </div>
-                                                <span class="trend-label" x-text="d.label"></span>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
 
                             </div>
                         </template>
@@ -2433,6 +2279,232 @@
                 </template>
 
                 <!-- Calendar tab -->
+                <template x-if="tab==='routine'">
+                    <div>
+                        <div class="section-header">
+                            <div class="today-block">
+                                <h1>Routine</h1>
+                                <div class="today-date">Checklist, supplements and medicine</div>
+                            </div>
+                        </div>
+                        <!-- Routine: checklist only -->
+                        <div x-data="checklistPage()">
+                            <div class="card panel">
+                                <div class="panel-head">
+                                    <!-- "Checklist", not "Routine" -- the page itself is now
+                                         titled Routine, and repeating it here read as a
+                                         duplicate heading. -->
+                                    <h2 style="margin:0;">Checklist</h2>
+                                    <button class="btn-text" @click="toggleManaging()" x-text="managing ? 'Done managing' : 'Manage items'"></button>
+                                </div>
+                                <div class="field-error" x-show="errorMsg" x-text="errorMsg"></div>
+                                <template x-if="loading"><p>Loading…</p></template>
+                                <template x-if="!loading">
+                                    <div class="stack">
+                                        <template x-for="block in blocks" :key="block.key">
+                                            <div class="cl-block" :class="'color-' + block.colorKey + (collapsedBlocks[block.key] ? ' collapsed' : '')" x-show="itemsForBlock(block.key).length > 0 || managing">
+                                                <div class="cl-block-header" @click="toggleBlock(block.key)">
+                                                    <span class="cl-block-icon" x-text="block.icon"></span>
+                                                    <span class="cl-block-title" x-text="block.label"></span>
+                                                    <div class="cl-block-stats">
+                                                        <span class="cl-block-count" x-text="`${doneCountForBlock(block.key)}/${itemsForBlock(block.key).length}`"></span>
+                                                        <div class="cl-mini-dots">
+                                                            <template x-for="item in itemsForBlock(block.key)" :key="item.id">
+                                                                <span class="cl-mini-dot" :class="statusFor(item)==='done' ? 'done' : (statusFor(item) ? 'skip' : 'pending')" :title="item.name"></span>
+                                                            </template>
+                                                        </div>
+                                                        <div class="cl-mini-bar"><div class="cl-mini-fill" :class="'color-' + block.colorKey" :style="`width:${blockProgress(block.key)}%`"></div></div>
+                                                        <span class="cl-chevron">▼</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="cl-block-body">
+                                                    <template x-for="(item, idx) in itemsForBlock(block.key)" :key="item.id">
+                                                        <div class="ck-row" :class="[statusFor(item)==='done' ? 'is-done' : (statusFor(item)==='skipped' ? 'is-skipped' : ''), 'type-' + typeOf(item)]">
+                                                            <template x-if="editingItemId !== item.id">
+                                                                <div class="ck-row-main">
+                                                                    <span class="ck-num" x-text="idx + 1"></span>
+                                                                    <div class="ck-icon" x-text="item.icon || '📋'"></div>
+                                                                    <div class="ck-info">
+                                                                        <div class="ck-title" x-text="item.name"></div>
+                                                                        <template x-if="item.notify_enabled"><span class="ck-notify-badge" :title="'Reminds at ' + (window.formatTime12h ? window.formatTime12h(item.notify_time) : item.notify_time)">🔔</span></template>
+                                                                    </div>
+                                                                    <!-- Type chip. Only shown for supplement/medicine --
+                                                                         labelling every ordinary routine row "Routine"
+                                                                         is noise on a list that is mostly routine. The
+                                                                         coloured left edge already carries the cue. -->
+                                                                    <template x-if="typeOf(item) !== 'routine'">
+                                                                        <span class="ck-type" :class="'type-' + typeOf(item)" x-text="typeLabel(item)"></span>
+                                                                    </template>
+                                                                    <template x-if="!managing">
+                                                                        <div class="ck-row-actions">
+                                                                            <span class="ck-status" :class="'ck-status-' + (statusFor(item) || 'pending')" x-text="statusLabel(item)"></span>
+                                                                            <button class="ck-log-btn" @click="openLog(item)">Log</button>
+                                                                        </div>
+                                                                    </template>
+                                                                    <template x-if="managing">
+                                                                        <div class="ck-row-actions">
+                                                                            <button class="icon-button" @click="moveItem(item,'up')" title="Move up">↑</button>
+                                                                            <button class="icon-button" @click="moveItem(item,'down')" title="Move down">↓</button>
+                                                                            <button class="btn-text" @click="startEditItem(item)">Edit</button>
+                                                                            <button class="btn-text" style="color: var(--accent-coral)" @click="archiveItem(item)">Archive</button>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
+                                                            <template x-if="editingItemId === item.id">
+                                                                <div class="ck-edit-form">
+                                                                    <div class="field">
+                                                                        <label>Type</label>
+                                                                        <div class="ck-type-picker">
+                                                                            <template x-for="t in types" :key="t.key">
+                                                                                <button type="button" :class="'type-' + t.key" :aria-pressed="editForm.type === t.key" @click="editForm.type = t.key" x-text="t.label"></button>
+                                                                            </template>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="field"><label>Name</label><input type="text" x-model="editForm.name"></div>
+                                                                    <div class="field">
+                                                                        <label>Block</label>
+                                                                        <select x-model="editForm.block">
+                                                                            <template x-for="b in blocks" :key="b.key"><option :value="b.key" x-text="b.label"></option></template>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div class="field"><label>Icon (optional)</label><input type="text" x-model="editForm.icon" maxlength="4"></div>
+                                                                    <div class="field">
+                                                                        <label>Days (leave all off for every day)</label>
+                                                                        <div class="day-picker">
+                                                                            <template x-for="(d, idx) in dayNames" :key="idx">
+                                                                                <button type="button" class="day-chip" :class="{active: editForm.days.includes(idx)}" @click="toggleEditDay(idx)" x-text="d"></button>
+                                                                            </template>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="toggle-row">
+                                                                        <span class="lbl">Notify me<span class="sub">Get a reminder at a set time -- turn off once it's a habit</span></span>
+                                                                        <div class="switch" :class="{on: editForm.notify}" @click="editForm.notify = !editForm.notify" role="switch" :aria-checked="editForm.notify"></div>
+                                                                    </div>
+                                                                    <div class="field" x-show="editForm.notify">
+                                                                        <label>Reminder time</label>
+                                                                        <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="editForm.notifyTime">
+                                                                            <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="modal-actions">
+                                                                        <button class="btn-text" @click="cancelEditItem()">Cancel</button>
+                                                                        <button class="btn btn-primary" @click="saveEditItem(item)">Save</button>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+
+                                                    <template x-if="managing && addingToBlock !== block.key">
+                                                        <button class="btn-text" @click="openAdd(block.key)">+ Add item</button>
+                                                    </template>
+                                                    <template x-if="managing && addingToBlock === block.key">
+                                                        <div class="card-nested" style="padding: var(--pad-sm) var(--pad-md);">
+                                                            <!-- Type first: it's the decision that frames the rest of the
+                                                                 form, and putting it after the name reads as an
+                                                                 afterthought. -->
+                                                            <div class="field">
+                                                                <label>Type</label>
+                                                                <div class="ck-type-picker">
+                                                                    <template x-for="t in types" :key="t.key">
+                                                                        <button type="button" :class="'type-' + t.key" :aria-pressed="addForm.type === t.key" @click="addForm.type = t.key" x-text="t.label"></button>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                            <div class="field"><input type="text" x-model="addForm.name" placeholder="Item name" @keydown.enter="submitAdd()"></div>
+                                                            <div class="field"><input type="text" x-model="addForm.icon" placeholder="Icon (optional)" maxlength="4"></div>
+                                                            <div class="field">
+                                                                <label>Days (leave all off for every day)</label>
+                                                                <div class="day-picker">
+                                                                    <template x-for="(d, idx) in dayNames" :key="idx">
+                                                                        <button type="button" class="day-chip" :class="{active: addForm.days.includes(idx)}" @click="toggleAddDay(idx)" x-text="d"></button>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                            <!-- Reminder available at CREATE time, not only on edit.
+                                                                 His stated reason for the whole feature is "I forget
+                                                                 whether I have taken the medicine or not" -- making him
+                                                                 save the item and then reopen it to set the alarm
+                                                                 buries the one thing he actually came for. -->
+                                                            <div class="field-checkbox" style="justify-content: space-between;">
+                                                                <label style="margin:0;">Remind me at a set time</label>
+                                                                <div class="switch" :class="{on: addForm.notify}" @click="addForm.notify = !addForm.notify" role="switch" :aria-checked="addForm.notify"></div>
+                                                            </div>
+                                                            <div class="field" x-show="addForm.notify">
+                                                                <label>Reminder time</label>
+                                                                <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="addForm.notifyTime">
+                                                                    <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-actions">
+                                                                <button class="btn-text" @click="cancelAdd()">Cancel</button>
+                                                                <button class="btn btn-primary" @click="submitAdd()">Add</button>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Log popup: time + optional note, then Done / Skip / Holiday / Undo -->
+                            <template x-if="logItem">
+                                <div class="modal-overlay" @click.self="closeLog()">
+                                    <div class="modal">
+                                        <h2 x-text="logItem.name"></h2>
+                                        <p class="system-text" x-text="'Currently: ' + statusLabel(logItem)"></p>
+                                        <div class="field">
+                                            <label>Time</label>
+                                            <div class="tp-numeric" x-data="timePicker12h" x-modelable="value" x-model="logForm.time">
+                                                <select :value="hh" @change="updateHH($event.target.value)" aria-label="Hour"><option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option><option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option><option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="colon">:</span><select :value="mm" @change="updateMM($event.target.value)" aria-label="Minute"><option value="00">00</option><option value="15">15</option><option value="30">30</option><option value="45">45</option></select><div class="tp-ampm" role="group" aria-label="AM or PM"><button type="button" @click.prevent="updateAMPM('AM')" :aria-pressed="ampm === 'AM'">AM</button><button type="button" @click.prevent="updateAMPM('PM')" :aria-pressed="ampm === 'PM'">PM</button></div>
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label>Note (optional)</label>
+                                            <input type="text" x-model="logForm.note" placeholder="Optional note...">
+                                        </div>
+                                        <div class="modal-actions" style="flex-wrap: wrap;">
+                                            <button class="btn btn-primary" style="flex:1;" @click="confirmLog('done')">✓ Done</button>
+                                            <button class="btn" style="flex:1;" @click="confirmLog('skipped')">Skip</button>
+                                            <button class="btn" style="flex:1;" @click="confirmLog('holiday')">🏖️ Holiday</button>
+                                        </div>
+                                        <div class="modal-actions">
+                                            <button class="btn-text" @click="closeLog()">Cancel</button>
+                                            <button class="btn btn-danger" @click="clearLog()">Undo / Clear</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Checklist Completion trend -->
+                        <div class="card workspace-section">
+                            <h2>Checklist Completion</h2>
+                            <div class="trend-legend">
+                                <span><span class="trend-dot trend-done"></span>Done</span>
+                                <span><span class="trend-dot trend-skipped"></span>Skipped</span>
+                                <span><span class="trend-dot trend-missed"></span>Missed</span>
+                            </div>
+                            <div class="trend-chart">
+                                <template x-for="d in trendDays" :key="d.date">
+                                    <div class="trend-col" :title="`${d.date} — ${d.done} done, ${d.skipped} skipped, ${d.missed} missed`">
+                                        <div class="trend-bar">
+                                            <div class="trend-seg trend-missed" :style="`height:${d.missed/d.total*100}%`"></div>
+                                            <div class="trend-seg trend-skipped" :style="`height:${d.skipped/d.total*100}%`"></div>
+                                            <div class="trend-seg trend-done" :style="`height:${d.done/d.total*100}%`"></div>
+                                        </div>
+                                        <span class="trend-label" x-text="d.label"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
                 <template x-if="tab==='calendar'">
                     <div x-data="calendarPage({ onOpenProject: (id) => { tab = 'projects'; openProject(id); }, onGoToday: () => setTab('today'), onOpenNotebook: () => { overlay = 'notebook'; } })">
                         <div class="section-header">

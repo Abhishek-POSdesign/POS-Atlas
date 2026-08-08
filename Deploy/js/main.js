@@ -185,7 +185,7 @@ document.addEventListener('alpine:init', () => {
         const raw = localStorage.getItem('atlas_last_nav');
         if (raw) _restoredNav = { ..._restoredNav, ...JSON.parse(raw) };
     } catch (e) { /* corrupt/old value -- fall back to defaults */ }
-    if (!['today', 'projects', 'calendar'].includes(_restoredNav.tab)) _restoredNav.tab = 'today';
+    if (!['today', 'projects', 'routine', 'calendar'].includes(_restoredNav.tab)) _restoredNav.tab = 'today';
     if (_restoredNav.tab !== 'projects') _restoredNav.projectViewId = null;
 
     Alpine.data('app', () => ({
