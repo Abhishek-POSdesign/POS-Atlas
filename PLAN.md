@@ -27,9 +27,11 @@ The 2026-08-09 full-day testing round is **over**. Abhishek came back with a con
 
 **Everything is on the branch `feature/atlas-improvement-001`, NOT on `main`, so it is NOT live yet.** He asked for a dedicated feature branch and for nothing to be committed or pushed to `main` without him asking. Atlas only deploys from `main`, so these fixes reach `atlas.abhisheksikka.com` only when he says to merge.
 
-**⚠️ One step still outstanding: `atlas-daily-digest` has NOT been redeployed.** The function source in this repo is at the fixed version (issues 4, 5 and 6 server-side) but the **live function is still v5**. The deploy was blocked by a tooling permission and needs Abhishek's go-ahead. Until it lands:
-- Issue 5 (backwards chat question) is **not** fixed for him — the wording is generated server-side, so nothing changes until v6 runs.
-- Issues 4 and 6 **are** already handled for him by the client-side live rechecks, which were deliberately written to work on the existing v5-written insight rows (see the section below).
+**`atlas-daily-digest` is deployed and live at v7** (2026-08-09). Confirmed by re-running it and reading the row it wrote: the running task shows as still-open (not "carried"), the paid bill is gone, and the tap-to-chat line reads in Abhishek's own voice.
+
+**Round 2 of his feedback (same day) corrected two things I got wrong:**
+- **Dropping running tasks from the ticker was an over-correction.** He never asked for them to be hidden — he asked for them not to be *mislabelled*. A task he started that has stayed open 2–3 days is exactly what he wants surfaced. Fixed properly: `carried_task` (never started) and `stalled_task` (started, still open) are now separate candidate types with separate wording, and both are offered to the model.
+- **There must be no hard show/hide threshold in code.** His framing, verbatim: the AI should look at "not the 24-hour data but the weeks, or maybe a few weeks' data" and work out what's worth showing. The function now passes a 28-day context block (workout days, rest days, average sleep score, tasks completed) into the ranking prompt and tells the model to judge against it. The 2-day stalled-task guidance lives in the prompt as *guidance*, not as an `if` in code — don't convert it into one.
 
 **Order of work he chose:** bugs first and ship so he can test → then the Routine page as its own designed pass with a mockup. Don't jump ahead to Routine.
 

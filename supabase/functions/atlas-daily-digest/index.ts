@@ -182,27 +182,42 @@ Deno.serve(async (req: Request) => {
       // ---------------------------------------------------------------
       const candidates: any[] = []
 
-      // not_started ONLY. A running (in_progress) or paused task is never
-      // overdue -- that's the app's single shared rule, isOverdue() in
-      // Deploy/js/features/taskStatus.js. This used to also select
-      // in_progress, so the ticker announced tasks he'd already started as
-      // "carried" (confirmed live 2026-08-09). Keep the two in agreement.
-      const { data: carried } = await db.from('atlas_tasks')
-        .select('id, name, scheduled_date, priority, kind')
-        .eq('status', 'not_started')
+      // Both not_started AND in_progress are gathered, but they are DIFFERENT
+      // candidate types and must never be conflated (confirmed live
+      // 2026-08-09: a running task was announced as "carried", and then an
+      // over-correction that dropped in_progress entirely hid running work
+      // that genuinely had been sitting for days -- both wrong).
+      //
+      // carried_task    = not_started, past its date  -> hasn't been picked up
+      // stalled_task    = in_progress, started days ago -> picked up, not finished
+      //
+      // Neither is a hard "always show" rule. Both are just candidates; the
+      // model below decides what's worth surfacing, using the multi-week
+      // context in the same prompt. Don't reintroduce a fixed threshold here.
+      const { data: openTasks } = await db.from('atlas_tasks')
+        .select('id, name, scheduled_date, priority, kind, status, started_at, updated_at')
+        .in('status', ['not_started', 'in_progress'])
         .lt('scheduled_date', today)
         .is('deleted_at', null)
         .is('archived_at', null)
         .order('scheduled_date', { ascending: true })
-        .limit(10)
-      for (const t of carried || []) {
+        .limit(15)
+      for (const t of openTasks || []) {
         const days = Math.round((new Date(today).getTime() - new Date(t.scheduled_date).getTime()) / 86400000)
         if (days < 1) continue
-        candidates.push({
-          id: `task:${t.id}`, type: 'carried_task', accent: 'coral',
-          fact: `Task "${t.name}" (${t.kind || 'task'}) has been carried ${days} day${days === 1 ? '' : 's'}, priority ${t.priority || 'normal'}.`,
-          ref: { kind: 'task', id: t.id },
-        })
+        if (t.status === 'in_progress') {
+          candidates.push({
+            id: `task:${t.id}`, type: 'stalled_task', accent: 'amber',
+            fact: `Task "${t.name}" (${t.kind || 'task'}) is IN PROGRESS -- he started it but it has been open ${days} day${days === 1 ? '' : 's'} since its scheduled date, priority ${t.priority || 'normal'}. This is running work, NOT untouched work.`,
+            ref: { kind: 'task', id: t.id, status: 'in_progress' },
+          })
+        } else {
+          candidates.push({
+            id: `task:${t.id}`, type: 'carried_task', accent: 'coral',
+            fact: `Task "${t.name}" (${t.kind || 'task'}) has not been started and has been carried ${days} day${days === 1 ? '' : 's'}, priority ${t.priority || 'normal'}.`,
+            ref: { kind: 'task', id: t.id, status: 'not_started' },
+          })
+        }
       }
 
       const { data: bills } = await db.from('recurring')
@@ -317,6 +332,29 @@ Deno.serve(async (req: Request) => {
       }
 
       // ---------------------------------------------------------------
+      // Multi-week context. The ranking model is explicitly NOT meant to
+      // judge each candidate against a 24-hour snapshot -- Abhishek's own
+      // framing: it should look at a few weeks and work out what actually
+      // deserves his attention. These aggregates give it that view.
+      // ---------------------------------------------------------------
+      const ctxStart = addDays(today, -28)
+      const [{ data: ctxWorkouts }, { data: ctxSleep }, { data: ctxDone }] = await Promise.all([
+        db.from('atlas_workout_logs').select('entry_date, day_type, duration_minutes').gte('entry_date', ctxStart).lte('entry_date', today),
+        db.from('atlas_sleep_logs').select('entry_date, duration_minutes, sleep_score').gte('entry_date', ctxStart).lte('entry_date', today),
+        db.from('atlas_tasks').select('id, completed_at').eq('status', 'done').gte('completed_at', ctxStart).is('deleted_at', null),
+      ])
+      const wkDays = (ctxWorkouts || []).filter((w: any) => w.day_type === 'workout').length
+      const restDays = (ctxWorkouts || []).filter((w: any) => w.day_type && w.day_type !== 'workout').length
+      const slpScores = (ctxSleep || []).filter((s: any) => s.sleep_score != null).map((s: any) => s.sleep_score)
+      const slpAvgScore = slpScores.length ? Math.round(slpScores.reduce((a: number, b: number) => a + b, 0) / slpScores.length) : null
+      const contextText = [
+        `Last 28 days: ${wkDays} workout day(s), ${restDays} rest/recovery day(s) logged.`,
+        slpAvgScore != null ? `Average sleep score over that window: ${slpAvgScore}.` : `No sleep scores logged in that window.`,
+        `${(ctxDone || []).length} task(s) completed in that window.`,
+        `Today is ${today}.`,
+      ].join('\n')
+
+      // ---------------------------------------------------------------
       // MEMORY (existing auto-pattern entries) feeds the ranking prompt so
       // today's pick can favor something genuinely new over a repeat.
       // ---------------------------------------------------------------
@@ -330,17 +368,21 @@ Deno.serve(async (req: Request) => {
       if (candidates.length) {
         const candidateList = candidates.map(c => `[${c.id}] (${c.type}) ${c.fact}`).join('\n')
         const system = `You help pick what's worth telling Abhishek about today, from a fixed list of facts about his tasks, checklist, sleep, workouts, projects, and bills. Rules:
-- Choose at most 5 of the listed facts -- the ones most worth his attention today. Fewer is fine if fewer are truly worth it.
+- Choose up to 5 of the listed facts -- the ones most worth his attention today. Aim for 2 to 4 on a normal day. Return an empty array ONLY when every candidate is genuinely trivial; an empty ticker should be rare, not your default.
+- JUDGE AGAINST THE MULTI-WEEK CONTEXT, NOT JUST TODAY. A fact is worth surfacing when it stands out against his recent weeks. If he has trained nearly every day this month, one rest day is not news. If sleep is in line with his usual range, it is not news.
 - Never invent a fact, number, or date not in the list.
+- carried_task and stalled_task are DIFFERENT and must never be conflated. A carried_task was never started. A stalled_task he started and has not finished -- never call it "carried", "untouched" or "not started"; he has been working on it. Say it is still open / still in progress.
+- A stalled_task that has been open two or more days past its date is usually worth showing -- that is exactly the kind of thing he wants surfaced. One that only slipped a day generally is not. Use judgement, this is guidance and not a fixed rule.
 - For each chosen fact, return:
     * "id" -- the exact [id] from the list.
     * "title" -- a short 2-4 word category label (kept for compatibility; the ticker UI no longer displays it, but future views may).
     * "text" -- the PRIMARY line the ticker shows. Write it as the task/reminder/insight itself, in the fewest words that read naturally when spoken aloud. For a reminder, write it like "Call Mohit at 9 PM" or "Book the hotel". For a plain task, just the task name ("Finish the chapter API"). For a health insight, one clean sentence ("Sleep score dropped to 68 last night").
-    * "meta" -- the OPTIONAL muted second line on the ticker. Use this for context the primary shouldn't carry: how many days a task has been carried, which project it belongs to, when a reminder fires, what an insight compares to, why a bill is amber. Leave "meta" as an empty string ("") when there is nothing worth adding. Meta is short (under ~50 chars where possible). Separate multiple bits with " · " (middle-dot with spaces).
-    * "discuss" -- the message ABHISHEK sends TO the assistant when he taps this tile. Write it in HIS OWN first-person voice, as a question or request addressed to the assistant -- never as the assistant speaking to him. It is placed straight into his chat box as his outgoing message, so anything phrased as an offer ("Want me to take care of that?") reads backwards and is wrong. Good: "The electricity bill is due today -- what are my options for handling it?" / "Why has this task been sitting for four days?" / "My sleep dropped this week -- what changed?" / "I still haven't done my morning stretches -- when should I fit them in?" Bad: "Rs 7792 is due today. Want to take care of that now?" (that is the assistant talking).
+    * "meta" -- the OPTIONAL muted second line on the ticker. Use this for context the primary shouldn't carry: how many days a task has been carried or has been in progress, which project it belongs to, when a reminder fires, what an insight compares to, why a bill is amber. Leave "meta" as an empty string ("") when there is nothing worth adding. Meta is short (under ~50 chars where possible). Separate multiple bits with " · " (middle-dot with spaces).
+    * "discuss" -- the message ABHISHEK sends TO the assistant when he taps this tile. Write it in HIS OWN first-person voice, as a question or request addressed to the assistant -- never as the assistant speaking to him. It is placed straight into his chat box as his outgoing message, so anything phrased as an offer ("Want me to take care of that?") or as an observation about him ("I noticed you skipped...") reads backwards and is wrong. Good: "The electricity bill is due today -- what are my options for handling it?" / "Why has this task been sitting for four days?" / "My sleep dropped this week -- what changed?" / "I keep skipping my evening routine -- how do I fix that?" Bad: "Rs 7792 is due today. Want to take care of that now?" and "I noticed you skipped your Dinner routine. Everything alright?" (both are the assistant talking).
+    * Do NOT write "discuss" as an instruction to mark, complete, log or skip anything -- it opens a conversation, it never performs an action.
 - Favor facts that connect to a standing pattern below when relevant, but do not fabricate a pattern that isn't listed.
 - Reply with ONLY a JSON array, no markdown fence, no commentary: [{"id":"...","title":"...","text":"...","meta":"...","discuss":"..."}]`
-        const user = `Standing patterns noticed on past days:\n${memoryText}\n\nToday's candidate facts:\n${candidateList}`
+        const user = `Standing patterns noticed on past days:\n${memoryText}\n\nRecent multi-week context:\n${contextText}\n\nToday's candidate facts:\n${candidateList}`
         try {
           const raw = await askGemini(accessToken, sa.project_id, system, user)
           const picked = parseJsonLoose(raw)

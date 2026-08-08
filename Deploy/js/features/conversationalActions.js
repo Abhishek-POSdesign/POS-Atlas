@@ -261,6 +261,33 @@ function logIntentAllowed(text) {
     return PAST_MARKER.test(text);
 }
 
+// Shared with aiPanel.js's _detectIntent(), which classifies the OTHER write
+// flows (complete/start/pause/delete task, mark checklist, journal). Those are
+// bare keyword regexes with the same disease the log gate above fixes: merely
+// MENTIONING a topic gets treated as an instruction to write something.
+//
+// Confirmed live 2026-08-09. The insight ticker put "I noticed you skipped
+// your Dinner and D3K2 routine last night. Everything alright?" into the chat
+// box; the lone word "skipped" matched `mark_checklist`; extraction found no
+// items to actually mark; and the conversation dead-ended on "I couldn't
+// identify which routine items you meant." A plain question got captured by a
+// write flow and answered with an error instead of a reply. This is a large
+// part of why the assistant reads as a rigid form-filler rather than something
+// you can talk to.
+//
+// Same shape as the log gate: an explicit action verb always wins, a question
+// is never an instruction, and a sentence about what ATLAS did or noticed is
+// never Abhishek reporting his own action.
+const WRITE_VERB = /\b(mark|log|record|delete|remove|complete|completed|finish|finished|pause|resume|add|create|set)\b/i;
+const ABOUT_ASSISTANT = /\b(you|atlas)\s+(skipped|missed|noticed|said|mentioned|told|think|thought|suggested|reminded)\b/i;
+
+export function looksLikeWriteInstruction(text) {
+    if (WRITE_VERB.test(text)) return true;
+    if (QUESTION.test(text)) return false;
+    if (ABOUT_ASSISTANT.test(text)) return false;
+    return true;
+}
+
 // ---- Trigger detection ----
 // Deterministic -- no model call. Returns { action } on a clean single
 // match, { ambiguous: [keys] } when more than one action's pattern matches

@@ -35,7 +35,8 @@ import { buildFactPackage, WRITE_FLOWS, sanitizeDraftFields } from '../features/
 import {
     CONVERSATIONAL_ACTIONS, detectActionStart, resolveAmbiguous, newDraft,
     mergeExtractedFields, firstMissingField, markSkipped, isCancelPhrase,
-    isDeclineAnswer, isYes, isNo, formatReadBack, draftToCardFields, draftToRawFields
+    isDeclineAnswer, isYes, isNo, formatReadBack, draftToCardFields, draftToRawFields,
+    looksLikeWriteInstruction
 } from '../features/conversationalActions.js';
 
 const PERSONA_FIELD_DEFS = [
@@ -1059,6 +1060,11 @@ export function atlasAi() {
         // this now only covers the three flows Track D doesn't own; save_ai_memory is
         // handled upstream by _isMemorySaveRequest().
         _detectIntent(text) {
+            // Shared gate -- a question, or a remark about what Atlas itself
+            // said/noticed, is conversation, not an instruction to write
+            // anything. See looksLikeWriteInstruction() in
+            // conversationalActions.js for the confirmed live bug this closes.
+            if (!looksLikeWriteInstruction(text)) return null;
             const t = text.toLowerCase();
             // Task/reminder lifecycle -- start/pause/delete checked BEFORE the
             // generic completion check below, since a message like "pause

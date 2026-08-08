@@ -164,6 +164,19 @@ Confirmed live bug: "I'm gonna do the workout after this" started a workout **lo
 - **When the gate blocks, Atlas just chats normally.** His explicit choice — no "want me to log that?" offer, no did-you-mean question. The escape hatch is the word "log" itself.
 - Keep this in the gate, not in individual `startPattern`s. New log actions must inherit it for free by declaring `mode: 'log'` — if a future change needs a bespoke per-action tense check, the mechanism has drifted from its intended shape.
 
+### Mentioning something is not instructing it (locked 2026-08-09)
+
+Companion rule to the log-intent gate above, for the OTHER write flows (`_detectIntent()` in `ui/aiPanel.js` — complete/start/pause/delete task, mark checklist, journal). Those were bare keyword regexes with the same disease: the lone word "skipped" anywhere in a message routed it to `mark_checklist`.
+
+Confirmed live: the ticker put *"I noticed you skipped your Dinner and D3K2 routine last night. Everything alright?"* into the chat box, "skipped" matched, extraction found nothing to mark, and the conversation dead-ended on *"I couldn't identify which routine items you meant."* **A plain question was captured by a write flow and answered with an error instead of a reply.** This is a large part of why the assistant reads as a rigid form-filler rather than something you can talk to.
+
+`looksLikeWriteInstruction()` (`features/conversationalActions.js`) now gates `_detectIntent()`: an explicit action verb always wins; otherwise a question is never an instruction; otherwise a sentence about what *Atlas* did or noticed ("you skipped…", "you said…") is never Abhishek reporting his own action. Don't add new write-flow triggers as bare keyword tests that bypass this gate.
+
+### The insight ticker decides by judgement, not thresholds (locked 2026-08-09)
+
+- **`carried_task` and `stalled_task` are different things and must never be conflated.** Carried = never started. Stalled = he started it and it's still open. Calling a running task "carried" was a real reported bug; so was the over-correction that hid running tasks entirely. Both types are gathered, both are offered to the model, and the client rechecks them differently (`aiVisibleInsights` in `pages/today.js`).
+- **No hard show/hide threshold in code.** Abhishek's explicit framing: the AI should weigh "not the 24-hour data but the weeks, or maybe a few weeks' data" and decide what deserves his attention. The digest passes a 28-day context block into the ranking prompt. Guidance like "a task open 2+ days is usually worth showing" belongs in the prompt as guidance — never as an `if` in the gathering code.
+
 ### Atlas may READ Finance Manager's tables, never write them — and must fail open (locked 2026-08-09)
 
 The insight ticker suppresses a bill that's already been paid. That requires reading Finance Manager's `recurring` and `transactions`, which the `atlas-daily-digest` Edge Function already did server-side and `db.js`'s `FinanceBills` now does client-side. Rules:

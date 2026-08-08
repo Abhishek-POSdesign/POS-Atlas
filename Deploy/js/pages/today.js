@@ -419,16 +419,18 @@ export function todayPage(nav) {
                 if (ref.kind === 'task') {
                     const task = this.tasks.find(t => t.id === ref.id);
                     if (!task) return false;
-                    // A carried_task tile claims the task is overdue. Starting
-                    // it makes that false immediately -- isOverdue() is the
-                    // app's single source of truth and says a running or
-                    // paused task is never overdue (features/taskStatus.js).
-                    // Confirmed live 2026-08-09: the ticker was calling
-                    // running tasks "carried". The digest no longer generates
-                    // these (it now selects not_started only), but the tile
-                    // must also drop the moment he starts the task, not wait
-                    // for tomorrow's row.
+                    if (task.status === 'done') return false;
+                    // carried_task and stalled_task are different claims and
+                    // are rechecked differently (2026-08-09, after two rounds
+                    // of feedback). A carried_task says "you never picked this
+                    // up" -- starting it makes that untrue, so the tile drops.
+                    // A stalled_task says "you started this and it's still
+                    // open" -- that stays true WHILE it's running, so it must
+                    // keep showing. Dropping running tasks outright was an
+                    // over-correction: he wants long-running work surfaced,
+                    // just not mislabelled as untouched.
                     if (item.type === 'carried_task') return computeOverdue(task);
+                    if (item.type === 'stalled_task') return task.status === 'in_progress';
                     return true;
                 }
                 if (ref.kind === 'checklist_item' && item.type === 'checklist_pending_today') {
