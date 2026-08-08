@@ -35,6 +35,20 @@ The 2026-08-09 full-day testing round is **over**. Abhishek came back with a con
 
 ---
 
+## 🖥️ Item 3 — "can Atlas shrink to a small always-visible card?" — feasibility answer (2026-08-09, no build)
+
+He asked whether closing Atlas could leave a small desktop card showing just tasks and reminders, or whether it could live in a side panel. Researched, not built — he wanted an answer first. Three separate things got bundled into one question, and they have three different answers.
+
+**1. A floating mini-window while Atlas is running — YES, genuinely buildable.** The Document Picture-in-Picture API (`documentPictureInPicture.requestWindow()`) opens a real always-on-top window that Atlas fills with its own HTML — so a stripped-down tasks-and-reminders list, using the existing task row markup and tokens. Supported in Chrome and Edge, and Firefox has since added it too. Needs a click to open (browsers won't let a page do this unprompted). **The catch: Atlas has to still be running.** Close the app and the mini window closes with it. So this is "shrink Atlas down", not "Atlas keeps working after I close it."
+
+**2. A browser side panel — possible, but it's a different product.** Chrome's side panel is an **extension** API (`chrome.sidePanel`, Manifest V3), not something a website or PWA can open. Atlas would need a small companion Chrome extension — a separate thing to build, install, and maintain, on top of Atlas itself. It would work whenever Chrome is open, regardless of whether Atlas is.
+
+**3. A true Windows desktop widget with Atlas fully closed — NO.** Not available to a web app. The Windows notification/calendar flyout widget slots aren't open to third-party web apps either. The only thing that reaches him with Atlas closed today is the push notifications Atlas already sends.
+
+**Recommendation if he wants to pursue it:** option 1. It's the smallest build, reuses existing components, and needs no extension install. Confirm the API is present on his actual browser first (`'documentPictureInPicture' in window`). Not scheduled — waiting on his call.
+
+---
+
 ## 🔎 Insight ticker correctness — the three fixes from his 2026-08-09 verdict
 
 All three were confirmed against live data, not guessed. Today's real `atlas_ai_insights` row for 2026-08-08 contained every one of the reported bugs simultaneously.
