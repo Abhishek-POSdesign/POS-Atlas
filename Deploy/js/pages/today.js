@@ -6,6 +6,7 @@ import { askConfirm } from '../components/confirm-dialog.js';
 import { askNote } from '../components/note-prompt.js';
 import { consumePendingTask } from '../features/pendingNav.js';
 import { isOverdue as computeOverdue } from '../features/taskStatus.js';
+import { isMiniWindowSupported, isMiniWindowOpen, openMiniWindow, renderMiniWindow } from '../features/miniWindow.js';
 
 function minutesToHM(mins) {
     if (mins === null || mins === undefined) return '';
@@ -135,6 +136,16 @@ export function todayPage(nav) {
             // edit modal rather than a duplicate.
             const pending = consumePendingTask();
             if (pending) this.openTaskEditModal(pending);
+
+            // Keep the floating mini window honest. Both watches matter:
+            // `tasks` covers anything that changes the list (completing,
+            // adding, a background refresh), `pendingCompleteId` covers the
+            // two-tap arm/disarm so the small window shows "Tap again to
+            // confirm" at the same moment the big one does. renderMiniWindow()
+            // is a no-op when the window isn't open, so this costs nothing
+            // the rest of the time.
+            this.$watch('tasks', () => renderMiniWindow());
+            this.$watch('pendingCompleteId', () => renderMiniWindow());
         },
         async load() {
             this.loading = true;
@@ -585,6 +596,56 @@ export function todayPage(nav) {
         // after live testing. Delete already has askConfirm() + undo toast.
         pendingCompleteId: null,
         _pendingCompleteTimer: null,
+        // ---- Floating mini window ("Pop out", 2026-08-09) ----
+        // The window itself lives in features/miniWindow.js; this page owns
+        // the data and the completion behaviour so the small window can never
+        // drift from the big one. Deliberately includes in_progress tasks --
+        // seeing what's actually running is half the point of having it on
+        // screen while working.
+        miniSupported: isMiniWindowSupported(),
+        miniOpen: false,
+        get miniWindowRows() {
+            const today = todayIsoDate();
+            return this.tasks
+                .filter(t => t.status !== 'done' && (!t.scheduled_date || t.scheduled_date <= today))
+                .sort((a, b) => {
+                    const at = a.scheduled_time || '99:99';
+                    const bt = b.scheduled_time || '99:99';
+                    return at === bt ? a.name.localeCompare(b.name) : at.localeCompare(bt);
+                })
+                .map(t => {
+                    const project = this.projectFor(t);
+                    return {
+                        id: t.id,
+                        name: t.name,
+                        kind: t.kind,
+                        time: t.scheduled_time ? window.formatTime12h(t.scheduled_time) : '',
+                        late: computeOverdue(t),
+                        running: t.status === 'in_progress',
+                        armed: this.pendingCompleteId === t.id,
+                        projectName: project ? project.name : '',
+                        projectColor: project ? project.color : '',
+                        initial: project ? this.projectInitial(project) : ''
+                    };
+                });
+        },
+        async openMini() {
+            try {
+                await openMiniWindow(this);
+                this.miniOpen = isMiniWindowOpen();
+            } catch (e) {
+                this.errorMsg = e.message;
+            }
+        },
+        onMiniWindowClosed() { this.miniOpen = false; },
+        // The mini window hands back an id, not a task -- it holds no task
+        // objects of its own. Routed straight into the same two-tap handler
+        // the main list uses, so the confirm rule is shared, not copied.
+        handleMiniComplete(taskId) {
+            const task = this.tasks.find(t => t.id === taskId);
+            if (task) this.handleCompleteClick(task);
+        },
+
         isPendingComplete(task) { return this.pendingCompleteId === task.id; },
         handleCompleteClick(task) {
             if (this.pendingCompleteId === task.id) {
