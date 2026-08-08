@@ -27,6 +27,39 @@ Do not rewrite past entries. Do not summarise-and-collapse older ones. This is a
 
 ---
 
+## 2026-08-09 (end of day) · Claude Code (Sonnet 5) — Testing-day verdict: 4 bug fixes on a feature branch
+
+**Session scope:** take Abhishek's consolidated post-testing list of six items, fix the four real bugs, and do it on a dedicated feature branch that never touches `main`.
+
+**Branch:** `feature/atlas-improvement-001`. He asked explicitly for this and for **nothing to be committed or pushed to `main`** unless he says so. Atlas deploys from `main` only, so **none of this is live yet** — it goes live when he asks for a merge.
+
+**What shipped (all on the branch, not `main`):**
+- Log actions no longer trigger on future tense. `mode: 'log' | 'create'` added to every Conversational Action; a shared intent gate in `detectActionStart()` (log-verb → question → future → past, in that order) applies to log actions only. Create actions stay ungated on purpose. When blocked, Atlas just chats — his choice.
+- Insight ticker no longer calls a **running** task carried. Digest selects `not_started` only; Today's `aiVisibleInsights` re-checks `carried_task` tiles through the shared `isOverdue()`.
+- Insight ticker's tap-to-chat question rewritten to his own first-person voice (the text lands in his composer as *his* message; the prompt had been asking for the assistant's voice).
+- Paid bills suppressed, mirroring Finance's real `recurring_id` + `cycle_key` rule, with an allowlist of confirmed frequencies and fail-open everywhere else.
+
+**What was verified:**
+- Log-intent gate: 27/27 assertions in Node, then re-confirmed against the real module graph in the browser.
+- `aiVisibleInsights`: ran the **real getter** against today's actual insight row shape — paid Electricity bill drops, `in_progress` "Claude Tutorial" drops, a task dated today drops, a genuinely carried task and the checklist gap both stay.
+- Bill rule: SQL-simulated the new filter against live Finance data. Only one bill falls in today's window (Electricity + Maintenance) and it is correctly detected as paid for cycle `2026-08`.
+- App boots at `localhost:5520`, login screen renders, **zero console errors**. Did not sign in (live-DB rule).
+- Cache bumped `atlas-offline-shell-v98` → `v99`.
+
+**Confirmed root causes, all three visible in one live row** (`atlas_ai_insights`, 2026-08-08): "Claude Tutorial" `status=in_progress` rendered as `carried_task`; every `discuss` line written in the assistant's voice ("Want to take care of that now?"); a `bill_due` tile for the Electricity bill he had already paid.
+
+**What's still open:**
+- **`atlas-daily-digest` was NOT redeployed — live is still v5.** The deploy was blocked by a tooling permission, not skipped. **Issue 5 (backwards chat question) stays broken for him until v6 lands**, since that wording is generated server-side. Issues 4 and 6 are already covered for him by the client-side rechecks, which were written on purpose to work on the existing v5 rows (the paid-bill Set is keyed by both `local_id` and `uuid` for exactly this reason).
+- **Item 2 — Routine moves to its own page** (checklist + medicines + nutrition/supplements) is pass 2, mockup-first. He wants medicines/nutrition "mostly the same as the checklist" but asked to see **2–3 mockup options** before anything is built. Neither entity exists anywhere in the codebase yet — new migration, new `db.js` entities, new page.
+- **Item 3 — desktop mini-card / side panel** is an answer-only item; he wants a feasibility verdict, not a build.
+
+**What NOT to do:**
+- Don't push this branch to `main` on your own initiative — he decides when it goes live.
+- Don't make the paid-bill check more aggressive. It fails open deliberately; hiding a genuinely unpaid bill is far worse than re-showing a paid one. Same for the frequency allowlist — extend it only after reading Finance's real cycle-key rule for that frequency, never by guessing.
+- Don't put a tense check into an individual `startPattern`. It belongs in the shared gate so new log actions inherit it.
+
+---
+
 ## 2026-08-09 (later) · Claude Code (Sonnet 5) — Voice rolled out to all four apps + a real security hole closed
 
 **Session scope:** put Speech-to-Text and Text-to-Speech into the other three apps (Finance, B.tech Learning Hub, Biz Research Hub), and lock down who is allowed to spend money on Abhishek's Google Cloud account.

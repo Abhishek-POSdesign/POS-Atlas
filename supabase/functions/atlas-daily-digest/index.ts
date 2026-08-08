@@ -111,10 +111,33 @@ function addDays(iso: string, n: number): string {
   return isoDate(d)
 }
 
+// Frequencies whose Finance Manager cycle_key format has actually been read
+// out of live data and confirmed (2026-08-09): for monthly, quarterly and
+// yearly, `cycle_key` is the YYYY-MM of the DUE month. Those are the only
+// three frequencies Finance uses today -- there are no weekly or daily
+// recurring bills in the system at all.
+//
+// Anything not in this list deliberately SKIPS the paid-check and the bill
+// stays visible. A weekly or daily bill needs a real per-occurrence key, and
+// inventing an Atlas-side version of that calculation could mark a genuinely
+// unpaid bill as paid and silently hide it -- much worse than re-showing one
+// that's already been paid. If Finance ever grows a weekly/daily recurring,
+// read its actual cycle-key rule first, then extend this list; don't guess.
+const BILL_PAID_CHECK_FREQUENCIES = new Set(['monthly', 'quarterly', 'yearly', 'annual', 'annually'])
+
+// Finance's own key for a given due date, mirrored exactly -- not a second
+// Atlas calculation. Only ever called for a frequency in the set above.
+function financeCycleKey(dueIso: string): string {
+  return dueIso.slice(0, 7)
+}
+
 // Minimal "next due date on/after `from`" for a recurring bill. Bills are
-// read-only here -- Atlas never writes to Finance Manager's tables -- so this
-// only needs to be good enough to flag "due within N days", not replicate
-// Finance Manager's own paid-cycle bookkeeping.
+// read-only here -- Atlas never writes to Finance Manager's tables. This
+// computes the due date only; whether that due cycle has already been PAID is
+// a separate check against Finance's own `transactions` bookkeeping (see
+// paidCycles below) -- `recurring.start_date` cannot be used as a paid signal,
+// confirmed live 2026-08-09 that Finance advances it for some bills and not
+// others.
 function nextDueOnOrAfter(startDate: string, frequency: string, from: string): string {
   let cur = startDate
   const freq = (frequency || 'monthly').toLowerCase()
@@ -159,9 +182,14 @@ Deno.serve(async (req: Request) => {
       // ---------------------------------------------------------------
       const candidates: any[] = []
 
+      // not_started ONLY. A running (in_progress) or paused task is never
+      // overdue -- that's the app's single shared rule, isOverdue() in
+      // Deploy/js/features/taskStatus.js. This used to also select
+      // in_progress, so the ticker announced tasks he'd already started as
+      // "carried" (confirmed live 2026-08-09). Keep the two in agreement.
       const { data: carried } = await db.from('atlas_tasks')
         .select('id, name, scheduled_date, priority, kind')
-        .in('status', ['not_started', 'in_progress'])
+        .eq('status', 'not_started')
         .lt('scheduled_date', today)
         .is('deleted_at', null)
         .is('archived_at', null)
@@ -178,20 +206,41 @@ Deno.serve(async (req: Request) => {
       }
 
       const { data: bills } = await db.from('recurring')
-        .select('id, name, amount, category, frequency, start_date')
+        .select('id, local_id, name, amount, category, frequency, start_date')
         .eq('profile_id', FINANCE_PROFILE_ID)
         .eq('active', true)
+
+      // How Finance Manager records "marked paid": a `transactions` row
+      // carrying recurring_id (the recurring row's local_id) + cycle_key.
+      // Rows with a null cycle_key (legacy, pre-date the field) are skipped
+      // rather than having one derived for them -- deriving would be a second
+      // Atlas-side version of Finance's rule, and a wrong derivation hides an
+      // unpaid bill. Fail open instead.
+      const paidSince = addDays(today, -400)
+      const { data: paidTxns } = await db.from('transactions')
+        .select('recurring_id, cycle_key')
+        .eq('profile_id', FINANCE_PROFILE_ID)
+        .not('recurring_id', 'is', null)
+        .not('cycle_key', 'is', null)
+        .gte('date', paidSince)
+      const paidCycles = new Set((paidTxns || []).map((t: any) => `${t.recurring_id}|${t.cycle_key}`))
+
       for (const b of bills || []) {
         if (!b.start_date) continue
         const due = nextDueOnOrAfter(b.start_date, b.frequency, today)
-        if (due <= billWindowEnd) {
-          const daysOut = Math.round((new Date(due).getTime() - new Date(today).getTime()) / 86400000)
-          candidates.push({
-            id: `bill:${b.id}:${due}`, type: 'bill_due', accent: 'amber',
-            fact: `Bill "${b.name}" (${b.category || 'uncategorised'}), amount ${b.amount || 'unknown'}, due ${due} (${daysOut <= 0 ? 'today or overdue' : `in ${daysOut} day${daysOut === 1 ? '' : 's'}`}).`,
-            ref: { kind: 'bill', id: b.id, date: due },
-          })
-        }
+        if (due > billWindowEnd) continue
+        const freq = (b.frequency || 'monthly').toLowerCase()
+        if (b.local_id && BILL_PAID_CHECK_FREQUENCIES.has(freq)
+            && paidCycles.has(`${b.local_id}|${financeCycleKey(due)}`)) continue
+        const daysOut = Math.round((new Date(due).getTime() - new Date(today).getTime()) / 86400000)
+        candidates.push({
+          id: `bill:${b.id}:${due}`, type: 'bill_due', accent: 'amber',
+          fact: `Bill "${b.name}" (${b.category || 'uncategorised'}), amount ${b.amount || 'unknown'}, due ${due} (${daysOut <= 0 ? 'today or overdue' : `in ${daysOut} day${daysOut === 1 ? '' : 's'}`}).`,
+          // localId + date let the Today page re-run this exact same paid
+          // check live, so a bill paid AFTER the noon digest ran disappears
+          // the same day instead of tomorrow.
+          ref: { kind: 'bill', id: b.id, localId: b.local_id, date: due },
+        })
       }
 
       // Two distinct checklist signals: yesterday's skip (informational,
@@ -288,7 +337,7 @@ Deno.serve(async (req: Request) => {
     * "title" -- a short 2-4 word category label (kept for compatibility; the ticker UI no longer displays it, but future views may).
     * "text" -- the PRIMARY line the ticker shows. Write it as the task/reminder/insight itself, in the fewest words that read naturally when spoken aloud. For a reminder, write it like "Call Mohit at 9 PM" or "Book the hotel". For a plain task, just the task name ("Finish the chapter API"). For a health insight, one clean sentence ("Sleep score dropped to 68 last night").
     * "meta" -- the OPTIONAL muted second line on the ticker. Use this for context the primary shouldn't carry: how many days a task has been carried, which project it belongs to, when a reminder fires, what an insight compares to, why a bill is amber. Leave "meta" as an empty string ("") when there is nothing worth adding. Meta is short (under ~50 chars where possible). Separate multiple bits with " · " (middle-dot with spaces).
-    * "discuss" -- a natural opening line for an assistant that already knows this fact, inviting him to talk it through.
+    * "discuss" -- the message ABHISHEK sends TO the assistant when he taps this tile. Write it in HIS OWN first-person voice, as a question or request addressed to the assistant -- never as the assistant speaking to him. It is placed straight into his chat box as his outgoing message, so anything phrased as an offer ("Want me to take care of that?") reads backwards and is wrong. Good: "The electricity bill is due today -- what are my options for handling it?" / "Why has this task been sitting for four days?" / "My sleep dropped this week -- what changed?" / "I still haven't done my morning stretches -- when should I fit them in?" Bad: "Rs 7792 is due today. Want to take care of that now?" (that is the assistant talking).
 - Favor facts that connect to a standing pattern below when relevant, but do not fabricate a pattern that isn't listed.
 - Reply with ONLY a JSON array, no markdown fence, no commentary: [{"id":"...","title":"...","text":"...","meta":"...","discuss":"..."}]`
         const user = `Standing patterns noticed on past days:\n${memoryText}\n\nToday's candidate facts:\n${candidateList}`

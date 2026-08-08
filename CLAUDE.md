@@ -154,6 +154,27 @@ Every AI-driven write in Atlas — logging sleep, logging a workout, creating a 
 - **Voice is Phase A only: a tap-to-talk full conversation (listen → gather → confirm → save), not hands-free/wake-word.** Always-on background listening ("Hey Atlas" with no tap) is a deliberately separate future phase — do not build toward it, even partially, without Abhishek explicitly reopening that as its own decision.
 - **No provider lock-in.** This mechanism must work identically on both the local (Ollama) and cloud (Gemini/`pos-partner`) providers, using the existing provider toggle — do not add a code path that only works with one model.
 
+### A log action only starts when he's actually reporting something (locked 2026-08-09)
+
+Confirmed live bug: "I'm gonna do the workout after this" started a workout **log**, which then asked past-tense questions ("how long did it run?") about something that hadn't happened yet. Cause: the log actions' `startPattern` is a bare topic-keyword regex — a lone `\bworkout\b` (or `training`, `session`, `run`, `yoga`, `PR`…) matched regardless of tense, so *talking about* a workout was indistinguishable from *reporting* one.
+
+- Every action in `CONVERSATIONAL_ACTIONS` carries a **`mode`**: `'log'` (reports something that already happened) or `'create'` (makes a future task/reminder). `detectActionStart()` applies a shared intent gate to `mode: 'log'` actions only.
+- The gate, in order: an explicit **log verb** ("log/record/track/save…") always starts a log; otherwise a **question** never does; otherwise a **future marker** ("gonna / going to / will / later / tonight / need to…") never does; otherwise a **past marker** ("did / finished / just / was / slept / went / last night…") does; otherwise nothing starts.
+- `mode: 'create'` actions are **deliberately ungated** — their patterns already require an explicit verb ("add a task", "remind me"), and a task or reminder is inherently about the future, so future tense is correct there.
+- **When the gate blocks, Atlas just chats normally.** His explicit choice — no "want me to log that?" offer, no did-you-mean question. The escape hatch is the word "log" itself.
+- Keep this in the gate, not in individual `startPattern`s. New log actions must inherit it for free by declaring `mode: 'log'` — if a future change needs a bespoke per-action tense check, the mechanism has drifted from its intended shape.
+
+### Atlas may READ Finance Manager's tables, never write them — and must fail open (locked 2026-08-09)
+
+The insight ticker suppresses a bill that's already been paid. That requires reading Finance Manager's `recurring` and `transactions`, which the `atlas-daily-digest` Edge Function already did server-side and `db.js`'s `FinanceBills` now does client-side. Rules:
+
+- **Read-only, and only from `db.js`** on the client (the architecture rule stands — no page-level Supabase calls).
+- **Mirror Finance's own cycle-key rule; never invent a second one.** Confirmed from live data 2026-08-09: `cycle_key` is the `YYYY-MM` of the **due month**, across every frequency Finance uses (`monthly`, `quarterly`, `yearly`). There are no weekly or daily recurring bills.
+- **Only allowlisted frequencies are paid-checked** (`BILL_PAID_CHECK_FREQUENCIES`). A weekly/daily bill would need a genuine per-occurrence key — rather than guess one, those skip the check and stay visible. Extend the list only after reading Finance's real rule for that frequency.
+- **Never derive a missing `cycle_key`** from a transaction's date. Ignore those rows instead.
+- **Fail open, always.** If the check can't run or can't be certain, show the bill. Re-showing a paid bill is a nuisance; hiding a genuinely unpaid one is real harm. This is the whole reason the rules above are conservative — don't "tidy" them into something more aggressive.
+- `recurring.start_date` is **not** a paid signal. Finance advances it for some bills and not others (confirmed live).
+
 ### Voice input: Google Cloud Speech-to-Text, NOT the browser API (locked 2026-08-09)
 
 - **The browser's native `SpeechRecognition` API is banned for voice input.** It was tried and removed after real failures: sessions ending themselves regardless of `continuous: true`, transcripts finalising mid-sentence at a misjudged pause ("catches half words"), and the mic occasionally transcribing Atlas's own TTS reply. These are properties of live streaming recognition, not bugs that can be patched.

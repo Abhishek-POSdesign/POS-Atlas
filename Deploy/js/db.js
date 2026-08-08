@@ -8,6 +8,11 @@
 
 import { supabase } from './supabase-client.js';
 
+// Finance Manager's profile row. Same constant the atlas-daily-digest Edge
+// Function uses -- see the FinanceBills section below for why Atlas reads
+// (never writes) that module's tables at all.
+const FINANCE_PROFILE_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+
 async function verifiedInsert(table, row) {
     const { data, error } = await supabase.from(table).insert(row).select().single();
     if (error || !data) throw new Error(error?.message || `Insert into ${table} was not confirmed`);
@@ -651,6 +656,74 @@ export const DB = {
                 .maybeSingle();
             if (error) throw new Error(error.message);
             return data;
+        }
+    },
+
+    // Finance Manager's tables, READ ONLY, and only ever for the insight
+    // ticker's paid-bill recheck. Atlas never writes here. This is the one
+    // place Atlas's client crosses into another module's tables -- the
+    // atlas-daily-digest Edge Function already reads `recurring` server-side
+    // for the same feature; this is the client half, needed so a bill paid
+    // after the noon digest ran stops showing the same day rather than
+    // tomorrow (confirmed live bug, 2026-08-09).
+    //
+    // How Finance records "paid": a row in `transactions` carrying
+    // `recurring_id` (the recurring row's local_id) and `cycle_key`. Verified
+    // against live data 2026-08-09 -- across every frequency Finance actually
+    // uses (monthly, quarterly, yearly) `cycle_key` is always the YYYY-MM of
+    // the DUE month. That is Finance's rule, mirrored, not an Atlas-side
+    // reinvention. Do not derive a cycle key here for a row that doesn't have
+    // one, and do not extend this to a frequency whose real key format hasn't
+    // been read out of Finance first (see BILL_PAID_CHECK_FREQUENCIES in
+    // supabase/functions/atlas-daily-digest/index.ts) -- guessing wrong hides
+    // a genuinely unpaid bill, which is far worse than showing a paid one.
+    FinanceBills: {
+        // Set of paid `${billRef}|${cycle_key}` keys. Rows with a null
+        // cycle_key (legacy, pre-dating the field) are skipped rather than
+        // guessed at.
+        //
+        // Each paid cycle is registered under BOTH the recurring row's
+        // local_id and its uuid. Insight rows written before 2026-08-09 only
+        // carry the uuid in ref.id (the digest didn't emit ref.localId yet),
+        // and those are exactly the rows on screen right now -- keying both
+        // ways means the paid-bill fix works on the existing row immediately
+        // instead of waiting for the next noon digest.
+        async paidCycleKeys() {
+            const since = new Date();
+            since.setDate(since.getDate() - 400);
+            const [txns, bills] = await Promise.all([
+                supabase
+                    .from('transactions')
+                    .select('recurring_id, cycle_key')
+                    .eq('profile_id', FINANCE_PROFILE_ID)
+                    .not('recurring_id', 'is', null)
+                    .not('cycle_key', 'is', null)
+                    .gte('date', since.toISOString().slice(0, 10)),
+                supabase
+                    .from('recurring')
+                    .select('id, local_id, frequency')
+                    .eq('profile_id', FINANCE_PROFILE_ID)
+            ]);
+            if (txns.error) throw new Error(txns.error.message);
+            if (bills.error) throw new Error(bills.error.message);
+            // Only bills whose cycle-key format has been confirmed against
+            // Finance's live data take part -- see BILL_PAID_CHECK_FREQUENCIES
+            // in supabase/functions/atlas-daily-digest/index.ts. Anything else
+            // is simply absent from this set, so its tile stays visible.
+            const CHECKABLE = new Set(['monthly', 'quarterly', 'yearly', 'annual', 'annually']);
+            const uuidByLocalId = new Map();
+            for (const b of bills.data || []) {
+                if (b.local_id && CHECKABLE.has((b.frequency || 'monthly').toLowerCase())) {
+                    uuidByLocalId.set(b.local_id, b.id);
+                }
+            }
+            const paid = new Set();
+            for (const t of txns.data || []) {
+                if (!uuidByLocalId.has(t.recurring_id)) continue;
+                paid.add(`${t.recurring_id}|${t.cycle_key}`);
+                paid.add(`${uuidByLocalId.get(t.recurring_id)}|${t.cycle_key}`);
+            }
+            return paid;
         }
     },
 

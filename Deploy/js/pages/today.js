@@ -107,6 +107,12 @@ export function todayPage(nav) {
         aiInsightIndex: 0,
         _aiInsightTimer: null,
         _checklistMarkedTodayIds: new Set(),
+        // `${recurring local_id}|${YYYY-MM}` for every recurring bill cycle
+        // Finance Manager has already recorded a payment against. Populated
+        // in loadAiInsights(); read synchronously by aiVisibleInsights, same
+        // pattern as _checklistMarkedTodayIds above (an Alpine getter can't
+        // await, so the lookup has to be resolved before it runs).
+        _paidBillCycles: new Set(),
 
         async init() {
             await this.load();
@@ -251,6 +257,18 @@ export function todayPage(nav) {
                 row = await DB.AiInsights.getForDate(y.toLocaleDateString('en-CA'));
             }
             this.aiInsights = row ? (row.items || []) : [];
+            // Only pay for the Finance read when a bill tile is actually on
+            // screen -- most days there isn't one.
+            if (this.aiInsights.some(i => i.type === 'bill_due')) {
+                try {
+                    this._paidBillCycles = await DB.FinanceBills.paidCycleKeys();
+                } catch (e) {
+                    // Fail open: if the paid-check can't run, show the bill
+                    // rather than risk hiding one that's genuinely unpaid.
+                    console.error('Paid-bill recheck failed:', e);
+                    this._paidBillCycles = new Set();
+                }
+            }
             this._startAiInsightRotation();
         },
         async loadFamilyData() {
@@ -398,9 +416,36 @@ export function todayPage(nav) {
         get aiVisibleInsights() {
             return this.aiInsights.filter(item => {
                 const ref = item.ref || {};
-                if (ref.kind === 'task') return this.tasks.some(t => t.id === ref.id);
+                if (ref.kind === 'task') {
+                    const task = this.tasks.find(t => t.id === ref.id);
+                    if (!task) return false;
+                    // A carried_task tile claims the task is overdue. Starting
+                    // it makes that false immediately -- isOverdue() is the
+                    // app's single source of truth and says a running or
+                    // paused task is never overdue (features/taskStatus.js).
+                    // Confirmed live 2026-08-09: the ticker was calling
+                    // running tasks "carried". The digest no longer generates
+                    // these (it now selects not_started only), but the tile
+                    // must also drop the moment he starts the task, not wait
+                    // for tomorrow's row.
+                    if (item.type === 'carried_task') return computeOverdue(task);
+                    return true;
+                }
                 if (ref.kind === 'checklist_item' && item.type === 'checklist_pending_today') {
                     return !this._checklistMarkedTodayIds.has(ref.id);
+                }
+                // A bill paid in Finance Manager after the noon digest ran
+                // must stop showing the same day (confirmed live 2026-08-09:
+                // Electricity + Maintenance stayed on the ticker all day
+                // after being marked paid). ref.localId is what newer digest
+                // rows carry; ref.id (the recurring uuid) is all older rows
+                // have -- paidCycleKeys() registers both, so either matches.
+                if (ref.kind === 'bill' && item.type === 'bill_due') {
+                    if (!ref.date) return true;
+                    const cycle = ref.date.slice(0, 7);
+                    const key = ref.localId || ref.id;
+                    if (!key) return true;
+                    return !this._paidBillCycles.has(`${key}|${cycle}`);
                 }
                 return true;
             });

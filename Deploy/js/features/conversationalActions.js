@@ -78,6 +78,7 @@ function classifyActivityType(text) {
 export const CONVERSATIONAL_ACTIONS = {
     log_sleep: {
         label: 'sleep log',
+        mode: 'log',
         cardTitle: 'Draft · Log sleep',
         icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
         // Superset of the old single-shot _detectIntent() sleep regex --
@@ -97,6 +98,7 @@ export const CONVERSATIONAL_ACTIONS = {
     },
     log_workout: {
         label: 'workout log',
+        mode: 'log',
         cardTitle: 'Draft · Log workout',
         icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 4v16M18 4v16M4 8h4M4 16h4M16 8h4M16 16h4"/></svg>',
         startPattern: /\b(workout|exercise|training|cardio|strength|calories|gym|leg\s*day|push\s*day|pull\s*day|run(ning)?|jog(ging)?|swim(ming)?|cycling|lift(ing)?|weights?|squats?|deadlifts?|bench|hiit|yoga|burned|reps|sets|treadmill|session|went\s+to\s+(the\s+)?gym|personal\s+record|PR\b|vo2)\b/,
@@ -143,6 +145,7 @@ export const CONVERSATIONAL_ACTIONS = {
     },
     create_task: {
         label: 'task',
+        mode: 'create',
         cardTitle: 'Draft · Create task',
         icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
         startPattern: /\b((add|create|make|new)\s+(a\s+)?task\b|\btask\s*:|\bi\s+need\s+to\s+(add|create)\s+a\s+task)\b/,
@@ -173,6 +176,7 @@ export const CONVERSATIONAL_ACTIONS = {
     },
     create_reminder: {
         label: 'reminder',
+        mode: 'create',
         cardTitle: 'Draft · Create reminder',
         icon: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
         startPattern: /\b((add|create|set|new)\s+(a\s+)?remind(er)?\b|\bremind\s+me\b)/,
@@ -221,12 +225,50 @@ async function resolveProjectId(nameGuess) {
     return { projectId: null, matched: false };
 }
 
+// ---- Log-intent gate ----
+// Confirmed live bug (2026-08-09): saying "I'm gonna do the workout after
+// this" started a workout LOG, which then asked past-tense questions ("how
+// long did it run?") about something that hadn't happened yet. The cause is
+// that the log actions' startPattern is a bare topic-keyword regex -- a lone
+// \bworkout\b (or `training`, `session`, `run`, `yoga`, `PR`...) matched
+// regardless of tense or intent, so merely *talking about* a workout was
+// indistinguishable from *reporting* one.
+//
+// The fix is a shared gate applied to every mode:'log' action, not a patch on
+// one regex -- the mechanism has to stay registry-driven (CLAUDE.md's locked
+// rule). mode:'create' actions are deliberately ungated: their patterns
+// already require an explicit verb ("add a task", "remind me"), and a task or
+// reminder is inherently about the future, so future-tense is correct there.
+//
+// Abhishek's chosen behavior when the gate blocks: Atlas just chats normally.
+// No "want me to log that?" offer, no did-you-mean question -- the caller
+// (aiPanel.js) already falls through to plain chat on a null return.
+// The escape hatch is the word "log" itself: an explicit log verb always
+// starts a log, so "log my workout" works even phrased as a question.
+
+const LOG_VERB = /\b(log|logged|logging|record(ed)?|save|track|note\s+down|write\s+down|enter)\b/i;
+const QUESTION = /\?\s*$|^\s*(what|how|why|when|which|should|shall|can|could|would|did|do|does|is|was|were|are|tell\s+me|show\s+me|remind\s+me\s+what)\b/i;
+const FUTURE_MARKER = /\b(gonna|gon\s?na|going\s+to|will|about\s+to|plan(ning)?\s+to|later|tonight|tomorrow|after\s+this|afterwards|thinking\s+of|thinking\s+about|need\s+to|want\s+to|have\s+to|got\s+to|gotta|next\s+(week|month))\b/i;
+const PAST_MARKER = /\b(did|done|finished|completed|just|already|was|were|had|went|slept|ran|jogged|burned|burnt|lifted|trained|worked\s+out|this\s+morning|last\s+night|yesterday|earlier)\b/i;
+
+// True when a mode:'log' action's topic keyword matched but the message is
+// not actually reporting something that happened. Order matters -- see the
+// comment block above.
+function logIntentAllowed(text) {
+    if (LOG_VERB.test(text)) return true;
+    if (QUESTION.test(text)) return false;
+    if (FUTURE_MARKER.test(text)) return false;
+    return PAST_MARKER.test(text);
+}
+
 // ---- Trigger detection ----
 // Deterministic -- no model call. Returns { action } on a clean single
 // match, { ambiguous: [keys] } when more than one action's pattern matches
 // (so the caller can ask which one instead of guessing), or null.
 export function detectActionStart(text) {
-    const matches = Object.keys(CONVERSATIONAL_ACTIONS).filter(k => CONVERSATIONAL_ACTIONS[k].startPattern.test(text));
+    const matches = Object.keys(CONVERSATIONAL_ACTIONS)
+        .filter(k => CONVERSATIONAL_ACTIONS[k].startPattern.test(text))
+        .filter(k => CONVERSATIONAL_ACTIONS[k].mode !== 'log' || logIntentAllowed(text));
     if (matches.length === 0) return null;
     if (matches.length === 1) return { action: matches[0] };
     return { ambiguous: matches };

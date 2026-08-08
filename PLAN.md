@@ -10,23 +10,50 @@ Sibling docs:
 
 **Last updated:** 2026-08-09
 
-## 🧪 2026-08-09 IS A FULL-DAY TESTING DAY — do not start new work
+## ✅ Testing day closed — his verdict landed, fixes in flight on a branch (2026-08-09)
 
-**Read this before doing anything.** Abhishek is spending the whole of 2026-08-09 testing everything shipped across the current cycle. He has explicitly said he will **not** report problems one at a time — he'll come back at the end of the day with a single consolidated verdict (everything works / these specific things need fixing / nothing works).
+The 2026-08-09 full-day testing round is **over**. Abhishek came back with a consolidated list of six items. Voice input (Google Cloud STT) and typed sleep logging via the Conversational Action flow were both **confirmed working** by him and are not in question.
 
-**What that means for any agent picking this up mid-day:**
-- **Do not start speculative fixes.** If something looks wrong in the code, note it, don't ship it.
-- **Do not begin new features.** The backlog waits until his verdict lands.
-- If he does come back mid-day, it's with the consolidated report, not a single bug.
+**His six items, and where each one stands:**
 
-**What's under test:**
-- The Conversational Action mechanism end to end — sleep + workout logging, task/reminder create / complete / start / pause / delete, project linking.
-- The redesigned Tactile Tile insight ticker (see section below) on real desktop and mobile viewports.
-- Cross-device AI chat sync (phone ↔ desktop).
-- The 14 bug fixes from the 2026-08-08 post-build debug audit.
-- Voice input — **already confirmed working by him this morning** ✅ ("catching the correct phrase and correct words"). The rest is unverified.
+| # | Item | Status |
+|---|---|---|
+| 1 | AI starts a workout **log** when he's only talking about a future workout ("I'm gonna do the workout after this" → "how long did it run?") | **Fixed** on branch |
+| 2 | Move Routine off the Today dashboard to its own page — checklist + **medicines** + **nutrition/supplements** | **Pass 2**, mockup-first, not started |
+| 3 | Can Atlas shrink to a small always-visible desktop card / side panel showing just tasks + reminders? | **Answer only**, no build — he asked for a feasibility answer |
+| 4 | Insight ticker labels a **running** task as carried | **Fixed** on branch |
+| 5 | Tapping the ticker opens the chat with the question phrased backwards (assistant's voice, sent as his message) | **Fixed** on branch (needs the Edge Function deploy to take effect) |
+| 6 | A bill already paid + marked paid in Finance Hub still shows as due | **Fixed** on branch |
 
-**Confirmed working so far (2026-08-09 morning):** voice input (Google Cloud STT), and sleep logging via the Conversational Action flow (typed).
+**Everything is on the branch `feature/atlas-improvement-001`, NOT on `main`, so it is NOT live yet.** He asked for a dedicated feature branch and for nothing to be committed or pushed to `main` without him asking. Atlas only deploys from `main`, so these fixes reach `atlas.abhisheksikka.com` only when he says to merge.
+
+**⚠️ One step still outstanding: `atlas-daily-digest` has NOT been redeployed.** The function source in this repo is at the fixed version (issues 4, 5 and 6 server-side) but the **live function is still v5**. The deploy was blocked by a tooling permission and needs Abhishek's go-ahead. Until it lands:
+- Issue 5 (backwards chat question) is **not** fixed for him — the wording is generated server-side, so nothing changes until v6 runs.
+- Issues 4 and 6 **are** already handled for him by the client-side live rechecks, which were deliberately written to work on the existing v5-written insight rows (see the section below).
+
+**Order of work he chose:** bugs first and ship so he can test → then the Routine page as its own designed pass with a mockup. Don't jump ahead to Routine.
+
+---
+
+## 🔎 Insight ticker correctness — the three fixes from his 2026-08-09 verdict
+
+All three were confirmed against live data, not guessed. Today's real `atlas_ai_insights` row for 2026-08-08 contained every one of the reported bugs simultaneously.
+
+**Running tasks shown as carried (issue 4).** The digest selected `.in('status', ['not_started','in_progress'])`, so a task he'd already *started* was announced as carried — live proof: "Claude Tutorial", `status = in_progress`, rendered as `carried_task`. The app's single shared rule (`isOverdue()`, `Deploy/js/features/taskStatus.js`) says a running or paused task is never overdue. The digest now selects `not_started` only, **and** Today's `aiVisibleInsights` re-checks each `carried_task` through that same `isOverdue()` so the tile drops the moment he starts a task rather than waiting for tomorrow's row. Keep the two definitions in agreement — don't change one without the other.
+
+**Backwards chat question (issue 5).** `discussInsight()` puts the tile's `discuss` text into the composer as **Abhishek's outgoing message**, but the digest prompt asked Gemini for "an opening line for an assistant." Result: tapping a tile sent *"…is due today. Want to take care of that now?"* as though he were offering to help himself. The prompt now specifies his own first-person voice with worked good/bad examples. The JSON key is still called `discuss` so already-stored rows keep rendering.
+
+**Paid bills still showing (issue 6) — read this before touching the bill logic.** The digest computed a due date purely from `recurring.start_date` + `frequency` and never checked whether the cycle was paid. `start_date` **cannot** be used as a paid signal — confirmed live that Finance advances it for some bills (Airtel, PNB) and not others (Electricity, Altroz, Truecaller).
+
+Finance Manager's real "marked paid" record is a `transactions` row carrying `recurring_id` (the recurring row's `local_id`) and `cycle_key`. **Finance's canonical cycle-key rule, read out of live data on 2026-08-09: `cycle_key` is the `YYYY-MM` of the DUE month.** Verified across all 17 linked transactions and every frequency Finance actually uses — `monthly`, `quarterly`, `yearly`. There are **no weekly or daily recurring bills in the system at all**.
+
+Two deliberate safety rules here, both of which exist so Atlas can never hide a bill that is genuinely unpaid:
+- **Only allowlisted frequencies are checked** (`BILL_PAID_CHECK_FREQUENCIES` in the Edge Function, mirrored in `db.js`). A weekly or daily bill needs a real per-occurrence key; rather than invent an Atlas-side version of that calculation, those simply **skip the paid-check and stay visible**. If Finance ever grows one, read its actual rule first, then extend the list.
+- **Transactions with a `null` `cycle_key` are ignored**, not given a derived one. Deriving would be a second Atlas-side copy of Finance's rule.
+
+Anything Atlas can't be certain about **fails open** — the bill shows. Re-showing a paid bill is a nuisance; hiding an unpaid one is real harm.
+
+**Atlas's client now reads Finance Manager's tables for the first time** (`DB.FinanceBills.paidCycleKeys()`, read-only, `db.js` only). The Edge Function already read `recurring` server-side; this is the client half, and it's what makes a bill paid *after* the noon digest disappear the same day. It registers each paid cycle under **both** the recurring row's `local_id` and its `uuid`, specifically so the fix works on insight rows written before the digest started emitting `ref.localId`.
 
 ---
 
