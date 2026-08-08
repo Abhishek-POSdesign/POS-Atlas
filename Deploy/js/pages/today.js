@@ -607,8 +607,18 @@ export function todayPage(nav) {
         get miniWindowRows() {
             const today = todayIsoDate();
             return this.tasks
-                .filter(t => t.status !== 'done' && (!t.scheduled_date || t.scheduled_date <= today))
+                // A running task ALWAYS shows, whatever its date -- work he has
+                // actually picked up is the single most useful thing to have on
+                // screen while he's working, and a future-dated one was being
+                // filtered out by the date rule (his explicit ask, 2026-08-09).
+                // Everything else is today's or earlier, and never done.
+                .filter(t => t.status !== 'done'
+                    && (t.status === 'in_progress' || !t.scheduled_date || t.scheduled_date <= today))
                 .sort((a, b) => {
+                    // Running work first -- it's what he's actually doing.
+                    if ((a.status === 'in_progress') !== (b.status === 'in_progress')) {
+                        return a.status === 'in_progress' ? -1 : 1;
+                    }
                     const at = a.scheduled_time || '99:99';
                     const bt = b.scheduled_time || '99:99';
                     return at === bt ? a.name.localeCompare(b.name) : at.localeCompare(bt);

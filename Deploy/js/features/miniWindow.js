@@ -162,12 +162,26 @@ export function renderRowsInto(doc, rows) {
     }).join('');
 }
 
+// Resolve 'auto' to a CONCRETE light/dark in the main window, and stamp that
+// literal value on the mini window.
+//
+// Confirmed live bug (2026-08-09): the main app was light, the mini window
+// opened dark. Copying the raw data-theme value was the mistake -- theme.js
+// stores 'auto' as a real value, and tokens.css resolves 'auto' through
+// `@media (prefers-color-scheme: light)`. That media query is evaluated
+// separately inside the picture-in-picture document, which does not reliably
+// report the same preference as the page that opened it, so 'auto' could land
+// on the opposite theme. Never pass 'auto' across the document boundary --
+// decide it here, where the answer is known to be right, and send the answer.
+function effectiveTheme() {
+    const set = document.documentElement.getAttribute('data-theme') || 'auto';
+    if (set === 'light' || set === 'dark') return set;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export function renderMiniWindow() {
     if (!isMiniWindowOpen() || !host) return;
-    // Theme is stamped on the root element by theme.js in the main document;
-    // mirror it so the PiP window follows the same light/dark choice.
-    pipWindow.document.documentElement.setAttribute('data-theme',
-        document.documentElement.getAttribute('data-theme') || 'auto');
+    pipWindow.document.documentElement.setAttribute('data-theme', effectiveTheme());
     renderRowsInto(pipWindow.document, host.miniWindowRows || []);
 }
 
@@ -203,9 +217,20 @@ export async function openMiniWindow(page) {
         host.handleMiniComplete(btn.dataset.id);
     });
 
+    // Follow the theme while the window is open -- both the app's own
+    // switcher (theme.js dispatches this) and, when the app is on 'auto', a
+    // change in the OS preference itself.
+    const osScheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const onThemeChange = () => renderMiniWindow();
+    window.addEventListener('atlas-theme-changed', onThemeChange);
+    osScheme.addEventListener('change', onThemeChange);
+
     // Fired when the user closes the mini window, and also when the browser
-    // tears it down because Atlas itself was closed.
+    // tears it down because Atlas itself was closed. Closing the mini window
+    // deliberately does NOT close Atlas -- confirmed with Abhishek 2026-08-09.
     pipWindow.addEventListener('pagehide', () => {
+        window.removeEventListener('atlas-theme-changed', onThemeChange);
+        osScheme.removeEventListener('change', onThemeChange);
         const p = host;
         pipWindow = null;
         host = null;
